@@ -71,6 +71,29 @@ export class Sound {
     }
   }
 
+  step(kind, speed) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const len = 0.18;
+    if (!this.stepBuf) {
+      this.stepBuf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate);
+      const d = this.stepBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+    }
+    const src = ctx.createBufferSource(); src.buffer = this.stepBuf;
+    src.playbackRate.value = 0.8 + Math.random() * 0.4;
+    const f = ctx.createBiquadFilter();
+    f.type = kind === 'water' ? 'bandpass' : 'lowpass';
+    f.frequency.value = kind === 'water' ? 900 + Math.random() * 500 : 1400 + Math.random() * 600;
+    f.Q.value = kind === 'water' ? 1.5 : 0.7;
+    const g = ctx.createGain();
+    const v = (kind === 'water' ? 0.09 : 0.06) * Math.min(1, speed / 4);
+    g.gain.setValueAtTime(v, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t);
+  }
+
   toggle() {
     if (!this.ctx) return;
     this.muted = !this.muted;

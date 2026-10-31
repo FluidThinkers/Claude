@@ -26,7 +26,18 @@
   #stick.on { opacity: 1; }
   .tbtn { position: fixed; right: 24px; width: 64px; height: 64px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.08);
     color: #fff; font-size: 13px; letter-spacing: .1em; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; }
-  #jumpBtn { bottom: 32px; } #timeBtn { bottom: 108px; }
+  #jumpBtn { bottom: 32px; } #timeBtn { bottom: 108px; } #bookBtn { bottom: 184px; }
+  #journal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,10,16,.55);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .8s; }
+  #journal.open { opacity: 1; pointer-events: auto; }
+  #journal .page { width: min(560px, 86vw); max-height: 80vh; overflow: auto; padding: 36px 40px; border: 1px solid rgba(255,255,255,.18);
+    background: linear-gradient(to bottom, rgba(255,240,230,.07), rgba(255,255,255,.02)); }
+  #journal h2 { font-weight: 300; font-style: italic; letter-spacing: .2em; margin: 0 0 22px; font-size: 22px; }
+  #journalList { list-style: none; padding: 0; margin: 0; }
+  #journalList li { margin: 0 0 18px; line-height: 1.5; }
+  #journalList .pl { display: block; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; opacity: .55; font-family: system-ui, sans-serif; font-weight: 300; margin-bottom: 4px; }
+  #journalList .tx { font-size: 19px; font-style: italic; }
+  #journalList li.miss { opacity: .4; }
 </style>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
 </head>
@@ -36,12 +47,14 @@
   <h1>RIVA</h1>
   <div class="sub">una spiaggia fuori dal tempo</div>
   <div class="cta">Clicca per entrare</div>
-  <div class="keys">WASD / frecce — cammina · Mouse — guarda · Shift — corri · Spazio — salta<br>T — cambia l'ora del giorno · M — audio<br>Il mare regge i tuoi passi. Segui la bandiera.</div>
+  <div class="keys">WASD / frecce — cammina · Mouse — guarda · Shift — corri · Spazio — salta<br>T — cambia l'ora del giorno · J — diario · M — audio<br>Il mare regge i tuoi passi. Segui la bandiera, o le impronte.</div>
 </div>
 <div id="phase" class="hud"></div>
 <div id="count" class="hud"></div>
 <div id="msg" class="hud"></div>
+<div id="journal"><div class="page"><h2>Diario della riva</h2><ul id="journalList"></ul></div></div>
 <div id="touch" class="hidden">
+  <div id="bookBtn" class="tbtn">DIARIO</div>
   <div id="stick"></div>
   <div id="timeBtn" class="tbtn">ORA</div>
   <div id="jumpBtn" class="tbtn">SALTA</div>

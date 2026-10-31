@@ -1,27 +1,30 @@
 import * as THREE from 'three';
 import { heightAt, shoreZ, vnoise } from './terrain.js';
-import { concreteTexture, glowTexture } from './textures.js';
+import { concreteTexture } from './textures.js';
+import { SCALA, COLONNE, SPECCHIO } from './places.js';
 
 const std = (color, rough = 0.85, metal = 0) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
 const box = (w, h, d, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.castShadow = o.receiveShadow = true; return o; };
 const cyl = (r, h, m, seg = 16) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), m); o.castShadow = o.receiveShadow = true; return o; };
 
+function smoothStone() {
+  const g = new THREE.IcosahedronGeometry(1, 3);
+  const p = g.attributes.position; const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    v.multiplyScalar(1 + 0.18 * vnoise(v.x * 1.3 + 2, v.y * 1.3 + v.z) + 0.05 * vnoise(v.x * 4, v.z * 4));
+    p.setXYZ(i, v.x, v.y * 0.7, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
 export const PLATFORM = { x: -80, z: shoreZ(-80) - 420 };
 export const SOGLIA = { x: -22, z: shoreZ(-22) - 45 };
 
-export const ORB_LINES = [
-  'Il vento conosce il tuo nome.',
-  'Qui la terra finisce. Tu no.',
-  'Ogni soglia è un tramonto.',
-  'La riva si allunga quando nessuno guarda.',
-  'Le pietre ricordano di essere state montagne.',
-  'Il ferro dorme sul mare.',
-  'Il mare ti ha sentito.',
-];
 
-export function buildWorld(scene) {
+export function buildWorld(scene, glow) {
   const W = { orbs: [], ripples: [], collected: 0 };
-  const glow = glowTexture();
 
   // ---- Passerella di cemento + bandiera rossa (foto 4-5)
   {
@@ -92,45 +95,10 @@ export function buildWorld(scene) {
     }
   }
 
-  // ---- Promontorio, porto, gru e ciminiera (foto 9): miraggio che non si avvicina mai
-  {
-    const far = new THREE.Group();
-    const mMtn = new THREE.MeshBasicMaterial({ fog: false });
-    const mNear = new THREE.MeshBasicMaterial({ fog: false });
-    const hill = (x, z, sx, sy, sz, seed) => {
-      const geo = new THREE.SphereGeometry(1, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-      const p = geo.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        const y = p.getY(i);
-        const n = vnoise(p.getX(i) * 3 + seed, p.getZ(i) * 3) * 0.18 + vnoise(p.getX(i) * 9, p.getZ(i) * 9 + seed) * 0.05;
-        p.setY(i, Math.max(0, y + n * y * 1.4));
-      }
-      const m = new THREE.Mesh(geo, mMtn); m.scale.set(sx, sy, sz); m.position.set(x, -5, z); far.add(m);
-    };
-    hill(1500, -260, 330, 210, 260, 1);
-    hill(1900, 120, 520, 300, 380, 2);
-    hill(2500, 500, 620, 360, 420, 3);
-    hill(1300, 650, 520, 230, 300, 4);
-    hill(3000, -50, 500, 260, 400, 5);
-    for (let i = 0; i < 5; i++) {
-      const x = 1280 + i * 45, z = -150 + i * 10;
-      const v = new THREE.Mesh(new THREE.BoxGeometry(4, 70, 4), mNear); v.position.set(x, 35, z); far.add(v);
-      const h = new THREE.Mesh(new THREE.BoxGeometry(70, 3, 3), mNear); h.position.set(x - 10, 68, z); h.rotation.z = i % 2 ? 0.0 : 0.6; far.add(h);
-    }
-    for (let i = 0; i < 26; i++) {
-      const hgt = 12 + Math.abs(Math.sin(i * 7.3)) * 40;
-      const b = new THREE.Mesh(new THREE.BoxGeometry(25, hgt, 20), mNear);
-      b.position.set(900 + i * 26, hgt / 2 - 4, 40 + Math.sin(i * 2.1) * 30 + i * 4); far.add(b);
-    }
-    const ch = new THREE.Mesh(new THREE.CylinderGeometry(6, 9, 260, 12), mNear); ch.position.set(1650, 125, 230); far.add(ch);
-    scene.add(far);
-    W.far = far; W.mMtn = mMtn; W.mNear = mNear;
-  }
-
   // ---- Pietre che levitano sopra il cumulo
   {
     const n = 48;
-    const im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), std(0xffffff, 0.7), n);
+    const im = new THREE.InstancedMesh(smoothStone(), std(0xffffff, 0.55), n);
     im.castShadow = true;
     const data = [];
     const tones = [0xbab4aa, 0x8a8580, 0xe2ddd4, 0x6f6a66, 0xa89a88];
@@ -171,19 +139,19 @@ export function buildWorld(scene) {
 
   // ---- Lumi (7 sfere di luce da raccogliere)
   {
+    // [x, z, y] assoluti
     const spots = [
-      [6, 18, 0.9],
-      [12, -5, 1.4],
-      [SOGLIA.x, -62, 1.6],
-      [190, 9, 1.3],
-      [-230, 18, 1.2],
-      [PLATFORM.x, null, 13.4],
-      [160, -720, 2.0],
+      [6, shoreZ(6) + 18, null, 0.9],
+      [12, shoreZ(12) - 5, null, 1.4],
+      [SOGLIA.x, SOGLIA.z - 14, null, 1.6],
+      [SCALA.x, SCALA.z - SCALA.len - 0.9, SCALA.top, 1.2],
+      [COLONNE.x, COLONNE.z, null, 1.5],
+      [PLATFORM.x, PLATFORM.z, 0, 1.4],
+      [SPECCHIO.x + 2.5, SPECCHIO.z, 0, 1.5],
     ];
     const coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 2.2) });
-    spots.forEach(([x, d, lift], i) => {
-      let z, y;
-      if (d === null) { z = PLATFORM.z; y = lift; } else { z = shoreZ(x) + d; y = Math.max(heightAt(x, z), 0) + lift; }
+    spots.forEach(([x, z, base, lift], i) => {
+      const y = (base === null ? Math.max(heightAt(x, z), 0) : base) + lift;
       const g = new THREE.Group();
       g.add(new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), coreMat));
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xffd9b8, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
@@ -265,9 +233,6 @@ export function updateWorld(W, dt, time, ctx) {
   for (const [i, b] of W.buoys.entries()) b.position.y = 0.15 + Math.sin(time * 0.9 + i * 1.7) * 0.12;
   W.platformLamp.material.opacity = (Math.sin(time * 2.2) > 0.6 ? 1 : 0.15) * (0.3 + ctx.night * 0.7);
 
-  W.far.position.set(ctx.player.x, 0, ctx.player.z);
-  W.mMtn.color.copy(ctx.pal.hor).lerp(ctx.pal.zen, 0.4).multiplyScalar(0.78);
-  W.mNear.color.copy(ctx.pal.hor).lerp(ctx.pal.zen, 0.5).multiplyScalar(0.62);
 
   {
     const { im, data, dummy } = W.stones;
@@ -309,10 +274,19 @@ export function updateWorld(W, dt, time, ctx) {
   else W.orbLight.intensity = 0;
 
   // presenza
-  {
+  presence: {
     const P = W.phantom;
     P.timer -= dt;
     const dist = P.g.visible ? tmpV.set(P.g.position.x - ctx.player.x, 0, P.g.position.z - ctx.player.z).length() : 1e9;
+    if (P.state === 'final') {
+      P.op = Math.min(P.op + dt * 0.3, 0.95);
+      P.m.opacity = P.op;
+      P.m.color.setRGB(0.02 + ctx.night * 0.02, 0.015 + ctx.night * 0.03, 0.02 + ctx.night * 0.05);
+      P.g.rotation.y = Math.atan2(ctx.player.x - P.g.position.x, ctx.player.z - P.g.position.z);
+      if (dist < 4 && !P.met) { P.met = true; ctx.onMeet(); }
+      if (P.met) { P.leave = (P.leave || 0) + dt; if (P.leave > 14) { P.op = Math.max(0, 0.95 - (P.leave - 14) * 0.3); P.m.opacity = P.op; } }
+      break presence;
+    }
     if (P.state === 'hidden' && P.timer <= 0) {
       const a = ctx.yaw + (Math.random() - 0.5) * 1.4;
       const r = 55 + Math.random() * 40;

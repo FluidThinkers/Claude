@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import { Terrain, heightAt, shoreZ } from './terrain.js';
 import { evalPalette, makeState, sunDirection, PHASES } from './palette.js';
-import { makeSky, makeWater, makePost, skyUniforms, waterUniforms, addCaustics } from './shaders.js';
-import { sandTextures } from './textures.js';
-import { buildWorld, updateWorld, spawnRipple, SOGLIA, ORB_LINES } from './world.js';
+import { makeSky, makeWater, makePost, skyUniforms, waterUniforms, enhanceSand } from './shaders.js';
+import { sandTextures, glowTexture } from './textures.js';
+import { buildWorld, updateWorld, spawnRipple, SOGLIA, PLATFORM } from './world.js';
+import { buildPlaces, updatePlaces, placeHeight, PORTA, SCALA, COLONNE, SPECCHIO } from './places.js';
+import { Footprints, Scatter, buildSkyline, updateSkyline } from './details.js';
+import { Journal, FRAGMENTS, INTRO, ENDING } from './story.js';
 import { Sound } from './audio.js';
 
 const Q = new URLSearchParams(location.search);
@@ -31,7 +34,7 @@ const sandMat = new THREE.MeshStandardMaterial({
   map: sand.map, bumpMap: sand.bump, bumpScale: 1.2, roughness: 0.96, vertexColors: true,
   emissive: 0x000000,
 });
-addCaustics(sandMat);
+enhanceSand(sandMat);
 const terrain = new Terrain(sandMat);
 scene.add(terrain.mesh);
 
@@ -44,7 +47,14 @@ scene.add(sun, sun.target);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x886644, 1);
 scene.add(hemi);
 
-const W = buildWorld(scene);
+const glowTex = glowTexture();
+const W = buildWorld(scene, glowTex);
+const places = buildPlaces(scene, glowTex);
+const footprints = new Footprints(scene);
+const scatter = new Scatter(scene);
+const skyline = buildSkyline(scene);
+const journal = new Journal();
+waterUniforms.uMirror.value.set(SPECCHIO.x, SPECCHIO.z, SPECCHIO.r);
 const sound = new Sound();
 
 // ---------- stato
@@ -66,6 +76,18 @@ player.pos.z = num('z', shoreZ(player.pos.x) + 21.5);
 player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), 0);
 terrain.update(player.pos.x, player.pos.z, true);
 let prevRelZ = player.pos.z - SOGLIA.z;
+const portaLocal = (x, z) => { const dx = x - PORTA.x, dz = z - PORTA.z, c = Math.cos(0.35), s = Math.sin(0.35); return [dx * c - dz * s, dx * s + dz * c]; };
+let prevPortaZ = portaLocal(player.pos.x, player.pos.z)[1];
+const groundAt = (x, z, feet) => Math.max(heightAt(x, z), 0.02, placeHeight(x, z, feet));
+// la Porta porta altrove: ogni passaggio verso un luogo diverso
+const DESTS = [
+  { x: SCALA.x, z: SCALA.z + 6, yaw: 0, name: 'La Scala' },
+  { x: COLONNE.x + 14, z: COLONNE.z + 14, yaw: 0.78, name: 'Le Colonne' },
+  { x: SPECCHIO.x, z: SPECCHIO.z + 22, yaw: 0, name: 'Lo Specchio' },
+  { x: PLATFORM.x + 4, z: PLATFORM.z + 30, yaw: 0.1, name: 'La piattaforma' },
+  { x: SOGLIA.x, z: SOGLIA.z + 10, yaw: 0, name: 'La Soglia' },
+];
+let destI = 0;
 
 // ---------- input
 const keys = new Set();
@@ -77,6 +99,7 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'KeyT') advancePhase();
   if (e.code === 'KeyM') sound.toggle();
+  if (e.code === 'KeyJ') journal.toggle();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('mousemove', (e) => {
@@ -92,7 +115,9 @@ function begin() {
   overlay.classList.add('hidden');
   if (!isTouch) document.body.requestPointerLock?.();
   else document.getElementById('touch').classList.remove('hidden');
+  if (!introDone) { introDone = true; sequence(INTRO, 4.5, 1.5); }
 }
+let introDone = false;
 overlay.addEventListener('click', begin);
 document.addEventListener('pointerlockchange', () => {
   if (!isTouch && document.pointerLockElement !== document.body && started) {
@@ -135,11 +160,16 @@ addEventListener('touchend', (e) => {
 let touchJump = false;
 document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { touchJump = true; e.preventDefault(); });
 document.getElementById('timeBtn').addEventListener('touchstart', (e) => { advancePhase(); e.preventDefault(); });
+document.getElementById('bookBtn').addEventListener('touchstart', (e) => { journal.toggle(); e.preventDefault(); });
+document.getElementById('journal').addEventListener('click', () => journal.toggle(false));
 
 // ---------- HUD
 const phaseEl = document.getElementById('phase'), countEl = document.getElementById('count'), msgEl = document.getElementById('msg');
 let lastLabel = '', msgTimer = 0, phaseTimer = 0;
 function showMsg(text, dur = 5) { msgEl.textContent = text; msgEl.classList.add('on'); msgTimer = dur; }
+function sequence(lines, every = 4, delay = 0) {
+  lines.forEach((l, i) => setTimeout(() => showMsg(l, every - 0.6), (delay + i * every) * 1000));
+}
 
 function advancePhase() {
   const cur = ((tod % 1) + 1) % 1;
@@ -161,11 +191,21 @@ function onCollect(o) {
   countEl.classList.add('on');
   fade = 0.35; fadeTarget = 0;
   post.uniforms.uFadeCol.value.setRGB(1, 0.95, 0.9);
+  const f = FRAGMENTS[o.i];
+  journal.add(o.i);
+  showMsg(f.text, 7);
   if (W.collected === W.orbs.length) {
-    showMsg('Tutto è luce. Puoi restare.', 9);
-    W.beam.visible = true;
-    setTimeout(() => sound.chord(), 600);
-  } else showMsg(ORB_LINES[W.collected - 1]);
+    // la Custode compare alle tue spalle
+    const P = W.phantom;
+    const bx = player.pos.x + Math.sin(player.yaw) * 16, bz = player.pos.z + Math.cos(player.yaw) * 16;
+    P.g.position.set(bx, groundAt(bx, bz, 99), bz);
+    P.g.visible = true; P.state = 'final'; P.op = 0;
+    setTimeout(() => sound.chord(), 900);
+  }
+}
+function onMeet() {
+  sequence(ENDING, 4.2, 0.5);
+  setTimeout(() => { W.beam.visible = true; sound.chord(); }, ENDING.length * 4200);
 }
 
 // ---------- loop
@@ -217,8 +257,10 @@ function frame() {
   }
   player.vel.y -= 13 * dt;
   player.pos.addScaledVector(player.vel, dt);
-  const gh = Math.max(heightAt(player.pos.x, player.pos.z), 0.02);
-  const onWater = heightAt(player.pos.x, player.pos.z) < 0.02;
+  const terrH = heightAt(player.pos.x, player.pos.z);
+  const gh = groundAt(player.pos.x, player.pos.z, player.pos.y);
+  const onWater = terrH < 0.02 && gh <= 0.03;
+  const onSand = !onWater && Math.abs(gh - terrH) < 0.05;
   if (player.pos.y <= gh) {
     if (!player.ground && onWater && player.vel.y < -3) for (let i = 0; i < 3; i++) setTimeout(() => spawnRipple(W, player.pos.x, player.pos.z, night > 0.5), i * 150);
     player.pos.y = gh; player.vel.y = Math.max(player.vel.y, 0); player.ground = true;
@@ -233,12 +275,30 @@ function frame() {
 
   if (onWater && player.ground && hs > 0.5) {
     player.rippleT -= dt;
-    if (player.rippleT <= 0) { spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); player.rippleT = 0.42; }
+    if (player.rippleT <= 0) { spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); player.rippleT = 0.42; sound.step('water', hs); }
+  }
+
+  const fp = footprints.update(dt, player.pos, player.yaw, onSand && player.ground, hs > 0.6, hs * dt);
+  if (fp) sound.step(onSand ? 'sand' : 'water', hs);
+  footprints.tick(dt);
+  scatter.update(player.pos.x, player.pos.z);
+
+  // la Porta
+  {
+    const [lx, lz] = portaLocal(player.pos.x, player.pos.z);
+    if (Math.abs(lx) < 0.5 && Math.sign(lz) !== Math.sign(prevPortaZ) && Math.abs(prevPortaZ) < 1.5 && player.pos.y < heightAt(PORTA.x, PORTA.z) + 1) {
+      const d = DESTS[destI++ % DESTS.length];
+      fade = 1; post.uniforms.uFadeCol.value.setRGB(1, 0.97, 0.94);
+      player.pos.set(d.x, 0, d.z); player.pos.y = groundAt(d.x, d.z, 99); player.yaw = d.yaw; player.vel.set(0, 0, 0);
+      sound.chord(); showMsg(d.name, 3);
+      prevRelZ = player.pos.z - SOGLIA.z;
+    }
+    prevPortaZ = portaLocal(player.pos.x, player.pos.z)[1];
   }
 
   // la Soglia
   const relZ = player.pos.z - SOGLIA.z;
-  if (Math.abs(player.pos.x - SOGLIA.x) < 1.6 && player.pos.y < 3.3 && Math.sign(relZ) !== Math.sign(prevRelZ)) {
+  if (Math.abs(player.pos.x - SOGLIA.x) < 1.6 && player.pos.y < 3.3 && Math.sign(relZ) !== Math.sign(prevRelZ) && Math.abs(prevRelZ) < 3) {
     advancePhase();
     fade = 0.6; post.uniforms.uFadeCol.value.copy(nextPal.hor).convertLinearToSRGB();
   }
@@ -253,12 +313,19 @@ function frame() {
   U.uSunDir.value.copy(sunDir); U.uSunCol.value.copy(pal.sun);
   U.uSunVis.value = THREE.MathUtils.smoothstep(elev, -0.08, 0.03);
   U.uNight.value = night;
+  U.uCamPos.value.copy(camera.position);
+  const todN = ((tod % 1) + 1) % 1;
+  const slow = Math.sin(elapsed * 0.013) * 0.5 + Math.sin(elapsed * 0.0071 + 2) * 0.5;
+  U.uCloud.value = Q.has('clouds') ? num('clouds', 0.4) : THREE.MathUtils.clamp(0.2 + 0.28 * slow, 0.0, 0.7);
+  U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
+  const mist = THREE.MathUtils.clamp(0.75 * Math.exp(-(((todN - 0.26) / 0.06) ** 2)) + 0.25 * night + 0.12 * (0.5 + 0.5 * Math.sin(elapsed * 0.02)), 0, 1);
+  U.uMist.value = mist;
 
   sun.color.copy(pal.sun); sun.intensity = pal.sunI;
   sun.position.copy(player.pos).addScaledVector(lightDir, 120);
   sun.target.position.copy(player.pos);
   hemi.color.copy(pal.hs); hemi.groundColor.copy(pal.hg); hemi.intensity = pal.hI;
-  scene.fog.color.copy(pal.hor); scene.fog.density = pal.fog * 2.2;
+  scene.fog.color.copy(pal.hor); scene.fog.density = pal.fog * 2.2 * (1 + mist * 1.2);
 
   waterUniforms.uCam.value.copy(camera.position);
   waterUniforms.uLightDir.value.copy(lightDir);
@@ -270,8 +337,11 @@ function frame() {
   sky.position.copy(camera.position);
 
   updateWorld(W, dt, elapsed, {
-    player: player.pos, yaw: player.yaw, night, pal, nextHor: nextPal.hor, onCollect,
+    player: player.pos, yaw: player.yaw, night, pal, nextHor: nextPal.hor, onCollect, onMeet,
   });
+  const lampOn = updatePlaces(places, dt, elapsed, { night, nextHor: nextPal.hor });
+  waterUniforms.uLamp.value.set(SPECCHIO.x + 0.9, 3.9, SPECCHIO.z, lampOn);
+  updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
   sound.update(elapsed, player.pos.z - shoreZ(player.pos.x), onWater, hs, night);
 
@@ -308,4 +378,4 @@ addEventListener('resize', () => {
 
 if (Q.has('autostart')) { started = running = true; overlay.classList.add('hidden'); }
 frame();
-window.__riva = { player, scene, water, renderer, setTime: (t) => { tod = t; } };
+window.__riva = { player, scene, water, renderer, W, journal, footprints, PORTA, SCALA, onCollectAll: () => W.orbs.forEach((o) => { o.base = player.pos.y + 1; o.g.position.copy(player.pos); }), setTime: (t) => { tod = t; } };
