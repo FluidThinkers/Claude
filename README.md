@@ -9,9 +9,11 @@ python3 -m http.server 8000
 Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor/`, senza build.
 
 ## Comandi
-- WASD / frecce: cammina · Mouse: guarda · Shift: corri · Spazio: salta
-- E: siediti sulle panchine · T: passa alla fase successiva del giorno · J: diario · M: audio on/off
-- Touch: metà sinistra per camminare, metà destra per guardare, tasti ORA / SALTA / DIARIO
+- WASD / frecce: cammina, nuota, pagaia · Mouse: guarda · Shift: corri / nuota più forte
+- Spazio: salta, o risali quando sei sott'acqua · C: immergiti
+- E: azione (sali e scendi dal SUP, prendi maschera e pinne, siediti sulle panchine)
+- T: fase successiva del giorno · J: diario · M: audio on/off
+- Touch: metà sinistra per muoverti, metà destra per guardare, tasti SU / GIÙ / AZIONE / ORA / DIARIO
 
 ## Cosa c'è
 **Ambiente**
@@ -24,11 +26,16 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - L'acqua passa dal turchese trasparente al blu profondo. Ci sono caustiche sul fondale, schiuma, riflessi delle nuvole e scintille del sole.
 - Post-processing: bloom, raggi di luce dal sole (god rays), lens flare, grana e vignettatura.
 
-**Esplorazione**
-- Si cammina anche sul mare: i passi lasciano cerchi sull'acqua.
-- Impronte sulla sabbia: le tue svaniscono col tempo, e vicino all'acqua in pochi secondi. Una scia di impronte di qualcun altro porta al chiosco.
-- Panchine: premi **E** per sederti. Il tempo scorre più veloce e guardi la luce cambiare.
-- Suono dei passi, diverso su sabbia e acqua.
+**Esplorazione: tutto quello che può fare una persona**
+- **Camminare**, anche nell'acqua bassa: più è alta più rallenti, con schizzi e cerchi sull'acqua.
+- **Nuotare** dove non si tocca, a pelo d'acqua, con il suono delle bracciate.
+- **Immergersi** (C): sotto la superficie tutto diventa ovattato, la luce scende a fasci e dall'alto si vede la finestra del cielo. Il respiro è limitato. Senza maschera si vede sfocato.
+- **Maschera e pinne**: le trovi davanti a una cabina dello stabilimento. Con la maschera vedi nitido sott'acqua, con le pinne nuoti più veloce e resti sotto più a lungo.
+- **SUP**: la tavola è sulla sabbia davanti allo stabilimento. Con E la spingi in acqua e ci sali, poi pagai fino al largo. Quando scendi resta dove l'hai lasciata.
+- **Fondale vivo**: prati di posidonia che ondeggiano, banchi di salpe che si allontanano se ti avvicini, scogli con ricci.
+- **Gabbiani**: alcuni volano alti e planano, altri riposano su sabbia e pali del pontile e si alzano in volo se ti avvicini. Si sentono, e la voce si sposta nello spazio.
+- **Luce**: c'è una foschia solare, un velo luminoso attorno al sole quando l'aria è umida. Le nuvole fanno ombra, la pergola disegna strisce sulla sabbia.
+- Impronte che svaniscono, panchine (E) dove il tempo scorre più veloce, suono dei passi.
 
 **Luoghi (tutti reali, un po' dimenticati)**
 - Il chiosco chiuso sotto la pergola: le travi disegnano strisce d'ombra sulla sabbia.
@@ -40,8 +47,10 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - La passerella con la bandiera rossa mossa dal vento, la piattaforma offshore con le boe.
 
 **Storia**
-- Qualcuno veniva su questa riva ogni giorno, alla stessa ora, e ha lasciato sette oggetti: un barattolo con una candela, un libro, dei sandali, un cappello di paglia, una lettera, una lanterna e una bottiglia. Da lontano li tradisce solo un riflesso di luce. Ognuno custodisce un frammento di ciò che ha scritto. Tasto **J** apre il diario.
-- Ogni tanto una persona cammina lontana sul bagnasciuga e si dissolve se ti avvicini. Trovati tutti gli oggetti, ti aspetta vicino alla bandiera.
+- Fine settembre, gli ultimi giorni prima che chiudano tutto. Qualcuno ha lasciato otto oggetti lungo la riva, uno per ogni ora del giorno: una candela alle 06:40, un libro alle 08:15, dei sandali alle 10:30, un orologio sul fondo a mezzogiorno, un cappello alle 15:20, una lettera alle 17:45, una lanterna alle 19:30. L'ultima è una bottiglia al largo.
+- **Ogni oggetto riflette la luce soltanto alla sua ora**: per trovarli bisogna leggere il tempo, aspettare, tornare. L'ora è sempre in alto a sinistra.
+- I frammenti, nel diario (J), sembrano lettere a qualcuno. Solo alla fine si capisce che quegli oggetti erano segnavia lasciati per sé, per i giorni in cui la strada si dimentica, e che adesso la strada la conosci anche tu.
+- Ogni tanto una persona cammina lontana sul bagnasciuga e si dissolve se ti avvicini. Quando hai trovato tutto, ti aspetta vicino alla bandiera.
 
 ## Parametri di debug (URL)
-`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&autostart` per saltare la schermata iniziale.
+`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup` per partire in acqua, `&autostart` per saltare la schermata iniziale.

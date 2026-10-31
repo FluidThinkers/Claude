@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { heightAt, shoreZ, vnoise } from './terrain.js';
+import { FRAGMENTS } from './story.js';
 
 // Una spiaggia fuori stagione: tutto ciò che c'è è reale, solo un po' dimenticato.
 
@@ -165,6 +166,13 @@ function traceModel(kind) {
     const top = mesh(new THREE.ConeGeometry(0.09, 0.07, 12), iron); top.position.y = 0.21; g.add(top);
     const ring = mesh(new THREE.TorusGeometry(0.03, 0.006, 6, 12), iron); ring.position.y = 0.27; g.add(ring);
     g.userData.flame = new THREE.Vector3(0, 0.1, 0);
+  } else if (kind === 'watch') {
+    const steel = std(0xb9b4a8, 0.3, 0.9), leather = std(0x4a3022, 0.8);
+    const cs = mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.009, 24), steel); cs.position.y = 0.006; g.add(cs);
+    const face = mesh(new THREE.CircleGeometry(0.019, 24), std(0xf1ece0, 0.4)); face.rotation.x = -Math.PI / 2; face.position.y = 0.0112; g.add(face);
+    const hand = mesh(new THREE.BoxGeometry(0.002, 0.001, 0.016), std(0x111111, 0.5)); hand.position.set(0, 0.0118, -0.006); g.add(hand);
+    for (const s of [-1, 1]) { const st = mesh(new THREE.BoxGeometry(0.018, 0.003, 0.07), leather); st.position.set(0, 0.003, s * 0.05); st.rotation.x = s * 0.15; g.add(st); }
+    g.scale.setScalar(2.2);
   } else if (kind === 'bottle') {
     const b = mesh(lathe([[0, 0], [0.045, 0], [0.05, 0.02], [0.05, 0.17], [0.03, 0.22], [0.016, 0.25], [0.016, 0.3], [0, 0.3]], 20),
       std(0x4f7d5a, 0.1, 0, { transparent: true, opacity: 0.6 }));
@@ -432,6 +440,7 @@ export function buildPlaces(scene, glowTex, platform) {
       ['jar', new THREE.Vector3(spawn.x, heightAt(spawn.x, spawn.z) + 0.01, spawn.z)],
       ['book', P.bookAt],
       ['sandals', pontileEnd],
+      ['watch', (() => { const x = PONTILE.x + 7, z = PONTILE.z0 - 122; return new THREE.Vector3(x, heightAt(x, z) + 0.03, z); })()],
       ['hat', new THREE.Vector3(tor.x, heightAt(tor.x, tor.z) + 0.01, tor.z)],
       ['letter', P.letterAt],
       ['lantern', new THREE.Vector3(rockEnd.x, rockTop(0.4, SCOGLIERA.to + 7) + 0.0, rockEnd.z)],
@@ -452,7 +461,7 @@ export function buildPlaces(scene, glowTex, platform) {
         flame.position.copy(pos).add(g.userData.flame); flame.scale.setScalar(0.5);
         scene.add(flame);
       }
-      P.traces.push({ i, kind, g, sp, flame, pos: pos.clone(), base: pos.y, found: false, ph: rnd() * 10 });
+      P.traces.push({ i, kind, g, sp, flame, pos: pos.clone(), base: pos.y, found: false, ph: rnd() * 10, hour: FRAGMENTS[i].hour });
     });
     P.traceLight = new THREE.PointLight(0xffa860, 0, 8, 1.6);
     scene.add(P.traceLight);
@@ -489,15 +498,18 @@ export function updatePlaces(P, dt, time, ctx) {
   let near = null, nd = 1e9;
   for (const t of P.traces) {
     if (t.kind === 'bottle') { t.g.position.y = t.base + Math.sin(time * 0.9) * 0.05; t.g.rotation.x = Math.sin(time * 0.7) * 0.15; t.sp.position.y = t.g.position.y + 0.08; }
-    const d = tmp.copy(t.pos).sub(ctx.player).length();
+    const d = tmp.copy(t.pos).sub(ctx.eye).length();
     if (!t.found) {
-      // un riflesso intermittente, come il sole su un vetro
+      // un riflesso intermittente, come il sole su un vetro, ma solo alla sua ora
       const tw = Math.pow(Math.max(0, Math.sin(time * 1.3 + t.ph) * Math.sin(time * 0.37 + t.ph * 2)), 3);
-      const vis = Math.min(1, d / 6);
-      t.sp.material.opacity = (0.25 + 0.75 * tw) * vis * (1 - ctx.night * 0.5);
+      let dh = t.hour === null ? 0 : Math.abs(ctx.tod - t.hour); dh = Math.min(dh, 1 - dh);
+      const inHour = t.hour === null ? 1 : 1 - THREE.MathUtils.smoothstep(dh, 0.035, 0.06);
+      const vis = Math.min(1, d / 6) * Math.max(inHour, 1 - THREE.MathUtils.smoothstep(d, 8, 14));
+      const lightK = t.kind === 'watch' ? (ctx.underwater ? 1 : 0.6) : (1 - ctx.night * 0.5);
+      t.sp.material.opacity = (0.25 + 0.75 * tw) * vis * lightK;
       t.sp.scale.setScalar(0.022 + 0.03 * tw);
       if (d < nd) { nd = d; near = t; }
-      if (d < 2.2) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
+      if (d < 2.7) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
     }
     if (t.flame) {
       const fl = 0.85 + 0.15 * Math.sin(time * 17 + t.ph) * Math.sin(time * 9.1);

@@ -23,12 +23,15 @@
   #msg { top: 42%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(20px, 3.2vw, 32px); font-style: italic; letter-spacing: .06em; text-align: center; width: 90vw; }
   #prompt { bottom: 70px; left: 50%; transform: translateX(-50%); font-size: 13px; letter-spacing: .25em; text-transform: uppercase; font-family: system-ui, sans-serif; font-weight: 300; opacity: 0; }
   #prompt.on { opacity: .8; transition: opacity .6s; }
+  #clock { position: fixed; top: 58px; left: 34px; font-size: 13px; letter-spacing: .3em; opacity: .55; font-family: system-ui, sans-serif; font-weight: 300; pointer-events: none; text-shadow: 0 0 10px rgba(0,0,0,.35); }
+  #inv { top: 82px; left: 34px; font-size: 11px; letter-spacing: .3em; text-transform: uppercase; font-family: system-ui, sans-serif; font-weight: 300; }
+  #inv.on { opacity: .5; }
   #touch.hidden { display: none; }
   #stick { position: fixed; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); opacity: 0; transition: opacity .2s; pointer-events: none; }
   #stick.on { opacity: 1; }
   .tbtn { position: fixed; right: 24px; width: 64px; height: 64px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.08);
     color: #fff; font-size: 13px; letter-spacing: .1em; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; }
-  #jumpBtn { bottom: 32px; } #timeBtn { bottom: 108px; } #bookBtn { bottom: 184px; }
+  #jumpBtn { bottom: 32px; } #diveBtn { bottom: 32px; right: 100px; } #actBtn { bottom: 108px; right: 100px; } #timeBtn { bottom: 108px; } #bookBtn { bottom: 184px; }
   #journal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,10,16,.55);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .8s; }
   #journal.open { opacity: 1; pointer-events: auto; }
@@ -49,18 +52,22 @@
   <h1>RIVA</h1>
   <div class="sub">una spiaggia, fuori stagione</div>
   <div class="cta">Clicca per entrare</div>
-  <div class="keys">WASD / frecce — cammina · Mouse — guarda · Shift — corri · Spazio — salta<br>E — siediti sulle panchine · T — cambia l'ora · J — diario · M — audio<br>Segui le impronte. Cerca i riflessi di luce.</div>
+  <div class="keys">WASD — cammina, nuota, pagaia · Mouse — guarda · Shift — corri · Spazio — salta / risali · C — immergiti<br>E — azione (SUP, attrezzatura, panchine) · T — cambia l'ora · J — diario · M — audio<br>Ogni cosa si lascia vedere alla sua ora.</div>
 </div>
 <div id="phase" class="hud"></div>
 <div id="count" class="hud"></div>
 <div id="msg" class="hud"></div>
 <div id="prompt" class="hud"></div>
+<div id="clock"></div>
+<div id="inv" class="hud"></div>
 <div id="journal"><div class="page"><h2>Diario della riva</h2><ul id="journalList"></ul></div></div>
 <div id="touch" class="hidden">
   <div id="bookBtn" class="tbtn">DIARIO</div>
   <div id="stick"></div>
   <div id="timeBtn" class="tbtn">ORA</div>
-  <div id="jumpBtn" class="tbtn">SALTA</div>
+  <div id="jumpBtn" class="tbtn">SU</div>
+  <div id="diveBtn" class="tbtn">GIÙ</div>
+  <div id="actBtn" class="tbtn">AZIONE</div>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>

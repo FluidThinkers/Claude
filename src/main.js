@@ -8,6 +8,9 @@ import { buildPlaces, updatePlaces, placeHeight, collide, nearBench } from './pl
 import { Footprints, Scatter, buildSkyline, updateSkyline } from './details.js';
 import { Journal, FRAGMENTS, INTRO, ENDING } from './story.js';
 import { Sound } from './audio.js';
+import { buildSea, updateSea, SUP_START, GEAR } from './sea.js';
+import { Gulls, gullPerches } from './birds.js';
+import { PONTILE } from './places.js';
 
 const Q = new URLSearchParams(location.search);
 const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
@@ -54,6 +57,11 @@ const footprints = new Footprints(scene);
 const scatter = new Scatter(scene);
 const skyline = buildSkyline(scene);
 const journal = new Journal();
+const sea = buildSea(scene, skyUniforms);
+const gulls = new Gulls(scene, gullPerches(PONTILE));
+scene.add(camera);
+camera.add(sea.fpPaddle);
+sea.fpPaddle.position.set(0.42, -0.55, -0.7);
 const sound = new Sound();
 
 // ---------- stato
@@ -64,19 +72,73 @@ let tod = num('t', 0.715);
 const CYCLE = 720; // secondi per un giorno intero
 let todAnim = null;
 let fade = 0, fadeTarget = 0;
+const tmp = new THREE.Vector3();
+const tmpC = new THREE.Color();
 
 const player = {
   pos: new THREE.Vector3(num('x', 2), 0, 0),
   vel: new THREE.Vector3(),
   yaw: num('yaw', 0), pitch: num('pitch', 0.02),
-  ground: true, bob: 0, rippleT: 0,
+  ground: true, bob: 0, rippleT: 0, mode: 'walk', breath: 1, stroke: 0, supSpeed: 0, supYaw: 0,
 };
+let hasGear = Q.has('gear');
+let under = false, lastUnder = false;
+const underCol = new THREE.Color();
 player.pos.z = num('z', shoreZ(player.pos.x) + 21.5);
 player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), 0);
 terrain.update(player.pos.x, player.pos.z, true);
-const groundAt = (x, z, feet) => Math.max(heightAt(x, z), 0.02, placeHeight(x, z, feet));
+const groundAt = (x, z, feet) => Math.max(heightAt(x, z), placeHeight(x, z, feet));
 // seduti su una panchina il tempo scorre più veloce
 let sitting = null;
+// azione contestuale: SUP, attrezzatura, panchina
+function nearSup() { const g = sea.sup.g.position; return Math.hypot(g.x - player.pos.x, g.z - player.pos.z) < 2.8; }
+function nearGear() { return !hasGear && Math.hypot(GEAR.x - player.pos.x, GEAR.z - player.pos.z) < 2.2; }
+function contextAction() {
+  if (player.mode === 'sup') return 'scendi dal SUP';
+  if (nearSup() && player.mode !== 'dive') return 'sali sul SUP';
+  if (nearGear()) return 'prendi maschera e pinne';
+  if (sitting) return 'alzati';
+  if (player.mode === 'walk' && nearBench(player.pos.x, player.pos.z)) return 'siediti';
+  return null;
+}
+function action() {
+  const a = contextAction();
+  if (a === 'sali sul SUP') mountSup();
+  else if (a === 'scendi dal SUP') dismountSup();
+  else if (a === 'prendi maschera e pinne') {
+    hasGear = true; sea.gear.g.visible = false; sound.chime(5);
+    showMsg('Maschera e pinne. Qualcuno le ha lasciate asciugare al sole.', 5);
+    invEl.textContent = 'maschera · pinne'; invEl.classList.add('on');
+  } else if (a === 'siediti' || a === 'alzati') toggleSit();
+}
+function mountSup() {
+  const g = sea.sup.g;
+  const lvl = waterUniforms.uLevel.value;
+  // se è sulla sabbia, la spingi fino all'acqua
+  if (heightAt(g.position.x, g.position.z) > lvl - 0.35) {
+    let z = g.position.z;
+    for (let k = 0; k < 60 && heightAt(g.position.x, z) > lvl - 0.45; k++) z -= 0.5;
+    g.position.z = z;
+    sound.splash('paddle', 1.2);
+  }
+  player.mode = 'sup'; sea.sup.onBoard = true;
+  player.supYaw = player.yaw; player.supSpeed = 0;
+  sea.fpPaddle.visible = true;
+  if (!seenSupHint) { seenSupHint = true; showMsg('W per pagaiare · A e D per girare', 4); }
+}
+let seenSupHint = false, seenDiveHint = false;
+function dismountSup() {
+  const g = sea.sup.g;
+  sea.sup.onBoard = false; sea.fpPaddle.visible = false;
+  sea.sup.vel.set(-Math.sin(player.supYaw), 0, -Math.cos(player.supYaw)).multiplyScalar(player.supSpeed);
+  player.pos.x = g.position.x + Math.cos(player.supYaw) * 1.1;
+  player.pos.z = g.position.z - Math.sin(player.supYaw) * 1.1;
+  const lvl = waterUniforms.uLevel.value;
+  const depth = lvl - heightAt(player.pos.x, player.pos.z);
+  if (depth > 1.3) { player.mode = 'swim'; player.pos.y = lvl + 0.15 - 1.65; sound.splash('dive', 0.7); }
+  else { player.mode = 'walk'; player.pos.y = heightAt(player.pos.x, player.pos.z); }
+  player.vel.set(0, 0, 0);
+}
 function toggleSit() {
   if (sitting) { sitting = null; promptEl.classList.remove('on'); return; }
   const b = nearBench(player.pos.x, player.pos.z);
@@ -97,7 +159,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyT') advancePhase();
   if (e.code === 'KeyM') sound.toggle();
   if (e.code === 'KeyJ') journal.toggle();
-  if (e.code === 'KeyE') toggleSit();
+  if (e.code === 'KeyE') action();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('mousemove', (e) => {
@@ -156,13 +218,19 @@ addEventListener('touchend', (e) => {
   }
 });
 let touchJump = false;
-document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { touchJump = true; e.preventDefault(); });
-document.getElementById('timeBtn').addEventListener('touchstart', (e) => { if (nearBench(player.pos.x, player.pos.z) || sitting) toggleSit(); else advancePhase(); e.preventDefault(); });
+document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { touchJump = true; touchUp = true; e.preventDefault(); });
+document.getElementById('timeBtn').addEventListener('touchstart', (e) => { advancePhase(); e.preventDefault(); });
+document.getElementById('actBtn').addEventListener('touchstart', (e) => { action(); e.preventDefault(); });
+let touchDive = false;
+document.getElementById('diveBtn').addEventListener('touchstart', (e) => { touchDive = true; e.preventDefault(); });
+document.getElementById('diveBtn').addEventListener('touchend', () => { touchDive = false; });
+let touchUp = false;
+document.getElementById('jumpBtn').addEventListener('touchend', () => { touchUp = false; });
 document.getElementById('bookBtn').addEventListener('touchstart', (e) => { journal.toggle(); e.preventDefault(); });
 document.getElementById('journal').addEventListener('click', () => journal.toggle(false));
 
 // ---------- HUD
-const phaseEl = document.getElementById('phase'), countEl = document.getElementById('count'), msgEl = document.getElementById('msg'), promptEl = document.getElementById('prompt');
+const phaseEl = document.getElementById('phase'), countEl = document.getElementById('count'), msgEl = document.getElementById('msg'), promptEl = document.getElementById('prompt'), clockEl = document.getElementById('clock'), invEl = document.getElementById('inv');
 let lastLabel = '', msgTimer = 0, phaseTimer = 0;
 function showMsg(text, dur = 5) { msgEl.textContent = text; msgEl.classList.add('on'); msgTimer = dur; }
 function sequence(lines, every = 4, delay = 0) {
@@ -208,8 +276,7 @@ function onMeet() {
 // ---------- loop
 const clock = new THREE.Timer();
 let elapsed = 0;
-const tmp = new THREE.Vector3();
-const tmpC = new THREE.Color();
+
 
 function frame() {
   requestAnimationFrame(frame);
@@ -233,9 +300,11 @@ function frame() {
   const night = 1 - THREE.MathUtils.smoothstep(elev, -0.25, 0.02);
   lightDir.copy(moonDir).lerp(sunDir, dayK).normalize();
 
-  // movimento
+  // movimento: camminare, guadare, nuotare, immergersi, pagaiare
+  const lvl = 0.05 * Math.sin(elapsed * 0.45);
+  waterUniforms.uLevel.value = lvl;
+  let fx = 0, fz = 0, run = false, jump = false, upK = false, downK = false;
   if (running) {
-    let fx = 0, fz = 0;
     if (keys.has('KeyW') || keys.has('ArrowUp')) fz += 1;
     if (keys.has('KeyS') || keys.has('ArrowDown')) fz -= 1;
     if (keys.has('KeyA') || keys.has('ArrowLeft')) fx -= 1;
@@ -245,52 +314,145 @@ function frame() {
     if (sitting && len > 0.2) { sitting = null; promptEl.classList.remove('on'); }
     if (sitting) { fx = 0; fz = 0; }
     if (len > 1) { fx /= len; fz /= len; }
-    const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(touch.mx, touch.my) > 0.95 ? 9 : 4.2;
-    const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
-    const tx = (-s * fz + c * fx) * speed, tz = (-c * fz - s * fx) * speed;
+    run = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(touch.mx, touch.my) > 0.95;
+    jump = keys.has('Space') || touchJump;
+    upK = keys.has('Space') || touchUp;
+    downK = keys.has('KeyC') || keys.has('ControlLeft') || touchDive;
+    touchJump = false;
+  }
+  const ys = Math.sin(player.yaw), yc = Math.cos(player.yaw);
+  const depthAt = (x, z) => lvl - heightAt(x, z);
+  const M = player.mode;
+  let eyeH = 1.65;
+
+  if (M === 'walk') {
+    const depth = Math.max(0, depthAt(player.pos.x, player.pos.z));
+    const onDeck = placeHeight(player.pos.x, player.pos.z, player.pos.y) > heightAt(player.pos.x, player.pos.z) + 0.1;
+    const wade = onDeck ? 0 : Math.min(depth / 1.25, 1);
+    const speed = (run ? 9 : 4.2) * (1 - 0.62 * wade);
+    const tx = (-ys * fz + yc * fx) * speed, tz = (-yc * fz - ys * fx) * speed;
     const acc = player.ground ? 10 : 2;
     player.vel.x += (tx - player.vel.x) * Math.min(1, acc * dt);
     player.vel.z += (tz - player.vel.z) * Math.min(1, acc * dt);
-    if ((keys.has('Space') || touchJump) && player.ground) { player.vel.y = 5.2; player.ground = false; }
-    touchJump = false;
+    if (jump && player.ground && wade < 0.5) { player.vel.y = 5.2; player.ground = false; }
+    player.vel.y -= 13 * dt;
+    player.pos.addScaledVector(player.vel, dt);
+    collide(player.pos);
+    const gh = groundAt(player.pos.x, player.pos.z, player.pos.y);
+    const d2 = depthAt(player.pos.x, player.pos.z);
+    if (d2 > 1.3 && player.pos.y < lvl - 0.2) {
+      // dentro l'acqua alta: si nuota
+      if (player.vel.y < -3) { sound.splash('dive', 1); for (let i = 0; i < 3; i++) setTimeout(() => spawnRipple(W, player.pos.x, player.pos.z, night > 0.5), i * 160); }
+      player.mode = 'swim'; player.vel.y = 0;
+      if (!seenDiveHint) { seenDiveHint = true; showMsg(isTouch ? 'GIÙ per immergerti' : 'C per immergerti · Spazio per risalire', 4); }
+    } else if (player.pos.y <= gh) {
+      player.pos.y = gh; player.vel.y = Math.max(player.vel.y, 0); player.ground = true;
+    } else if (player.pos.y > gh + 0.05) player.ground = false;
+    if (player.ground) player.pos.y += (gh - player.pos.y) * Math.min(1, dt * 20);
+    player.breath = Math.min(1, player.breath + dt * 0.3);
+  } else if (M === 'swim') {
+    const speed = (hasGear ? 2.8 : 1.7) * (run ? 1.35 : 1);
+    const tx = (-ys * fz + yc * fx) * speed, tz = (-yc * fz - ys * fx) * speed;
+    player.vel.x += (tx - player.vel.x) * Math.min(1, 2.2 * dt);
+    player.vel.z += (tz - player.vel.z) * Math.min(1, 2.2 * dt);
+    player.vel.y = 0;
+    player.pos.x += player.vel.x * dt; player.pos.z += player.vel.z * dt;
+    collide(player.pos);
+    player.pos.y = lvl + 0.12 - 1.65 + Math.sin(elapsed * 1.6) * 0.04;
+    const hsw = Math.hypot(player.vel.x, player.vel.z);
+    player.stroke += dt * hsw * 0.9;
+    if (player.stroke > 1) { player.stroke = 0; sound.splash('stroke', 0.8); spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); }
+    if (depthAt(player.pos.x, player.pos.z) < 1.2) { player.mode = 'walk'; player.pos.y = heightAt(player.pos.x, player.pos.z); player.ground = true; }
+    else if (downK) { player.mode = 'dive'; player.pos.y -= 0.7; player.vel.y = -1.4; sound.splash('dive', 0.6); sound.bubbles(); }
+    player.breath = Math.min(1, player.breath + dt * 0.25);
+  } else if (M === 'dive') {
+    const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+    const speed = (hasGear ? 2.6 : 1.4) * (run ? 1.3 : 1);
+    const dx = (-ys * cp * fz + yc * fx) * speed, dz = (-yc * cp * fz - ys * fx) * speed;
+    let dy = sp * fz * speed + (upK ? 1.3 : 0) - (downK ? 1.3 : 0);
+    if (player.breath <= 0) dy = 2.2;
+    const k = Math.min(1, 2 * dt);
+    player.vel.x += (dx - player.vel.x) * k; player.vel.z += (dz - player.vel.z) * k;
+    player.vel.y += (dy + 0.18 - player.vel.y) * k;
+    player.pos.addScaledVector(player.vel, dt);
+    const floor = heightAt(player.pos.x, player.pos.z) + 0.45 - 1.65;
+    if (player.pos.y < floor) { player.pos.y = floor; player.vel.y = Math.max(0, player.vel.y); }
+    player.breath -= dt / (hasGear ? 45 : 30);
+    if (Math.random() < dt * 0.5) sound.bubbles();
+    if (player.pos.y + 1.65 > lvl + 0.05 && player.vel.y > 0) {
+      player.mode = depthAt(player.pos.x, player.pos.z) > 1.3 ? 'swim' : 'walk';
+      if (player.mode === 'walk') player.pos.y = heightAt(player.pos.x, player.pos.z);
+      sound.splash('stroke', 1.2);
+      if (player.breath < 0.3) showMsg('Aria.', 2);
+    }
+  } else if (M === 'sup') {
+    const g = sea.sup.g;
+    const target = (run ? 4.4 : 3.2) * fz;
+    player.supSpeed += (target - player.supSpeed) * Math.min(1, (Math.abs(fz) > 0 ? 0.7 : 0.25) * dt);
+    player.supYaw -= fx * dt * 0.7;
+    let dyaw = player.yaw - player.supYaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+    if (Math.abs(fz) > 0) player.supYaw += dyaw * Math.min(1, dt * 0.35);
+    const vx = -Math.sin(player.supYaw) * player.supSpeed, vz = -Math.cos(player.supYaw) * player.supSpeed;
+    const nx = g.position.x + vx * dt, nz = g.position.z + vz * dt;
+    if (depthAt(nx, nz) > 0.3) { g.position.x = nx; g.position.z = nz; } else player.supSpeed *= 0.5;
+    g.rotation.y = player.supYaw;
+    player.pos.set(g.position.x, g.position.y + 0.07, g.position.z);
+    player.vel.set(vx, 0, vz);
+    eyeH = 1.72;
+    // pagaiata
+    if (Math.abs(fz) > 0.1) player.stroke += dt * 0.9;
+    const ph = player.stroke * Math.PI * 2;
+    const side = Math.floor(player.stroke) % 2 ? -1 : 1;
+    sea.fpPaddle.position.set(0.42 * side, -0.55 + Math.max(0, Math.sin(ph)) * 0.12, -0.75 + Math.cos(ph) * 0.35);
+    sea.fpPaddle.rotation.set(-0.35 + Math.sin(ph) * 0.3, 0, side * 0.12);
+    if (Math.floor(player.stroke) !== player.lastStroke) { player.lastStroke = Math.floor(player.stroke); if (Math.abs(fz) > 0.1) { sound.splash('paddle', 1); spawnRipple(W, g.position.x + Math.cos(player.supYaw) * 0.6 * side, g.position.z - Math.sin(player.supYaw) * 0.6 * side, night > 0.5); } }
   }
-  player.vel.y -= 13 * dt;
-  player.pos.addScaledVector(player.vel, dt);
-  collide(player.pos);
-  const terrH = heightAt(player.pos.x, player.pos.z);
-  const gh = groundAt(player.pos.x, player.pos.z, player.pos.y);
-  const onWater = terrH < 0.02 && gh <= 0.03;
-  const onSand = !onWater && Math.abs(gh - terrH) < 0.05;
-  if (player.pos.y <= gh) {
-    if (!player.ground && onWater && player.vel.y < -3) for (let i = 0; i < 3; i++) setTimeout(() => spawnRipple(W, player.pos.x, player.pos.z, night > 0.5), i * 150);
-    player.pos.y = gh; player.vel.y = Math.max(player.vel.y, 0); player.ground = true;
-  } else if (player.pos.y > gh + 0.05) player.ground = false;
-  if (player.ground) player.pos.y += (gh - player.pos.y) * Math.min(1, dt * 20);
 
   const hs = Math.hypot(player.vel.x, player.vel.z);
-  if (player.ground) player.bob += hs * dt * 1.9;
-  const bob = Math.sin(player.bob * 2) * 0.035 * Math.min(hs / 4, 1.5);
-  camera.position.set(player.pos.x, player.pos.y + (sitting ? 1.12 : 1.65) + bob, player.pos.z);
-  camera.rotation.set(player.pitch, player.yaw, Math.sin(player.bob) * 0.004 * Math.min(hs / 4, 1.5));
+  const terrH = heightAt(player.pos.x, player.pos.z);
+  const wadeDepth = player.mode === 'walk' ? Math.max(0, lvl - terrH) : 0;
+  const onSand = player.mode === 'walk' && wadeDepth <= 0.02 && Math.abs(player.pos.y - terrH) < 0.05;
+  if (player.mode === 'walk' && player.ground) player.bob += hs * dt * (1.9 - wadeDepth);
+  const bobAmp = player.mode === 'walk' ? 0.035 * Math.min(hs / 4, 1.5) : 0;
+  let roll = Math.sin(player.bob) * 0.004 * Math.min(hs / 4, 1.5);
+  if (player.mode === 'sup') roll = Math.sin(elapsed * 0.9) * 0.025 + Math.sin(elapsed * 1.7) * 0.01;
+  if (player.mode === 'swim') roll = Math.sin(elapsed * 1.3) * 0.02;
+  const bob = Math.sin(player.bob * 2) * bobAmp;
+  camera.position.set(player.pos.x, player.pos.y + (sitting ? 1.12 : eyeH) + bob, player.pos.z);
+  camera.rotation.set(player.pitch, player.yaw, roll);
+  under = camera.position.y < lvl - 0.03;
 
-  if (onWater && player.ground && hs > 0.5) {
+  if (player.mode === 'walk' && wadeDepth > 0.08 && player.ground && hs > 0.5) {
     player.rippleT -= dt;
-    if (player.rippleT <= 0) { spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); player.rippleT = 0.42; sound.step('water', hs); }
+    if (player.rippleT <= 0) { spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); player.rippleT = 0.5; sound.splash('stroke', 0.5 + wadeDepth * 0.4); }
   }
 
   const fp = footprints.update(dt, player.pos, player.yaw, onSand && player.ground, hs > 0.6, hs * dt);
-  if (fp) sound.step(onSand ? 'sand' : 'water', hs);
+  if (fp) sound.step('sand', hs);
   footprints.tick(dt);
   scatter.update(player.pos.x, player.pos.z);
+  updateSea(sea, dt, elapsed, { player: player.pos, water: lvl });
+  gulls.update(dt, elapsed, camera.position, (p, takeoff) => {
+    const rel = tmp.copy(p).sub(camera.position);
+    const pan = rel.x * Math.cos(player.yaw) - rel.z * Math.sin(player.yaw);
+    sound.gull(pan / Math.max(rel.length(), 1), rel.length() * (under ? 4 : 1));
+    if (takeoff) sound.splash('stroke', 0.3);
+  });
+
+  // contesto
+  {
+    const a = contextAction();
+    if (sitting) { promptEl.textContent = 'Il tempo passa · E per alzarti'; promptEl.classList.add('on'); }
+    else if (a) { promptEl.textContent = (isTouch ? 'AZIONE · ' : 'E · ') + a; promptEl.classList.add('on'); }
+    else if (player.mode === 'dive' && player.breath < 0.35) { promptEl.textContent = 'risali'; promptEl.classList.add('on'); }
+    else promptEl.classList.remove('on');
+  }
 
   // panchina
   if (sitting) {
     player.pos.x = sitting.x; player.pos.z = sitting.z; player.vel.set(0, 0, 0);
     if (!todAnim && running) tod += dt * 24 / CYCLE;
-    promptEl.textContent = 'Il tempo passa · E per alzarti'; promptEl.classList.add('on');
-  } else if (nearBench(player.pos.x, player.pos.z)) {
-    promptEl.textContent = isTouch ? 'ORA per sederti' : 'E · siediti'; promptEl.classList.add('on');
-  } else promptEl.classList.remove('on');
+  }
 
   terrain.update(player.pos.x, player.pos.z);
 
@@ -314,28 +476,41 @@ function frame() {
   sun.target.position.copy(player.pos);
   hemi.color.copy(pal.hs); hemi.groundColor.copy(pal.hg); hemi.intensity = pal.hI;
   scene.fog.color.copy(pal.hor); scene.fog.density = pal.fog * 2.2 * (1 + mist * 1.2);
+  // sott'acqua: colore e foschia dell'acqua, la luce dipende dal giorno
+  const daylight = 1 - night;
+  underCol.setRGB(0.025, 0.2, 0.25).multiplyScalar(0.12 + 0.88 * daylight).lerp(tmpC.copy(pal.sun).multiplyScalar(0.12 * daylight), 0.15);
+  waterUniforms.uUnderCol.value.copy(underCol);
+  waterUniforms.uUnderFog.value = hasGear ? 0.07 : 0.16;
+  if (under) { scene.fog.color.copy(underCol); scene.fog.density = hasGear ? 0.075 : 0.17; scene.background = underCol; }
+  else scene.background = null;
+  sky.visible = !under; skyline.g.visible = !under;
+  if (under !== lastUnder) { lastUnder = under; sound.setUnder(under ? 1 : 0); }
 
   waterUniforms.uCam.value.copy(camera.position);
   waterUniforms.uLightDir.value.copy(lightDir);
   waterUniforms.uLightCol.value.copy(pal.sun).multiplyScalar(pal.sunI * 0.5);
   waterUniforms.uAmb.value.copy(pal.hs).multiplyScalar(pal.hI * 0.75).add(tmpC.copy(pal.sun).multiplyScalar(pal.sunI * Math.max(sunDir.y, 0) * 0.18));
   waterUniforms.uFog.value = pal.fog;
-  waterUniforms.uLevel.value = 0.05 * Math.sin(elapsed * 0.45);
   water.position.set(Math.round(player.pos.x / 50) * 50, 0, Math.round(player.pos.z / 50) * 50);
   sky.position.copy(camera.position);
 
   updateWorld(W, dt, elapsed, {
     player: player.pos, yaw: player.yaw, night, pal, nextHor: nextPal.hor, onMeet,
   });
-  updatePlaces(places, dt, elapsed, { night, player: player.pos, onFind });
+  updatePlaces(places, dt, elapsed, { night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
-  sound.update(elapsed, player.pos.z - shoreZ(player.pos.x), onWater, hs, night);
+  sound.update(elapsed, player.pos.z - shoreZ(player.pos.x), player.mode !== 'walk', hs, night);
 
   // HUD
   if (pal.label !== lastLabel) { lastLabel = pal.label; phaseEl.textContent = pal.label; phaseEl.classList.add('on'); phaseTimer = 4; }
   if (phaseTimer > 0 && (phaseTimer -= dt) <= 0) phaseEl.classList.remove('on');
   if (msgTimer > 0 && (msgTimer -= dt) <= 0) msgEl.classList.remove('on');
+  {
+    const mins = Math.floor(todN * 24 * 60);
+    const txt = String(Math.floor(mins / 60)).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
+    if (clockEl.textContent !== txt) clockEl.textContent = txt;
+  }
 
   // post
   const P = post.uniforms;
@@ -347,7 +522,12 @@ function frame() {
   const inFront = tmp.z < 1;
   P.uSunPos.value.set(tmp.x * 0.5 + 0.5, tmp.y * 0.5 + 0.5);
   const edge = Math.max(Math.abs(tmp.x), Math.abs(tmp.y));
-  P.uSunVis.value = inFront ? U.uSunVis.value * (1 - THREE.MathUtils.smoothstep(edge, 0.9, 1.3)) : 0;
+  P.uSunVis.value = inFront && !under ? U.uSunVis.value * (1 - THREE.MathUtils.smoothstep(edge, 0.9, 1.3)) : 0;
+  P.uHaze.value = inFront && !under ? U.uSunVis.value * (0.25 + mist * 0.9) * (1 - U.uCloud.value * 0.5) : 0;
+  P.uUnder.value = under ? 1 : 0;
+  P.uBlur.value = under && !hasGear ? 1 : 0;
+  P.uUnderCol.value.copy(underCol);
+  P.uBreath.value = player.mode === 'dive' ? THREE.MathUtils.smoothstep(0.4 - player.breath, 0, 0.4) : 0;
   fade += (fadeTarget - fade) * Math.min(1, dt * 1.5);
   P.uFade.value = fade;
 
@@ -364,5 +544,8 @@ addEventListener('resize', () => {
 });
 
 if (Q.has('autostart')) { started = running = true; overlay.classList.add('hidden'); }
+if (Q.get('mode') === 'sup') { sea.sup.g.position.set(player.pos.x, 0, player.pos.z); sea.sup.g.position.y = 0.06; mountSup(); }
+if (Q.get('mode') === 'swim') { player.mode = 'swim'; }
+if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { player, scene, water, renderer, W, journal, footprints, places, findAll: () => places.traces.forEach((t) => t.pos.copy(player.pos)), setTime: (t) => { tod = t; } };
+window.__riva = { player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };

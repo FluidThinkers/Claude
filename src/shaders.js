@@ -140,6 +140,8 @@ export const waterUniforms = {
   uLevel: { value: 0 },
   uMirror: { value: new THREE.Vector3(0, 0, 0) },
   uLamp: { value: new THREE.Vector4(0, 0, 0, 0) },
+  uUnderCol: { value: new THREE.Color(0x0e4a58) },
+  uUnderFog: { value: 0.06 },
 };
 
 export function makeWater() {
@@ -149,6 +151,7 @@ export function makeWater() {
     uniforms: { ...skyUniforms, ...waterUniforms },
     transparent: true,
     depthWrite: false,
+    side: THREE.DoubleSide,
     vertexShader: /* glsl */`
       uniform float uLevel;
       varying vec3 vW;
@@ -156,12 +159,28 @@ export function makeWater() {
     fragmentShader: SKY_GLSL + SHORE_GLSL + /* glsl */`
       uniform vec3 uCam, uLightDir, uLightCol, uAmb, uDeep, uShallow, uMirror;
       uniform vec4 uLamp;
-      uniform float uFog;
+      uniform vec3 uUnderCol;
+      uniform float uFog, uUnderFog;
       varying vec3 vW;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
       void main(){
         vec2 p = vW.xz;
         float dist = length(uCam - vW);
+        if (!gl_FrontFacing) {
+          // vista da sotto: finestra di Snell (il cielo) e riflessione totale attorno
+          vec3 Vu = normalize(uCam - vW);
+          float up = -Vu.y;
+          vec2 q = p * 1.6 + vec2(uTime * 0.4, uTime * 0.25);
+          float rip = vn(q) * 0.6 + vn(q * 2.7 - uTime * 0.3) * 0.4;
+          float win = smoothstep(0.6, 0.72, up + (rip - 0.5) * 0.08);
+          vec3 skyC = mix(uHor, uZen, 0.5) * 1.6 + uSunCol * uSunVis * 0.4;
+          vec3 c = mix(uUnderCol * 0.7, skyC, win);
+          c += uSunCol * uSunVis * pow(max(dot(-Vu, uSunDir), 0.0), 40.0) * 3.0 * win;
+          c += vec3(rip) * 0.05 * win;
+          float fu = 1.0 - exp(-dist * uUnderFog);
+          gl_FragColor = vec4(mix(c, uUnderCol, fu * 0.85), 1.0);
+          return;
+        }
         vec2 g = wv(p, normalize(vec2(0.2,1.0)), 0.35, 0.07, 1.1)
                + wv(p, normalize(vec2(-0.6,0.8)), 0.7, 0.04, 1.6)
                + wv(p, normalize(vec2(0.9,0.4)), 1.3, 0.025, 2.2)
@@ -330,20 +349,30 @@ export function makePost(renderer) {
   const compMat = mk({
     tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
-    uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 }, ...shared,
+    uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
+    uUnder: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
   }, /* glsl */`
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
+    uniform float uUnder, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
     float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
     vec3 shoulder(vec3 x){ vec3 a = vec3(0.72); vec3 o = max(x - a, 0.0); return min(x, a) + (1.0 - a) * (1.0 - exp(-o / (1.0 - a))); }
     float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+    float vn2(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
+      return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y); }
     void main(){
       vec2 uv = vUv; vec2 c = uv - 0.5; float r2 = dot(c, c);
+      if (uUnder > 0.0) uv += vec2(sin(uv.y * 22.0 + uTime * 1.7), cos(uv.x * 18.0 + uTime * 1.3)) * 0.0025 * uUnder;
       vec3 col;
       col.r = texture2D(tScene, uv - c * r2 * 0.012).r;
       col.g = texture2D(tScene, uv).g;
       col.b = texture2D(tScene, uv + c * r2 * 0.012).b;
+      if (uBlur > 0.0) {
+        vec3 acc = col;
+        for (int i = 0; i < 8; i++) { float a = float(i) * 0.785; acc += texture2D(tScene, uv + vec2(cos(a), sin(a)) * 0.007 * uBlur).rgb; }
+        col = acc / 9.0;
+      }
       col *= uExposure;
       col += texture2D(tBloom, uv).rgb * 0.55;
       col += texture2D(tRays, uv).rgb * 1.1 * uRaysK;
@@ -364,12 +393,25 @@ export function makePost(renderer) {
         }
         col += fl * uSunVis * occ;
       }
+      // foschia solare: velo luminoso attorno al sole quando l'aria è umida
+      if (uHaze > 0.0) {
+        vec2 dv2 = (uv - uSunPos) * vec2(uRes.x / uRes.y, 1.0);
+        float dd = length(dv2);
+        col += uSunCol * (exp(-dd * 2.4) * 0.35 + exp(-dd * 0.9) * 0.12) * uHaze;
+      }
+      if (uUnder > 0.0) {
+        // raggi di luce che scendono dalla superficie
+        float sh = vn2(vec2(uv.x * 9.0 + uv.y * 2.0 + uTime * 0.15, uTime * 0.1)) * vn2(vec2(uv.x * 4.0 - uv.y * 1.0 - uTime * 0.07, 3.0));
+        col += uUnderCol * 2.5 * pow(sh, 2.0) * smoothstep(0.1, 1.0, uv.y) * uUnder;
+        col = mix(col, (col + uUnderCol * 0.6) * vec3(0.45, 0.85, 1.0), 0.72 * uUnder);
+      }
       col = shoulder(col);
       col *= uGrade;
       float l = lum(col); col = mix(vec3(l), col, 1.1);
       col = pow(max(col, 0.0), vec3(1.0 / 2.2));
       col *= 1.0 - 0.28 * smoothstep(0.25, 0.9, length(c * vec2(1.0, 0.85)) * 1.25);
       col += (hash(uv * uRes + fract(uTime * 7.0) * 517.0) - 0.5) * 0.035;
+      col *= 1.0 - uBreath * smoothstep(0.15, 0.75, length(c)) * 1.2;
       col = mix(col, uFadeCol, uFade);
       gl_FragColor = vec4(col, 1.0);
     }`);

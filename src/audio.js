@@ -6,7 +6,9 @@ export class Sound {
     if (this.ctx) { this.ctx.resume(); return; }
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.master = ctx.createGain(); this.master.gain.value = 0.8;
-    this.master.connect(ctx.destination);
+    // filtro generale: sott'acqua tutto diventa ovattato
+    this.muffle = ctx.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000; this.muffle.Q.value = 0.5;
+    this.master.connect(this.muffle); this.muffle.connect(ctx.destination);
 
     const len = ctx.sampleRate * 4;
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -92,6 +94,87 @@ export class Sound {
     g.gain.exponentialRampToValueAtTime(0.0001, t + len);
     src.connect(f); f.connect(g); g.connect(this.master);
     src.start(t);
+  }
+
+  setUnder(k) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.muffle.frequency.setTargetAtTime(k > 0.5 ? 380 : 20000, t, 0.08);
+    if (!this.underG) {
+      // rombo sordo del mare quando sei sotto
+      this.underG = this.ctx.createGain(); this.underG.gain.value = 0;
+      const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 42;
+      const n = this.ctx.createBufferSource(); n.buffer = this._noiseBuf(); n.loop = true;
+      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 180;
+      n.connect(f); f.connect(this.underG); o.connect(this.underG); this.underG.connect(this.ctx.destination);
+      o.start(); n.start();
+    }
+    this.underG.gain.setTargetAtTime(k > 0.5 ? 0.18 : 0, t, 0.15);
+  }
+
+  _noiseBuf() {
+    if (this._nb) return this._nb;
+    const ctx = this.ctx, len = ctx.sampleRate * 3;
+    const b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+    return (this._nb = b);
+  }
+
+  // un'onda d'acqua breve: bracciata, pagaiata, tuffo
+  splash(kind = 'stroke', vol = 1) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this._noiseBuf();
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass';
+    f.frequency.setValueAtTime(kind === 'dive' ? 500 : 1100 + Math.random() * 500, t);
+    f.frequency.exponentialRampToValueAtTime(kind === 'paddle' ? 500 : 300, t + 0.4);
+    f.Q.value = 0.9;
+    const g = ctx.createGain();
+    const len = kind === 'dive' ? 1.0 : 0.45;
+    const v = (kind === 'dive' ? 0.35 : kind === 'paddle' ? 0.16 : 0.12) * vol;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t, Math.random() * 2); src.stop(t + len + 0.05);
+  }
+
+  bubbles() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t0 = ctx.currentTime;
+    for (let i = 0; i < 4; i++) {
+      const t = t0 + i * (0.04 + Math.random() * 0.07);
+      const o = ctx.createOscillator(); o.type = 'sine';
+      const f0 = 300 + Math.random() * 500;
+      o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 2.2, t + 0.06);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.1);
+    }
+  }
+
+  // verso di gabbiano: due o tre "kia" che scendono
+  gull(pan = 0, dist = 30) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const vol = Math.min(0.12, 2.2 / (dist + 8));
+    if (vol < 0.01) return;
+    const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan));
+    p.connect(this.master);
+    const n = 2 + (Math.random() * 3 | 0);
+    const base = 1250 + Math.random() * 350;
+    for (let i = 0; i < n; i++) {
+      const t = ctx.currentTime + i * (0.22 + Math.random() * 0.08);
+      const o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(base * 1.12, t);
+      o.frequency.linearRampToValueAtTime(base, t + 0.05);
+      o.frequency.exponentialRampToValueAtTime(base * 0.62, t + 0.24);
+      const vib = ctx.createOscillator(); vib.frequency.value = 28; const vg = ctx.createGain(); vg.gain.value = 18; vib.connect(vg); vg.connect(o.frequency);
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1700; f.Q.value = 2.2;
+      const f2 = ctx.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = 3200;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+      o.connect(f); f.connect(f2); f2.connect(g); g.connect(p);
+      o.start(t); vib.start(t); o.stop(t + 0.3); vib.stop(t + 0.3);
+    }
   }
 
   toggle() {
