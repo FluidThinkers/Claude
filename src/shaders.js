@@ -294,7 +294,7 @@ export function enhanceSand(material) {
 // Post-processing: bloom, raggi di luce (god rays), lens flare, grading, grana
 export function makePost(renderer) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: matchMedia('(pointer: coarse)').matches ? 2 : 4 });
   const q = () => new THREE.WebGLRenderTarget(Math.max(1, size.x >> 2), Math.max(1, size.y >> 2), { type: THREE.HalfFloatType });
   const rtBright = q(), rtTmp = q(), rtBloom = q(), rtRays = q();
 

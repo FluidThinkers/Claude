@@ -17,7 +17,8 @@ const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
 
 // ---------- renderer / scena
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+const MOBILE = matchMedia('(pointer: coarse)').matches;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1 : 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -43,7 +44,7 @@ scene.add(terrain.mesh);
 
 const sun = new THREE.DirectionalLight(0xffffff, 3);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 260 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
@@ -169,6 +170,7 @@ addEventListener('mousemove', (e) => {
 });
 
 const overlay = document.getElementById('start');
+if (MOBILE) { overlay.querySelector('.cta').textContent = 'Tocca per entrare'; overlay.querySelector('.keys').innerHTML = 'Sinistra: muoviti · Destra: guarda<br>SU / GIÙ: salta, risali, immergiti · AZIONE · ORA · DIARIO<br>Ogni cosa si lascia vedere alla sua ora.'; }
 function begin() {
   sound.start();
   started = running = true;
@@ -192,7 +194,7 @@ const stick = document.getElementById('stick');
 addEventListener('touchstart', (e) => {
   if (!started) return;
   for (const t of e.changedTouches) {
-    if (t.target.id === 'jumpBtn') continue;
+    if (t.target.classList && t.target.classList.contains('tbtn')) continue;
     if (t.clientX < innerWidth / 2 && !touch.move) {
       touch.move = { id: t.identifier, x0: t.clientX, y0: t.clientY };
       stick.style.left = t.clientX + 'px'; stick.style.top = t.clientY + 'px'; stick.classList.add('on');
