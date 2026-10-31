@@ -3,8 +3,8 @@ import { Terrain, heightAt, shoreZ } from './terrain.js';
 import { evalPalette, makeState, sunDirection, PHASES } from './palette.js';
 import { makeSky, makeWater, makePost, skyUniforms, waterUniforms, enhanceSand } from './shaders.js';
 import { sandTextures, glowTexture } from './textures.js';
-import { buildWorld, updateWorld, spawnRipple, SOGLIA, PLATFORM } from './world.js';
-import { buildPlaces, updatePlaces, placeHeight, PORTA, SCALA, COLONNE, SPECCHIO } from './places.js';
+import { buildWorld, updateWorld, spawnRipple, PLATFORM } from './world.js';
+import { buildPlaces, updatePlaces, placeHeight, collide, nearBench } from './places.js';
 import { Footprints, Scatter, buildSkyline, updateSkyline } from './details.js';
 import { Journal, FRAGMENTS, INTRO, ENDING } from './story.js';
 import { Sound } from './audio.js';
@@ -49,12 +49,11 @@ scene.add(hemi);
 
 const glowTex = glowTexture();
 const W = buildWorld(scene, glowTex);
-const places = buildPlaces(scene, glowTex);
+const places = buildPlaces(scene, glowTex, PLATFORM);
 const footprints = new Footprints(scene);
 const scatter = new Scatter(scene);
 const skyline = buildSkyline(scene);
 const journal = new Journal();
-waterUniforms.uMirror.value.set(SPECCHIO.x, SPECCHIO.z, SPECCHIO.r);
 const sound = new Sound();
 
 // ---------- stato
@@ -75,19 +74,17 @@ const player = {
 player.pos.z = num('z', shoreZ(player.pos.x) + 21.5);
 player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), 0);
 terrain.update(player.pos.x, player.pos.z, true);
-let prevRelZ = player.pos.z - SOGLIA.z;
-const portaLocal = (x, z) => { const dx = x - PORTA.x, dz = z - PORTA.z, c = Math.cos(0.35), s = Math.sin(0.35); return [dx * c - dz * s, dx * s + dz * c]; };
-let prevPortaZ = portaLocal(player.pos.x, player.pos.z)[1];
 const groundAt = (x, z, feet) => Math.max(heightAt(x, z), 0.02, placeHeight(x, z, feet));
-// la Porta porta altrove: ogni passaggio verso un luogo diverso
-const DESTS = [
-  { x: SCALA.x, z: SCALA.z + 6, yaw: 0, name: 'La Scala' },
-  { x: COLONNE.x + 14, z: COLONNE.z + 14, yaw: 0.78, name: 'Le Colonne' },
-  { x: SPECCHIO.x, z: SPECCHIO.z + 22, yaw: 0, name: 'Lo Specchio' },
-  { x: PLATFORM.x + 4, z: PLATFORM.z + 30, yaw: 0.1, name: 'La piattaforma' },
-  { x: SOGLIA.x, z: SOGLIA.z + 10, yaw: 0, name: 'La Soglia' },
-];
-let destI = 0;
+// seduti su una panchina il tempo scorre più veloce
+let sitting = null;
+function toggleSit() {
+  if (sitting) { sitting = null; promptEl.classList.remove('on'); return; }
+  const b = nearBench(player.pos.x, player.pos.z);
+  if (!b) return;
+  sitting = b;
+  player.pos.set(b.x, b.y - 0.45, b.z); player.vel.set(0, 0, 0);
+  player.yaw = b.yaw; player.pitch = 0.04;
+}
 
 // ---------- input
 const keys = new Set();
@@ -100,6 +97,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyT') advancePhase();
   if (e.code === 'KeyM') sound.toggle();
   if (e.code === 'KeyJ') journal.toggle();
+  if (e.code === 'KeyE') toggleSit();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('mousemove', (e) => {
@@ -159,12 +157,12 @@ addEventListener('touchend', (e) => {
 });
 let touchJump = false;
 document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { touchJump = true; e.preventDefault(); });
-document.getElementById('timeBtn').addEventListener('touchstart', (e) => { advancePhase(); e.preventDefault(); });
+document.getElementById('timeBtn').addEventListener('touchstart', (e) => { if (nearBench(player.pos.x, player.pos.z) || sitting) toggleSit(); else advancePhase(); e.preventDefault(); });
 document.getElementById('bookBtn').addEventListener('touchstart', (e) => { journal.toggle(); e.preventDefault(); });
 document.getElementById('journal').addEventListener('click', () => journal.toggle(false));
 
 // ---------- HUD
-const phaseEl = document.getElementById('phase'), countEl = document.getElementById('count'), msgEl = document.getElementById('msg');
+const phaseEl = document.getElementById('phase'), countEl = document.getElementById('count'), msgEl = document.getElementById('msg'), promptEl = document.getElementById('prompt');
 let lastLabel = '', msgTimer = 0, phaseTimer = 0;
 function showMsg(text, dur = 5) { msgEl.textContent = text; msgEl.classList.add('on'); msgTimer = dur; }
 function sequence(lines, every = 4, delay = 0) {
@@ -185,27 +183,26 @@ function nextPhaseT() {
   return n === undefined ? PHASES[0] : n;
 }
 
-function onCollect(o) {
-  sound.chime(o.i);
-  countEl.textContent = `✦ ${W.collected} / ${W.orbs.length}`;
+function onFind(t) {
+  sound.chime(t.i);
+  countEl.textContent = `${places.found} / ${places.traces.length}`;
   countEl.classList.add('on');
-  fade = 0.35; fadeTarget = 0;
-  post.uniforms.uFadeCol.value.setRGB(1, 0.95, 0.9);
-  const f = FRAGMENTS[o.i];
-  journal.add(o.i);
-  showMsg(f.text, 7);
-  if (W.collected === W.orbs.length) {
-    // la Custode compare alle tue spalle
+  setTimeout(() => countEl.classList.remove('on'), 6000);
+  const f = FRAGMENTS[t.i];
+  journal.add(t.i);
+  showMsg(f.text, 8);
+  if (places.found === places.traces.length) {
+    // ti aspetta sul bagnasciuga, vicino alla bandiera
     const P = W.phantom;
-    const bx = player.pos.x + Math.sin(player.yaw) * 16, bz = player.pos.z + Math.cos(player.yaw) * 16;
-    P.g.position.set(bx, groundAt(bx, bz, 99), bz);
-    P.g.visible = true; P.state = 'final'; P.op = 0;
-    setTimeout(() => sound.chord(), 900);
+    const x = 18, z = shoreZ(18) + 0.9;
+    P.g.position.set(x, Math.max(heightAt(x, z), 0), z);
+    P.g.rotation.y = 0; P.legL.rotation.x = P.legR.rotation.x = 0;
+    P.state = 'final'; P.op = 0; P.dir = -1; P.d = 1.6; P.g.visible = true;
   }
 }
 function onMeet() {
   sequence(ENDING, 4.2, 0.5);
-  setTimeout(() => { W.beam.visible = true; sound.chord(); }, ENDING.length * 4200);
+  setTimeout(() => { sound.chord(); const cur = ((tod % 1) + 1) % 1; todAnim = { from: tod, to: tod - cur + (cur < 0.75 ? 0.755 : 1.755), t: 0, dur: 30 }; }, ENDING.length * 4200);
 }
 
 // ---------- loop
@@ -245,6 +242,8 @@ function frame() {
     if (keys.has('KeyD') || keys.has('ArrowRight')) fx += 1;
     fx += touch.mx; fz -= touch.my;
     const len = Math.hypot(fx, fz);
+    if (sitting && len > 0.2) { sitting = null; promptEl.classList.remove('on'); }
+    if (sitting) { fx = 0; fz = 0; }
     if (len > 1) { fx /= len; fz /= len; }
     const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(touch.mx, touch.my) > 0.95 ? 9 : 4.2;
     const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
@@ -257,6 +256,7 @@ function frame() {
   }
   player.vel.y -= 13 * dt;
   player.pos.addScaledVector(player.vel, dt);
+  collide(player.pos);
   const terrH = heightAt(player.pos.x, player.pos.z);
   const gh = groundAt(player.pos.x, player.pos.z, player.pos.y);
   const onWater = terrH < 0.02 && gh <= 0.03;
@@ -270,7 +270,7 @@ function frame() {
   const hs = Math.hypot(player.vel.x, player.vel.z);
   if (player.ground) player.bob += hs * dt * 1.9;
   const bob = Math.sin(player.bob * 2) * 0.035 * Math.min(hs / 4, 1.5);
-  camera.position.set(player.pos.x, player.pos.y + 1.65 + bob, player.pos.z);
+  camera.position.set(player.pos.x, player.pos.y + (sitting ? 1.12 : 1.65) + bob, player.pos.z);
   camera.rotation.set(player.pitch, player.yaw, Math.sin(player.bob) * 0.004 * Math.min(hs / 4, 1.5));
 
   if (onWater && player.ground && hs > 0.5) {
@@ -283,26 +283,14 @@ function frame() {
   footprints.tick(dt);
   scatter.update(player.pos.x, player.pos.z);
 
-  // la Porta
-  {
-    const [lx, lz] = portaLocal(player.pos.x, player.pos.z);
-    if (Math.abs(lx) < 0.5 && Math.sign(lz) !== Math.sign(prevPortaZ) && Math.abs(prevPortaZ) < 1.5 && player.pos.y < heightAt(PORTA.x, PORTA.z) + 1) {
-      const d = DESTS[destI++ % DESTS.length];
-      fade = 1; post.uniforms.uFadeCol.value.setRGB(1, 0.97, 0.94);
-      player.pos.set(d.x, 0, d.z); player.pos.y = groundAt(d.x, d.z, 99); player.yaw = d.yaw; player.vel.set(0, 0, 0);
-      sound.chord(); showMsg(d.name, 3);
-      prevRelZ = player.pos.z - SOGLIA.z;
-    }
-    prevPortaZ = portaLocal(player.pos.x, player.pos.z)[1];
-  }
-
-  // la Soglia
-  const relZ = player.pos.z - SOGLIA.z;
-  if (Math.abs(player.pos.x - SOGLIA.x) < 1.6 && player.pos.y < 3.3 && Math.sign(relZ) !== Math.sign(prevRelZ) && Math.abs(prevRelZ) < 3) {
-    advancePhase();
-    fade = 0.6; post.uniforms.uFadeCol.value.copy(nextPal.hor).convertLinearToSRGB();
-  }
-  prevRelZ = relZ;
+  // panchina
+  if (sitting) {
+    player.pos.x = sitting.x; player.pos.z = sitting.z; player.vel.set(0, 0, 0);
+    if (!todAnim && running) tod += dt * 24 / CYCLE;
+    promptEl.textContent = 'Il tempo passa · E per alzarti'; promptEl.classList.add('on');
+  } else if (nearBench(player.pos.x, player.pos.z)) {
+    promptEl.textContent = isTouch ? 'ORA per sederti' : 'E · siediti'; promptEl.classList.add('on');
+  } else promptEl.classList.remove('on');
 
   terrain.update(player.pos.x, player.pos.z);
 
@@ -337,10 +325,9 @@ function frame() {
   sky.position.copy(camera.position);
 
   updateWorld(W, dt, elapsed, {
-    player: player.pos, yaw: player.yaw, night, pal, nextHor: nextPal.hor, onCollect, onMeet,
+    player: player.pos, yaw: player.yaw, night, pal, nextHor: nextPal.hor, onMeet,
   });
-  const lampOn = updatePlaces(places, dt, elapsed, { night, nextHor: nextPal.hor });
-  waterUniforms.uLamp.value.set(SPECCHIO.x + 0.9, 3.9, SPECCHIO.z, lampOn);
+  updatePlaces(places, dt, elapsed, { night, player: player.pos, onFind });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
   sound.update(elapsed, player.pos.z - shoreZ(player.pos.x), onWater, hs, night);
@@ -378,4 +365,4 @@ addEventListener('resize', () => {
 
 if (Q.has('autostart')) { started = running = true; overlay.classList.add('hidden'); }
 frame();
-window.__riva = { player, scene, water, renderer, W, journal, footprints, PORTA, SCALA, onCollectAll: () => W.orbs.forEach((o) => { o.base = player.pos.y + 1; o.g.position.copy(player.pos); }), setTime: (t) => { tod = t; } };
+window.__riva = { player, scene, water, renderer, W, journal, footprints, places, findAll: () => places.traces.forEach((t) => t.pos.copy(player.pos)), setTime: (t) => { tod = t; } };

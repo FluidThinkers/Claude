@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { heightAt, shoreZ, vnoise } from './terrain.js';
-import { SCALA } from './places.js';
+import { PERGOLA } from './places.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), tmpN = new THREE.Vector3();
@@ -76,10 +76,10 @@ export class Footprints {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
-  // la scia di chi è passato prima di te: porta alla Scala
+  // la scia di chi è passato prima di te: porta al chiosco
   _trail() {
     let x = 5, z = shoreZ(5) + 23, side = 1;
-    const tx = SCALA.x, tz = SCALA.z + 1.5;
+    const tx = PERGOLA.x - 2, tz = PERGOLA.z - 4.5;
     for (let k = 0; k < 140; k++) {
       const dx = tx - x, dz = tz - z;
       const d = Math.hypot(dx, dz);

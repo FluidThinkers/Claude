@@ -21,6 +21,8 @@
   #phase { top: 28px; left: 32px; font-size: 20px; font-style: italic; letter-spacing: .2em; }
   #count { bottom: 28px; left: 50%; transform: translateX(-50%); font-size: 16px; letter-spacing: .3em; font-family: system-ui, sans-serif; font-weight: 300; }
   #msg { top: 42%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(20px, 3.2vw, 32px); font-style: italic; letter-spacing: .06em; text-align: center; width: 90vw; }
+  #prompt { bottom: 70px; left: 50%; transform: translateX(-50%); font-size: 13px; letter-spacing: .25em; text-transform: uppercase; font-family: system-ui, sans-serif; font-weight: 300; opacity: 0; }
+  #prompt.on { opacity: .8; transition: opacity .6s; }
   #touch.hidden { display: none; }
   #stick { position: fixed; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); opacity: 0; transition: opacity .2s; pointer-events: none; }
   #stick.on { opacity: 1; }
@@ -45,13 +47,14 @@
 <div id="app"></div>
 <div id="start">
   <h1>RIVA</h1>
-  <div class="sub">una spiaggia fuori dal tempo</div>
+  <div class="sub">una spiaggia, fuori stagione</div>
   <div class="cta">Clicca per entrare</div>
-  <div class="keys">WASD / frecce — cammina · Mouse — guarda · Shift — corri · Spazio — salta<br>T — cambia l'ora del giorno · J — diario · M — audio<br>Il mare regge i tuoi passi. Segui la bandiera, o le impronte.</div>
+  <div class="keys">WASD / frecce — cammina · Mouse — guarda · Shift — corri · Spazio — salta<br>E — siediti sulle panchine · T — cambia l'ora · J — diario · M — audio<br>Segui le impronte. Cerca i riflessi di luce.</div>
 </div>
 <div id="phase" class="hud"></div>
 <div id="count" class="hud"></div>
 <div id="msg" class="hud"></div>
+<div id="prompt" class="hud"></div>
 <div id="journal"><div class="page"><h2>Diario della riva</h2><ul id="journalList"></ul></div></div>
 <div id="touch" class="hidden">
   <div id="bookBtn" class="tbtn">DIARIO</div>

@@ -234,7 +234,7 @@ export function enhanceSand(material) {
       .replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
       {
         float dcam = length(vWPos - cameraPosition);
-        float fadeR = 1.0 - smoothstep(12.0, 70.0, dcam);
+        float fadeR = 1.0 - smoothstep(6.0, 28.0, dcam) * (1.0 - smoothstep(-0.6, -1.4, vWPos.y)) - smoothstep(30.0, 70.0, dcam) * smoothstep(-0.6, -1.4, vWPos.y);
         if (fadeR > 0.0) {
           vec2 p = vWPos.xz;
           float under = smoothstep(-0.2, -1.2, vWPos.y);

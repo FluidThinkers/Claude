@@ -1,25 +1,25 @@
 // La storia: qualcuno veniva su questa riva ogni giorno, alla stessa ora.
-// Ha lasciato sette luci. Ogni luce custodisce un frammento di ciò che ha scritto.
+// Ha lasciato sette oggetti. Ognuno custodisce un frammento di ciò che ha scritto.
 
 export const INTRO = [
-  'Qualcuno ha lasciato delle luci lungo la riva.',
-  'La bandiera sa dove sono.',
+  'Qualcuno ha lasciato delle cose lungo la riva.',
+  'Le impronte sono ancora fresche.',
 ];
 
 export const FRAGMENTS = [
-  { place: 'La cresta', text: 'Venivo qui ogni giorno, alla stessa ora. Il mare non cambiava mai: ero io a cambiare.' },
-  { place: 'La passerella', text: 'Ho lasciato la mia luce sulla riva, così avresti saputo dove cercarmi.' },
-  { place: 'La Soglia', text: 'Attraversavo quella cornice per allungare il tramonto. Funzionava, quasi sempre.' },
-  { place: 'La Scala', text: 'C\'è una scala che non porta da nessuna parte. Ci salivo per vedere più lontano il tempo.' },
-  { place: 'Le Colonne', text: 'Le colonne erano una casa, una volta. Ora tengono in piedi soltanto il cielo.' },
-  { place: 'La piattaforma', text: 'Il ferro sul mare respira di notte. Gli ho chiesto di te, non ha risposto.' },
-  { place: 'Lo Specchio', text: 'Se hai trovato anche questa, allora non ho aspettato invano. Voltati.' },
+  { place: 'Un barattolo con una candela', text: 'Venivo qui ogni giorno, alla stessa ora. Il mare non cambiava mai: ero io a cambiare.' },
+  { place: 'Un libro aperto, al chiosco', text: 'Leggevo sempre la stessa pagina, aspettando che il sole arrivasse alle travi.' },
+  { place: 'Un paio di sandali, in fondo al pontile', text: 'In fondo al pontile mi toglievo i sandali. Da lì l\'acqua sembrava più vicina del cielo.' },
+  { place: 'Un cappello di paglia, alla torretta', text: 'D\'estate qui c\'erano voci, ombrelloni, radio. Io preferivo quando restava solo il vento.' },
+  { place: 'Una lettera, nella barca', text: 'Non l\'ho mai spedita. Era più facile lasciarla al mare.' },
+  { place: 'Una lanterna, sugli scogli', text: 'La accendevo quando faceva buio presto, così avresti saputo da che parte tornare.' },
+  { place: 'Una bottiglia, al largo', text: 'Se hai trovato anche questa, allora non ho aspettato invano. Torna dove c\'è la bandiera.' },
 ];
 
 export const ENDING = [
   'Eccoti.',
-  'Le impronte erano mie. Le luci erano per te.',
-  'Il giorno qui non finisce: ricomincia.',
+  'Le impronte erano mie. Le cose che hai trovato, anche.',
+  'Non serve cercarmi ancora. Basta tornare qui, a quest\'ora.',
   'Resta quanto vuoi.',
 ];
 
