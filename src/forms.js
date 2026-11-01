@@ -62,6 +62,8 @@ export function moveForm(form, P, ctx) {
     if (P.pos.y < ground + 0.8) { P.pos.y = ground + 0.8; }
     P.pos.y = Math.min(P.pos.y, 400);
     P.flap = (P.flap || 0) + dt * (ctx.up || fz > 0 ? 10 : 2.5);
+    // a pelo d'acqua in picchiata: tocchi il mare (per pescare)
+    out.touchWater = heightAt(P.pos.x, P.pos.z) < lvl - 0.8 && P.pos.y < lvl + 0.95 && P.gs > 9;
     roll = P.bank * 0.9;
     out.flap = Math.sin(P.flap) * (ctx.up || fz > 0 ? 0.5 : 0.15);
     out.speed = P.gs;
@@ -86,6 +88,7 @@ export function moveForm(form, P, ctx) {
     P.pos.y += (hm + 0.32 + Math.abs(Math.sin(ctx.time * 3)) * 0.08 * ctx.wind - P.pos.y) * Math.min(1, dt * 8);
     out.speed = Math.hypot(dx, dz);
     out.inWater = lvl - h > 0.05;
+    out.dune = ctx.jump;
   } else if (form === 'fish') {
     // pesce: veloce e morbido sott'acqua, non esce mai dall'acqua
     const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
@@ -93,9 +96,16 @@ export function moveForm(form, P, ctx) {
     P.fv = (P.fv || 0) + (speed - (P.fv || 0)) * Math.min(1, dt * 2.5);
     P.pos.x += (-ys * cp * P.fv + Math.cos(P.yaw) * fx * 2.5) * dt;
     P.pos.z += (-yc * cp * P.fv - Math.sin(P.yaw) * fx * 2.5) * dt;
-    P.pos.y += (sp * P.fv + (ctx.up ? 2 : 0) - (ctx.down ? 2 : 0)) * dt;
     const floor = heightAt(P.pos.x, P.pos.z) + 0.3;
-    P.pos.y = Math.max(floor, Math.min(P.pos.y, lvl - 0.35));
+    // salto: veloce, vicino alla superficie, Spazio → fuori dall'acqua per un attimo
+    if (!P.leap && ctx.jump && P.pos.y > lvl - 1.6 && P.fv > 3) { P.leap = true; P.vy = 4.5 + P.fv * 0.25; out.leapStart = true; }
+    if (P.leap) {
+      P.pos.y += P.vy * dt; P.vy -= 9.8 * dt;
+      if (P.vy < 0 && P.pos.y < lvl - 0.35) { P.leap = false; out.reentry = true; }
+    } else {
+      P.pos.y += (sp * P.fv + (ctx.up ? 2 : 0) - (ctx.down ? 2 : 0)) * dt;
+      P.pos.y = Math.max(floor, Math.min(P.pos.y, lvl - 0.35));
+    }
     roll = Math.sin(ctx.time * 6 * (0.3 + Math.abs(P.fv) / 8)) * 0.04;
     out.speed = Math.abs(P.fv);
     out.shallow = lvl - heightAt(P.pos.x, P.pos.z) < 0.6;
@@ -131,9 +141,11 @@ export function moveForm(form, P, ctx) {
     P.pos.y = Math.max(ground + 1.2, Math.min(P.pos.y, ground + 60));
     roll = -fx * 0.15 + Math.sin(ctx.time * 3) * 0.02;
     out.speed = P.vs;
+    // Spazio: raduni le nuvole; C: le spazzi via
+    out.cloudDelta = (ctx.jump || ctx.up ? 1 : 0) - (ctx.down ? 1 : 0);
   } else if (form === 'wave') {
     // la cresta corre verso riva; tu sei la cresta
-    P.ws = Math.min(9, (P.ws || 4) + dt * 1.5);
+    P.ws = fz < 0 ? Math.max(2, (P.ws || 4) - dt * 3) : Math.min(9, (P.ws || 4) + dt * 1.2);
     const d = P.pos.z - shoreZ(P.pos.x);
     P.pos.z += P.ws * dt * (d < 0 ? 1 : 0);
     P.pos.x += fx * 8 * dt;

@@ -149,7 +149,7 @@ export class Sound {
   _form(s, t) {
     const dtA = Math.min(0.1, t - (this.lastFT || t)); this.lastFT = t;
     const f = s.form || '', v = s.formSpeed || 0;
-    if (!this.fl) { if (!f && !s.cat) return; this._formLayers(); }
+    if (!this.fl) { if (!f && !s.cat && !s.raining) return; this._formLayers(); }
     const L = this.fl, set = (g, x, tc = 0.3) => g.gain.setTargetAtTime(x, t, tc);
     // cambio forma: la voce della forma di prima si spegne subito
     const key = f + (s.cat ? '+cat' : '');
@@ -171,9 +171,10 @@ export class Sound {
     // sabbia: il fruscio va a folate irregolari, come il vento che la spinge
     if (f === 'sand') { if (Math.random() < 0.08) L.grainF.frequency.setTargetAtTime(3800 + Math.random() * 3000, t, 0.3); set(L.grainG, (0.01 + Math.min(0.045, v * 0.005)) * (0.5 + Math.random()), 0.25); if (Math.random() < 0.05) this._grains(0.012); }
     else set(L.grainG, 0);
-    set(L.rainG, f === 'rain' ? 0.06 + Math.random() * 0.03 : 0, 0.15);
-    if (f === 'rain') this._grains(0.02, 3 + (Math.random() * 4 | 0));
-    if (f === 'rain' && Math.random() < 0.06) L.rainF.frequency.setTargetAtTime(1600 + Math.random() * 1800, t, 0.4);
+    const rainy = f === 'rain' || s.raining;
+    set(L.rainG, rainy ? (f === 'rain' ? 0.06 : 0.04) + Math.random() * 0.03 : 0, 0.15);
+    if (rainy) this._grains(f === 'rain' ? 0.02 : 0.012, 3 + (Math.random() * 4 | 0));
+    if (rainy && Math.random() < 0.06) L.rainF.frequency.setTargetAtTime(1600 + Math.random() * 1800, t, 0.4);
     set(L.purrG, s.cat && v < 0.3 ? 0.07 : 0, 0.8);
     set(L.padG, f === 'light' ? 0.02 + 0.015 * Math.sin(t * 0.21) * Math.sin(t * 0.13) : 0, 1.5);
     // in alto (nuvola, gabbiano molto alto) l'aria assorbe gli acuti del mondo sotto

@@ -25,7 +25,7 @@ import { FOCE } from './terrain.js';
 import { Motes, LightBurst } from './particles.js';
 import { FormPath } from './paths.js';
 import { buildIsland, updateIsland } from './island.js';
-import { ISLAND } from './terrain.js';
+import { ISLAND, addDune, DUNES } from './terrain.js';
 
 const Q = new URLSearchParams(location.search);
 const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
@@ -535,6 +535,10 @@ function memoryEvent(t) {
   if (p.y < lvl + 0.3 && k !== 'watch') spawnRipple(W, p.x, p.z, false);
 }
 let zoomPulse = 0, pileTick = 0;
+// gesti delle forme: ognuno si racconta la prima volta
+const acts = new Set();
+function actOnce(id, txt, t = 5) { if (acts.has(id)) return; acts.add(id); illum = Math.max(illum, 0.4); msgEl.classList.add('thought'); showMsg(txt, t); setTimeout(() => msgEl.classList.remove('thought'), t * 1000); }
+let lastDune = -9, cloudBias = 0, swell = null;
 function onFind(t) {
   sound.chime(t.i); setTimeout(() => sound.chord(), 400);
   memoryEvent(t);
@@ -897,6 +901,40 @@ function frame() {
     if (r.timeScale && !todAnim && running) tod += dt * r.timeScale / CYCLE;
     if (M === 'gull') { wings.userData.L.rotation.z = r.flap; wings.userData.R.rotation.z = -r.flap; sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.03) sound.gull((Math.random() - 0.5) * 0.4, 7); }
     if (M === 'tree') sound.wind(Math.min(1, wind.strength.value + 0.3));
+    if (M === 'fish' && r.leapStart) { sound.splash('stroke', 1); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl, player.pos.z), 40, 2); actOnce('leap', 'Salti fuori dall\'acqua: per un attimo vedi il cielo, poi torni giù.'); }
+    if (M === 'fish' && r.reentry) { sound.splash('dive', 0.7); spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl, player.pos.z), 30, 1.6); }
+    if (M === 'gull' && r.touchWater && elapsed - (player.lastDip || 0) > 1.5) {
+      player.lastDip = elapsed; sound.splash('stroke', 1.1); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl, player.pos.z), 50, 2.4); spawnRipple(W, player.pos.x, player.pos.z, night > 0.5);
+      const near = sea.fish && sea.fish.schools.some((sc) => sc.c.distanceTo(player.pos) < 12);
+      player.pos.y += 1.2;
+      if (near) { sound.gull(0, 6); actOnce('catch', 'Ti tuffi e risali con un pesce nel becco. Il mare dà da mangiare a chi lo conosce.'); }
+      else actOnce('dip', 'Sfiori l\'acqua. Dove i pesci fanno brillare il fondo, potresti pescare.');
+    }
+    if (M === 'sand' && r.dune && elapsed - lastDune > 1.2 && heightAt(player.pos.x, player.pos.z) > lvl + 0.2) {
+      lastDune = elapsed;
+      const dx = -Math.sin(player.yaw) * 3, dz = -Math.cos(player.yaw) * 3;
+      addDune(player.pos.x + dx, player.pos.z + dz, 4 + Math.random() * 2.5, 0.7 + Math.random() * 0.5); terrain.rebuild();
+      spray.burst(new THREE.Vector3(player.pos.x + dx, player.pos.y, player.pos.z + dz), 120, 2.4); sound.wind(1);
+      actOnce('dune', 'Ti ammucchi nel vento: nasce una duna. Il paesaggio cambia anche per mano tua.');
+    }
+    if (M === 'wind' && r.cloudDelta) {
+      cloudBias = THREE.MathUtils.clamp(cloudBias + r.cloudDelta * dt * 0.18, -0.55, 0.65);
+      if (cloudBias > 0.35) actOnce('gather', 'Spingi le nuvole una contro l\'altra: il cielo si chiude, e comincia a piovere.');
+      if (cloudBias < -0.35) actOnce('clear', 'Spazzi via le nuvole: torna il sereno, e la luce cade sul mare.');
+    }
+    if (M === 'wave') {
+      // dietro di te arriva un'onda più grande: lasciati raggiungere per unirti
+      if (!swell || elapsed - swell.t0 > 14) {
+        swell = { x: player.pos.x + (Math.random() - 0.5) * 10, z: player.pos.z - 30, t0: elapsed, merged: false };
+        const R = waterUniforms.uRings.value[ringI++ % 4]; R.set(swell.x, swell.z, elapsed, 1.7);
+        if (!acts.has('swellHint')) { acts.add('swellHint'); setTimeout(() => showMsg('Alle tue spalle arriva un\'onda più grande. Rallenta (indietro), lasciati raggiungere.', 5), 2000); }
+      }
+      const front = (elapsed - swell.t0) * 7, dd = Math.abs(Math.hypot(player.pos.x - swell.x, player.pos.z - swell.z) - front);
+      if (!swell.merged && dd < 3.5 && elapsed - swell.t0 > 2) {
+        swell.merged = true; player.wsize = Math.min(3, (player.wsize || 1) + 0.8); player.ws = Math.min(9, (player.ws || 4) + 2.5);
+        sound.splash('dive', 1.3); camDip = 0.2; actOnce('merge', 'Ti unisci a un\'onda più grande: ora sei più alta, e più forte.');
+      }
+    }
     if (M === 'fish' && r.shallow) { player.mode = 'walk'; player.pos.y = heightAt(player.pos.x, player.pos.z); showMsg('Il fondo sale, e torni sulla riva.', 3); }
     if (M === 'rain' && r.landed) {
       const deep = lvl - heightAt(player.pos.x, player.pos.z) > 1.3;
@@ -908,7 +946,7 @@ function frame() {
     if (M === 'sand' && r.inWater) { addRing(player.pos.x, player.pos.z, 0.4); player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; toggleFlow(); showMsg('La sabbia scivola in acqua, e tu con lei.', 3); }
     if (M === 'wave') {
       const T = waterUniforms.uTrail.value; if (Math.random() < dt * 6) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, r.size || 1);
-      if (!player.waveHint) { player.waveHint = true; setTimeout(() => showMsg(isTouch ? 'Avanti per crescere, indietro per farti piccola, ai lati per piegare.' : 'W per crescere · S per farti piccola · A e D per piegare.', 5), 6500); }
+      if (!player.waveHint) { player.waveHint = true; setTimeout(() => showMsg(isTouch ? 'Avanti per crescere e correre, indietro per rallentare e farti piccola, ai lati per piegare.' : 'W cresci e corri · S rallenti e ti fai piccola · A e D pieghi.', 5), 6500); }
       if (r.broke && player.questWave) {
         player.questWave = false;
         addRing(player.pos.x, player.pos.z - 2, 0.6 * (player.wsize || 1)); sound.splash('dive', 1.4);
@@ -1032,7 +1070,7 @@ function frame() {
       setTimeout(() => { msgEl.classList.add('thought'); showMsg('Lontano, al largo, c\'è un\'isola secca che aspetta la pioggia. Portaci la nuvola, poi piovi (Q).', 7); setTimeout(() => msgEl.classList.remove('thought'), 7000); discZone = { x: ISLAND.x, z: ISLAND.z, r: 110 }; }, 5000);
     }
     const overIsle = Math.hypot(player.pos.x - ISLAND.x, player.pos.z - ISLAND.z) < ISLAND.r * 1.15;
-    const bl = updateIsland(island, { dt, raining: player.mode === 'rain' && overIsle, wind: wind.dir, time: elapsed });
+    const bl = updateIsland(island, { dt, raining: (player.mode === 'rain' || (player.mode === 'wind' && cloudBias > 0.35)) && overIsle, wind: wind.dir, time: elapsed });
     islandUniforms.uBloom.value = bl;
     if (island.started && isleQ < 2) { isleQ = 2; discZone = null; setTimeout(() => showMsg('Piovi sull\'isola. La terra beve, e qualcosa si sveglia.', 5), 1500); }
     if (island.done && isleQ === 2 && player.mode !== 'rain') {
@@ -1134,7 +1172,7 @@ function frame() {
   updateExplore(explore, dt, elapsed, {
     player: player.pos, eye: camera.position, water: lvl, under, night,
     inSea: ['swim', 'dive', 'boat', 'sup', 'flow'].includes(player.mode),
-    splash: (p) => { spawnRipple(W, p.x, p.z, night > 0.5); if (p.distanceTo(camera.position) < 80) sound.splash('stroke', 0.6); },
+    splash: (p) => { spawnRipple(W, p.x, p.z, night > 0.5); const dd = p.distanceTo(camera.position); if (dd < 80) sound.splash('stroke', 0.6 * 10 / (dd + 10)); },
     onMeteor: () => { if (!seenMeteor) { seenMeteor = true; onDiscover('stella'); } },
     onDiscover,
   });
@@ -1176,7 +1214,8 @@ function frame() {
   U.uCamPos.value.copy(camera.position);
   const todN = ((tod % 1) + 1) % 1;
   const slow = Math.sin(elapsed * 0.013) * 0.5 + Math.sin(elapsed * 0.0071 + 2) * 0.5;
-  U.uCloud.value = Q.has('clouds') ? num('clouds', 0.4) : THREE.MathUtils.clamp(0.2 + 0.28 * slow, 0.0, 0.7);
+  if (player.mode !== 'wind') cloudBias *= Math.pow(0.97, dt);
+  U.uCloud.value = Q.has('clouds') ? num('clouds', 0.4) : THREE.MathUtils.clamp(0.2 + 0.28 * slow + cloudBias, 0.0, 0.95);
   U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
   const alto = Q.has('alto') ? num('alto', 1) : THREE.MathUtils.clamp(Math.sin(elapsed * 0.0045 + 2.2) * 1.4 - 0.5, 0, 1);
   U.uAlto.value = alto;
@@ -1275,7 +1314,7 @@ function frame() {
       speed: Math.max(hs, player.mode === 'glide' ? craft.glider.speed : 0), night, under,
       trees: Math.min(1, trees / 6), reverb: inShed ? 0.55 : underMolo ? 0.4 : 0.04,
       exposure: (player.pos.y > 25 || dS < -60) ? 1.4 : 1,
-      form: FORMS.includes(player.mode) || player.mode === 'flow' ? player.mode : '', cat: player.cat && player.mode === 'walk',
+      form: FORMS.includes(player.mode) || player.mode === 'flow' ? player.mode : '', cat: player.cat && player.mode === 'walk', raining: cloudBias > 0.35,
       formSpeed: player.mode === 'flow' || player.mode === 'fish' ? Math.max(hs, player.fv || 0) : player.mode === 'wave' ? 9 * Math.min(1.4, (player.wsize || 1) * 0.6) : hs,
       flapRate: player.mode === 'gull' ? (fz > 0 || upK ? 10 / (2 * Math.PI) : 0.12) : 0,
     });
@@ -1320,7 +1359,7 @@ function frame() {
     camera.fov = camera.userData.fov0 * (1 - 0.55 * Math.sin(Math.PI * (1 - zoomPulse)));
     camera.updateProjectionMatrix();
   }
-  motes.update(dt, elapsed, camera.position, under ? 'snow' : player.mode === 'rain' ? 'rain' : player.mode === 'light' ? 'light' : '', underDeep, wind.dir, renderer.domElement.height);
+  motes.update(dt, elapsed, camera.position, under ? 'snow' : player.mode === 'rain' || cloudBias > 0.35 ? 'rain' : player.mode === 'light' ? 'light' : '', underDeep, wind.dir, renderer.domElement.height);
   // mappa
   minimap.draw({
     player: player.pos, yaw: player.yaw, foce: FOCE, island: ISLAND, bloom: island.bloom,
@@ -1393,4 +1432,4 @@ if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, pla
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };

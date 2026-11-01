@@ -79,8 +79,12 @@ export function islandK(x, z) {
   const hill = 30 * Math.exp(-((rho / 62) ** 2)) + 9 * Math.exp(-(((dx + 30) ** 2 + (dz - 25) ** 2) / 1600)) + fbm(x * 0.05, z * 0.05, 3) * 2.2;
   return { k, h: 1.0 + hill * smooth(ISLAND.r * 0.95, ISLAND.r * 0.45, rho), rho };
 }
+// dune che la sabbia (da forma) ammucchia
+export const DUNES = [];
+export function addDune(x, z, r, h) { DUNES.push({ x, z, r, h: 0, H: h }); if (DUNES.length > 14) DUNES.shift(); }
 export function heightAt(x, z) {
-  const hi = heightAt0(x, z);
+  let hi = heightAt0(x, z);
+  for (let i = 0; i < DUNES.length; i++) { const D = DUNES[i], q = ((x - D.x) ** 2 + (z - D.z) ** 2) / (D.r * D.r); if (q < 1) { const k = 1 - q; hi += D.h * k * k * (1 + 0.25 * Math.sin(x * 0.7 + z * 0.4)); } }
   if (z > -300) return hi;
   const I = islandK(x, z);
   return I.k > 0 ? hi * (1 - I.k) + I.h * I.k : hi;
@@ -211,6 +215,7 @@ export class Terrain {
     geo.attributes.color.needsUpdate = true;
   }
 
+  rebuild() { if (!this.job && this.cx !== null) this.job = { cx: this.cx, cz: this.cz, row: 0 }; }
   update(px, pz, force = false) {
     const step = 9;
     const cx = Math.round(px / step) * step, cz = Math.round(pz / step) * step;
