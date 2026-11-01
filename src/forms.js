@@ -139,8 +139,12 @@ export function moveForm(form, P, ctx) {
     P.pos.x += fx * 8 * dt;
     if (ctx.target) P.pos.x += Math.sign(ctx.target.x - P.pos.x) * Math.min(Math.abs(ctx.target.x - P.pos.x), 7 * dt);
     const depth = lvl - heightAt(P.pos.x, P.pos.z);
-    const lift = 0.6 + 0.8 * Math.max(0, 1 - Math.min(depth, 6) / 6);
-    P.pos.y = lvl + lift + Math.sin(ctx.time * 1.7) * 0.05;
+    // avanti cresci, indietro ti fai piccola: un'onda grande è lenta e alta, una piccola corre bassa
+    P.wsize = Math.max(0.35, Math.min(3, (P.wsize || 1) + fz * dt * 0.7));
+    P.ws = Math.min(9 / Math.sqrt(P.wsize), P.ws);
+    const lift = (0.45 + 0.8 * Math.max(0, 1 - Math.min(depth, 6) / 6)) * P.wsize + 0.2;
+    P.pos.y = lvl + lift + Math.sin(ctx.time * 1.7) * 0.05 * P.wsize;
+    out.size = P.wsize;
     P.yaw += (Math.PI - P.yaw + Math.PI * 2 * Math.round((P.yaw - Math.PI) / (Math.PI * 2))) * Math.min(1, dt * 0.5) * 0; // libera
     out.speed = P.ws;
     out.broke = depth < 0.5;

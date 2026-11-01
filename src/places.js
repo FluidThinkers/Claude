@@ -546,7 +546,9 @@ export function updatePlaces(P, dt, time, ctx) {
       t.sp.material.opacity = (0.3 + 0.7 * tw) * vis * lightK;
       t.sp.scale.setScalar(0.024 + 0.032 * tw);
       nd = d;
-      if (d < (ctx.reach || 2.7) && t.appear > 0.5) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
+      const dh = Math.hypot(t.pos.x - ctx.eye.x, t.pos.z - ctx.eye.z), dv = Math.abs(t.pos.y - ctx.eye.y);
+      const close = ctx.reach > 2.7 ? (dh < ctx.reach && dv < 9) : d < 2.7;
+      if (close && t.appear > 0.5 && !ctx.locked) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
     } else t.sp.material.opacity = 0;
     if (t.flame) {
       const fl = 0.85 + 0.15 * Math.sin(time * 17 + t.ph) * Math.sin(time * 9.1);

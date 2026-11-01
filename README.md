@@ -120,6 +120,9 @@ Dopo il pensiero diventi, nel punto esatto in cui sei, la cosa giusta per arriva
 9. Il binocolo → **deltaplano** verso la bandiera. Dopo l'incontro diventi **luce**, poi resti libero di esplorare.
 - Sulla mappa c'è solo il prossimo ricordo, verde e pulsante, con una freccia che lo indica; quelli già trovati spariscono. Nel mondo una colonna di luce verde lo segnala da lontano.
 - In ogni luogo del ricordo succede qualcosa: la luce si libera a spirale, e poi la candela alza la sabbia e i gabbiani, il libro e la lettera volano via nel vento, il cappello se lo porta il vento, l'orologio riprende a ticchettare tra le bolle, la lanterna illumina tutto, il binocolo avvicina lo sguardo.
+- Ogni forma ha un **percorso** prima del ricordo: correnti d'aria (anelli di luce che girano) per gabbiano, nuvola e deltaplano, mulinelli di sabbia, cerchi di luce sul mare, colonne di bolle sul fondo per il pesce. Il ricordo si lascia prendere solo alla fine; la freccia in alto e la mappa indicano il passaggio successivo.
+- Da **onda** puoi crescere (avanti) o farti piccola (indietro).
+- Dove l'acqua tocca pali, piloni, scafi o te stesso si aprono anelli di increspature e una scia di schiuma.
 - Ogni trasformazione è annunciata («Qualcosa cambia…»), avviene lenta in una luce chiara, e poi un pensiero spiega perché sei quella cosa e cosa devi cercare.
 
 **Il viaggio dell'acqua (l'isola)**

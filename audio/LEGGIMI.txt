@@ -1,0 +1,4 @@
+Campioni audio veri (opzionali).
+Metti qui i file (m4a o mp3, mono, 44.1 kHz) e un manifest.json, per esempio:
+{ "gull": ["gull1.m4a", "gull2.m4a", "gull3.m4a"] }
+Se non ci sono, il gioco usa i suoni sintetizzati.

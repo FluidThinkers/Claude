@@ -206,6 +206,7 @@ export const waterUniforms = {
   uTrail: { value: Array.from({ length: 24 }, () => new THREE.Vector4(0, 0, -100, 0)) },
   uTrailBox: { value: new THREE.Vector3(0, 0, -1) },
   uRingBox: { value: new THREE.Vector3(0, 0, -1) },
+  uPiles: { value: Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 0, 0)) },
   uRings: { value: [new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0)] },
   uWindDir: { value: new THREE.Vector2(0.6, -0.8) },
   uUnderFog: { value: 0.06 },
@@ -303,6 +304,7 @@ export function makeWater() {
       uniform vec3 uUnderCol;
       uniform float uFog, uUnderFog, uWindK;
       uniform vec2 uWindDir;
+      uniform vec4 uPiles[16];
       varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing; varying float vTrail;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
       void main(){
@@ -338,6 +340,22 @@ export function makeWater() {
         float gust = smoothstep(0.45, 0.8, vn(gp) * 0.7 + vn(gp * 2.3 + 7.0) * 0.3) * uWindK;
         vec2 q2 = p * 7.0 + uWindDir * uTime * 1.6;
         g += vec2(vn(q2 + vec2(e,0)) - vn(q2 - vec2(e,0)), vn(q2 + vec2(0,e)) - vn(q2 - vec2(0,e))) / (2.0*e) * (0.008 + gust * 0.05);
+        // dove l'acqua tocca pali, piloni, scafi: anelli che si aprono e una scia verso riva
+        float pileFoam = 0.0;
+        for (int i = 0; i < 16; i++) {
+          vec4 P = uPiles[i];
+          if (P.z <= 0.0) continue;
+          vec2 dv = p - P.xy; float rr = length(dv);
+          float dd = rr - P.z;
+          if (dd > 7.0 * P.w + 4.0) continue;
+          vec2 dir = dv / max(rr, 0.001);
+          float k = exp(-max(dd, 0.0) * 0.55 / max(P.w, 0.5));
+          g += dir * cos(dd * 7.0 - uTime * 4.2 + P.x) * k * 0.09;
+          g += dir * cos(dd * 3.1 - uTime * 2.3) * k * 0.05;
+          // schiuma attaccata al palo, sfilacciata, e una scia che il moto ondoso spinge verso riva
+          float wake = exp(-abs(dv.x) * 1.4 / max(P.z, 0.3)) * smoothstep(0.0, 0.5, dv.y) * exp(-dv.y * 0.35);
+          pileFoam = max(pileFoam, (exp(-max(dd, 0.0) * 4.0) * 0.85 + wake * 0.5) * (0.45 + 0.55 * vn(p * 5.0 + vec2(0.0, uTime * 0.7))));
+        }
         // lo Specchio: acqua perfettamente immobile
         float mir = 0.0;
         if (uMirror.z > 0.0) mir = 1.0 - smoothstep(uMirror.z * 0.75, uMirror.z, length(p - uMirror.xy));
@@ -399,6 +417,7 @@ export function makeWater() {
         // schiuma della scia, sfilacciata
         float tl = 1.0 - smoothstep(0.0, 0.12, abs(vn(vW.xz * 2.2 + uTime * 0.3) - 0.5));
         foam = max(foam, vTrail * (0.45 + 0.55 * max(brkUp, tl)));
+        foam = max(foam, pileFoam * smoothstep(0.35, 0.75, vn(p * 3.3 - uTime * 0.25) * 0.5 + pileFoam * 0.7));
         foam = clamp(foam, 0.0, 1.0);
         // l'onda che si alza diventa verde-azzurra e traslucida contro la luce
         float rise = brk * smoothstep(0.7, 0.97, sP);

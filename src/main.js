@@ -23,6 +23,7 @@ import { FORM_TEXT, gullWings, moveForm } from './forms.js';
 import { SCOGLIERA, PERGOLA, BARCA, TORRETTA, BELVEDERE } from './places.js';
 import { FOCE } from './terrain.js';
 import { Motes, LightBurst } from './particles.js';
+import { FormPath } from './paths.js';
 import { buildIsland, updateIsland } from './island.js';
 import { ISLAND } from './terrain.js';
 
@@ -73,12 +74,32 @@ scene.add(hemi);
 const glowTex = glowTexture();
 const motes = new Motes(scene, glowTex);
 const burst = new LightBurst(scene, glowTex);
+const fpath = new FormPath(scene, glowTex);
 const island = buildIsland(scene);
 // colonna di luce sopra il prossimo ricordo: si vede da lontano, svanisce quando sei vicino
-const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 60, 16, 1, true), new THREE.ShaderMaterial({
-  uniforms: { uOp: { value: 0 }, uTime: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-  vertexShader: 'varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }',
-  fragmentShader: 'uniform float uOp, uTime; varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(1.0 - abs(dot(normalize(vN.xz), normalize(vV.xz))), 0.5); float h = vUv.y; float a = (1.0 - rim) * pow(1.0 - h, 1.6) * smoothstep(0.0, 0.03, h) * (0.85 + 0.15 * sin(uTime * 2.0 - h * 20.0)); gl_FragColor = vec4(vec3(0.62, 1.0, 0.66) * a * uOp, 1.0); }',
+const beam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 1), new THREE.ShaderMaterial({
+  // un fascio di luce morbido, sempre rivolto verso chi guarda (niente facce che si sovrappongono)
+  uniforms: { uOp: { value: 0 }, uTime: { value: 0 }, uW: { value: 2.4 }, uH: { value: 70 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `uniform float uW, uH; varying vec2 vUv;
+    void main(){ vUv = uv;
+      vec3 base = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+      vec3 toCam = cameraPosition - base; toCam.y = 0.0; toCam = normalize(toCam);
+      vec3 side = normalize(cross(vec3(0.0, 1.0, 0.0), toCam));
+      vec3 w = base + side * position.x * uW + vec3(0.0, (position.y + 0.5) * uH, 0.0);
+      gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+  fragmentShader: `uniform float uOp, uTime; varying vec2 vUv;
+    float h21(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+    float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f); return mix(mix(h21(i), h21(i+vec2(1,0)), u.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), u.x), u.y); }
+    void main(){
+      float x = vUv.x * 2.0 - 1.0, h = vUv.y;
+      float prof = exp(-x * x * 22.0) * 0.8 + exp(-x * x * 4.0) * 0.35;
+      float vert = smoothstep(0.0, 0.025, h) * pow(1.0 - h, 1.7);
+      // polvere luminosa che sale lenta dentro il fascio
+      float dust = vn(vec2(x * 7.0, h * 40.0 - uTime * 0.9)) * vn(vec2(x * 3.0 + 4.0, h * 13.0 - uTime * 0.4));
+      float a = prof * vert * (0.7 + 0.6 * dust) + exp(-x * x * 9.0) * exp(-h * 40.0) * 0.6;
+      vec3 c = mix(vec3(1.0, 0.92, 0.72), vec3(0.72, 1.0, 0.78), smoothstep(0.0, 0.5, h));
+      gl_FragColor = vec4(c * a * uOp, 1.0);
+    }`,
 }));
 beam.frustumCulled = false; scene.add(beam);
 let isleQ = 0, lastFO = null;
@@ -123,6 +144,21 @@ const phys = new Physics();
 }
 phys.add(explore.raft.x, explore.raft.z, 2.0, 0.5);
 phys.add(explore.buoy.g.position.x, explore.buoy.g.position.z, 0.9, 1.5);
+// tutto ciò che sta piantato nell'acqua: l'acqua ci gira attorno
+const WATER_PILES = phys.statics.filter((c) => waterUniforms.uLevel.value - heightAt(c.x, c.z) > 0.08).map((c) => ({ x: c.x, z: c.z, r: c.r, w: 1 }));
+const pileTmp = [];
+function updatePiles() {
+  const cx = camera.position.x, cz = camera.position.z;
+  pileTmp.length = 0;
+  for (const c of WATER_PILES) { const d = Math.abs(c.x - cx) + Math.abs(c.z - cz); if (d < 140) pileTmp.push([d, c]); }
+  // scafi che galleggiano
+  for (const S of craft.ships) pileTmp.push([Math.abs(S.g.position.x - cx) + Math.abs(S.g.position.z - cz), { x: S.g.position.x, z: S.g.position.z, r: S.kind === 'ferry' ? 6 : 2.2, w: 3 }]);
+  pileTmp.push([Math.abs(craft.boat.g.position.x - cx) + Math.abs(craft.boat.g.position.z - cz), { x: craft.boat.g.position.x, z: craft.boat.g.position.z, r: 1.2, w: 1.5 }]);
+  if (['swim', 'flow', 'sup'].includes(player.mode) || (player.mode === 'walk' && waterUniforms.uLevel.value - heightAt(player.pos.x, player.pos.z) > 0.15)) pileTmp.push([0, { x: player.pos.x, z: player.pos.z, r: 0.35, w: 1 }]);
+  pileTmp.sort((a, b) => a[0] - b[0]);
+  const U = waterUniforms.uPiles.value;
+  for (let i = 0; i < 16; i++) { const e = pileTmp[i]; if (e && e[0] < 160) U[i].set(e[1].x, e[1].z, e[1].r, e[1].w); else U[i].set(0, 0, 0, 0); }
+}
 const shipCircles = () => {
   const out = [];
   for (const S of craft.ships) {
@@ -439,11 +475,13 @@ let hintKey = '';
 function updateHint() {
   const n = places.traces.length, key = places.found + '/' + active;
   if (key !== hintKey) { hintKey = key; hintDots.innerHTML = places.traces.map((t, i) => `<i class="${t.found ? 'f' : i === active ? 'n' : ''}"></i>`).join(''); }
-  const tgt = active < n ? places.traces[active].pos : zone;
+  const cpn = fpath.next;
+  const tgt = cpn || (active < n ? places.traces[active].pos : zone);
   if (!started || !tgt || sitting) { hintEl.classList.remove('on'); return; }
   hintEl.classList.add('on');
   const dx = tgt.x - player.pos.x, dz = tgt.z - player.pos.z, d = Math.hypot(dx, dz);
   const near = active < n ? Math.hypot(places.traces[active].pos.x - player.pos.x, places.traces[active].pos.z - player.pos.z) : d;
+  if (cpn) { hintAr.style.opacity = 1; let rl = Math.atan2(-(cpn.x - player.pos.x), -(cpn.z - player.pos.z)) - player.yaw; rl = Math.atan2(Math.sin(rl), Math.cos(rl)); hintAr.style.transform = `rotate(${(-rl).toFixed(3)}rad)`; hintDs.textContent = 'passaggio ' + (fpath.i + 1) + ' di ' + fpath.cps.length + ' · ' + Math.round(d) + ' m'; return; }
   if (near < 22 && active < n) { hintAr.style.opacity = 0.25; hintDs.textContent = 'qui vicino · un riflesso'; return; }
   hintAr.style.opacity = 1;
   let rel = Math.atan2(-dx, -dz) - player.yaw; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
@@ -496,7 +534,7 @@ function memoryEvent(t) {
   if (k === 'binoculars') { zoomPulse = 1; }
   if (p.y < lvl + 0.3 && k !== 'watch') spawnRipple(W, p.x, p.z, false);
 }
-let zoomPulse = 0;
+let zoomPulse = 0, pileTick = 0;
 function onFind(t) {
   sound.chime(t.i); setTimeout(() => sound.chord(), 400);
   memoryEvent(t);
@@ -627,7 +665,7 @@ function enterForm(f) {
 }
 // tornare corpo: sempre dove sei adesso, mai dove eri prima
 function returnToBody() {
-  body = null;
+  body = null; fpath.clear();
   if (player.cat) { player.cat = false; showMsg('Torni corpo.', 2.5); fade = 0.5; return; }
   if (player.mode === 'flow') { toggleFlow(); return; }
   if (!FORMS.includes(player.mode)) return;
@@ -688,6 +726,12 @@ function applyForm(form) {
     const G = craft.glider; G.g.position.set(player.pos.x, player.pos.y + 2.5, player.pos.z);
     player.yaw = Math.atan2(-(18 - player.pos.x), -(shoreZ(18) - player.pos.z)); sitting = null;
     player.pos.y += 1.5; launchGlider(); G.speed = 12;
+  }
+  // il percorso di questa forma fino al prossimo ricordo
+  const nt = places.traces[active];
+  if (nt && fpath.build(form === 'body' ? 'body' : form, player.pos.clone(), nt.pos, waterUniforms.uLevel.value, { cloudY: player.cloudY })) {
+    const PATH_TXT = { gull: 'Segui le correnti d\'aria: passaci attraverso, ti portano.', sand: 'Segui i mulinelli: il vento ti porta da uno all\'altro.', fish: 'Segui le colonne di bolle, giù verso il fondo.', wave: 'Passa nei cerchi di luce sul mare.', cloud: 'Unisciti alle altre nuvole, una dopo l\'altra.', cat: 'Segui i piccoli mulinelli tra i sassi.', glide: 'Passa negli anelli d\'aria calda: ti tengono su.' };
+    setTimeout(() => { echoEl.textContent = PATH_TXT[form] || 'Segui il percorso.'; echoEl.classList.add('on'); clearTimeout(echo.t); echo.t = setTimeout(() => echoEl.classList.remove('on'), 9000); }, 21000);
   }
 }
 
@@ -863,10 +907,11 @@ function frame() {
     }
     if (M === 'sand' && r.inWater) { addRing(player.pos.x, player.pos.z, 0.4); player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; toggleFlow(); showMsg('La sabbia scivola in acqua, e tu con lei.', 3); }
     if (M === 'wave') {
-      const T = waterUniforms.uTrail.value; if (Math.random() < dt * 6) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, 1);
+      const T = waterUniforms.uTrail.value; if (Math.random() < dt * 6) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, r.size || 1);
+      if (!player.waveHint) { player.waveHint = true; setTimeout(() => showMsg(isTouch ? 'Avanti per crescere, indietro per farti piccola, ai lati per piegare.' : 'W per crescere · S per farti piccola · A e D per piegare.', 5), 6500); }
       if (r.broke && player.questWave) {
         player.questWave = false;
-        addRing(player.pos.x, player.pos.z - 2, 0.9); sound.splash('dive', 1.4);
+        addRing(player.pos.x, player.pos.z - 2, 0.6 * (player.wsize || 1)); sound.splash('dive', 1.4);
         player.mode = 'walk'; player.pos.z += 2; player.pos.y = groundAt(player.pos.x, player.pos.z, 3);
         showMsg('L\'onda si rompe e ti lascia sulla riva.', 3.5);
       } else if (r.broke) {
@@ -1208,7 +1253,7 @@ function frame() {
   });
   updateWisp(dt);
   illum = Math.max(0, illum - dt * 0.25);
-  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind, windDir: wind.dir,
+  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind, windDir: wind.dir, locked: fpath.active,
     reach: ['gull', 'cloud', 'rain', 'wave'].includes(player.mode) ? 7 : FORMS.includes(player.mode) || player.mode === 'flow' ? 4 : 2.7 });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
@@ -1231,7 +1276,7 @@ function frame() {
       trees: Math.min(1, trees / 6), reverb: inShed ? 0.55 : underMolo ? 0.4 : 0.04,
       exposure: (player.pos.y > 25 || dS < -60) ? 1.4 : 1,
       form: FORMS.includes(player.mode) || player.mode === 'flow' ? player.mode : '', cat: player.cat && player.mode === 'walk',
-      formSpeed: player.mode === 'flow' || player.mode === 'fish' ? Math.max(hs, player.fv || 0) : player.mode === 'wave' ? (player.ws || 0) : hs,
+      formSpeed: player.mode === 'flow' || player.mode === 'fish' ? Math.max(hs, player.fv || 0) : player.mode === 'wave' ? 9 * Math.min(1.4, (player.wsize || 1) * 0.6) : hs,
       flapRate: player.mode === 'gull' ? (fz > 0 || upK ? 10 / (2 * Math.PI) : 0.12) : 0,
     });
   }
@@ -1251,11 +1296,23 @@ function frame() {
   {
     const t = places.traces[active];
     let op = 0;
-    if (t && started) { const d = Math.hypot(t.pos.x - camera.position.x, t.pos.z - camera.position.z); op = THREE.MathUtils.smoothstep(d, 12, 45) * (0.5 + 0.5 * night) * 0.9; beam.position.set(t.pos.x, t.pos.y + 29.5, t.pos.z); beam.scale.setScalar(1 + d / 250); beam.scale.y = 1; }
+    if (t && started) { const d = Math.hypot(t.pos.x - camera.position.x, t.pos.z - camera.position.z); op = THREE.MathUtils.smoothstep(d, 10, 40) * (0.55 + 0.45 * night) * 0.8; beam.position.set(t.pos.x, t.pos.y - 0.2, t.pos.z); beam.material.uniforms.uW.value = 2.2 + d / 120; }
     beam.material.uniforms.uOp.value += (op - beam.material.uniforms.uOp.value) * Math.min(1, dt * 2);
     beam.material.uniforms.uTime.value = elapsed; beam.visible = beam.material.uniforms.uOp.value > 0.01;
   }
   burst.update(dt, wind.dir);
+  {
+    const pi = fpath.update(dt, elapsed, player.mode === 'walk' || player.mode === 'swim' ? player.pos : camera.position, true);
+    if (pi >= 0) {
+      const c = fpath.cps[pi];
+      burst.burst(new THREE.Vector3(c.x, c.y, c.z), 50); sound.chime(2 + pi);
+      if (player.mode === 'gull') player.gs = (player.gs || 11) + 5;
+      if (player.mode === 'fish') player.fv = (player.fv || 0) + 3;
+      if (player.mode === 'wave') player.ws = Math.min(9, (player.ws || 4) + 2);
+      if (!fpath.active) { illum = Math.max(illum, 0.6); showMsg('Il percorso è finito: ora il ricordo si lascia trovare.', 4); }
+    }
+  }
+  if ((pileTick = (pileTick + 1) % 4) === 0) updatePiles();
   if (zoomPulse > 0) {
     // il binocolo: per un attimo lo sguardo si avvicina a ciò che vede
     zoomPulse = Math.max(0, zoomPulse - dt / 5);
@@ -1267,7 +1324,7 @@ function frame() {
   // mappa
   minimap.draw({
     player: player.pos, yaw: player.yaw, foce: FOCE, island: ISLAND, bloom: island.bloom,
-    next: active < places.traces.length ? { x: places.traces[active].pos.x, z: places.traces[active].pos.z } : (zone && active >= places.traces.length ? zone : null),
+    next: fpath.next ? { x: fpath.next.x, z: fpath.next.z } : active < places.traces.length ? { x: places.traces[active].pos.x, z: places.traces[active].pos.z } : (zone && active >= places.traces.length ? zone : null),
     molo: [{ x: MOLO.x, z: MOLO.z0 + MOLO.from }, { x: MOLO.x, z: MOLO.z0 + MOLO.from - MOLO.n * MOLO.seg }],
     pontile: [{ x: PONTILE.x, z: PONTILE.z0 + PONTILE.from }, { x: PONTILE.x, z: PONTILE.z0 + PONTILE.to }],
     scogliera: [{ x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.from }, { x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.to }],
@@ -1336,4 +1393,4 @@ if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, pla
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };

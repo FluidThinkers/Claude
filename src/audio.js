@@ -37,6 +37,7 @@ export class Sound {
   start() {
     if (this.ctx) { this.ctx.resume(); return; }
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    setTimeout(() => this.loadSamples(), 500);
     this.buf = { white: noiseBuffer(ctx, 3, 'white'), pink: noiseBuffer(ctx, 5, 'pink'), brown: noiseBuffer(ctx, 5, 'brown') };
 
     // catena: tutto -> master -> (filtro sott'acqua) -> compressore -> uscita, con mandata al riverbero
@@ -382,9 +383,33 @@ export class Sound {
     }
   }
 
+  // campioni veri: se nella cartella audio/ c'è manifest.json con { "gull": ["gull1.m4a", ...] } li usa
+  async loadSamples() {
+    if (this.samples || !this.ctx) return;
+    this.samples = {};
+    try {
+      const r = await fetch('audio/manifest.json'); if (!r.ok) return;
+      const man = await r.json();
+      for (const [k, list] of Object.entries(man)) {
+        this.samples[k] = [];
+        for (const f of list) { try { const b = await (await fetch('audio/' + f)).arrayBuffer(); this.samples[k].push(await this.ctx.decodeAudioData(b)); } catch (e) { /* file mancante */ } }
+      }
+    } catch (e) { /* nessun campione: resta la sintesi */ }
+  }
+  _sample(k, pan, dist, vol = 1) {
+    const L = this.samples && this.samples[k];
+    if (!L || !L.length) return false;
+    const ctx = this.ctx, { lp, gain } = this.mk;
+    const s = ctx.createBufferSource(); s.buffer = L[(Math.random() * L.length) | 0];
+    s.playbackRate.value = 0.92 + Math.random() * 0.16;
+    const f = lp(Math.max(1200, 14000 - dist * 90)), g = gain(Math.min(0.9, 6 / (dist + 6)) * vol);
+    s.connect(f); f.connect(g); g.connect(this._pan(pan)); s.start();
+    return true;
+  }
   // gabbiano reale (gabbiano reale mediterraneo): un lungo «kiàu» nasale e roco, poi una serie di «ha-ha-ha»
   gull(pan = 0, dist = 30) {
     if (!this.ctx) return;
+    if (this._sample('gull', pan, dist)) return;
     const ctx = this.ctx, { bp, lp, hp, gain } = this.mk;
     const vol = Math.min(0.09, 2.0 / (dist + 8));
     if (vol < 0.006) return;
