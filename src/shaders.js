@@ -497,6 +497,17 @@ export function enhanceSand(material) {
         roughnessFactor = mix(roughnessFactor, 0.16, wet * 0.8);
         roughnessFactor = mix(roughnessFactor, 0.05, puddle * 0.7);
       }`)
+      .replace('#include <fog_fragment>', /* glsl */`
+      #ifdef USE_FOG
+      {
+        // prospettiva aerea: la foschia sta in basso; le montagne restano leggibili e virano all'azzurro, non al bianco
+        float hk = exp(-max(vWPos.y - 3.0, 0.0) / 80.0);
+        float fde = fogDensity * mix(0.5, 1.0, hk);
+        float ff = 1.0 - exp(-fde * fde * vFogDepth * vFogDepth);
+        vec3 fc = mix(fogColor, fogColor * vec3(0.7, 0.8, 0.97), 0.6 * (1.0 - hk));
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fc, ff * mix(0.82, 1.0, hk));
+      }
+      #endif`)
       .replace('#include <lights_fragment_end>', /* glsl */`#include <lights_fragment_end>
       {
         float csh = mix(1.0, cloudShadow(vWPos, uSunDir), uSunVis);

@@ -30,6 +30,7 @@
   #map.big { width: min(78vw, 78vh); height: min(78vw, 78vh); border-radius: 12px; top: 50%; right: 50%; transform: translate(50%, -50%); }
   #goal { top: 100px; left: 34px; max-width: min(320px, 60vw); font-size: 14px; font-style: italic; line-height: 1.45; letter-spacing: .03em; }
   #goal.on { opacity: .82; }
+  #resetBtn { display: block; margin: 34px auto 6px; padding: 10px 20px; font: italic 14px Georgia, serif; letter-spacing: .05em; color: #3b2f22; background: rgba(255,250,240,.6); border: 1px solid rgba(80,60,40,.35); border-radius: 22px; cursor: pointer; }
   #hint { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; opacity: 0; transition: opacity 1.2s; font-family: system-ui, sans-serif; color: #fff7ea; text-shadow: 0 0 10px rgba(0,0,0,.45); z-index: 5; }
   #hint.on { opacity: .85; }
   #hint .ar { width: 22px; height: 22px; transition: transform .25s linear; filter: drop-shadow(0 0 4px rgba(0,0,0,.4)); }
@@ -85,7 +86,7 @@
 <div id="goal" class="hud"></div>
 <div id="hint"><svg class="ar" viewBox="0 0 24 24"><path d="M12 3 L19 17 L12 13.5 L5 17 Z" fill="rgba(150,240,160,.95)" stroke="rgba(0,0,0,.35)" stroke-width="1"/></svg><div class="ds"></div><div class="dots"></div></div>
 <div id="echo" class="hud"></div>
-<div id="journal"><div class="page"><h2>Diario della riva</h2><ul id="journalList"></ul></div></div>
+<div id="journal"><div class="page"><h2>Diario della riva</h2><ul id="journalList"></ul><button id="resetBtn">Ricomincia dall'inizio</button></div></div>
 <div id="touch" class="hidden">
   <div id="bookBtn" class="tbtn">DIARIO</div>
   <div id="stick"></div>

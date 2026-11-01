@@ -227,10 +227,13 @@ const skylineUniforms = {
 };
 
 function ridgeLayer(R, a0, a1, cols, heightFn, depth) {
-  const pos = [], frac = [], az = [], idx = [];
+  const pos = [], frac = [], az = [], idx = [], slope = [];
+  const da = (a1 - a0) / cols;
   for (let i = 0; i <= cols; i++) {
     const a = a0 + (a1 - a0) * (i / cols);
     const h = Math.max(heightFn(a), 0);
+    const sl = (Math.max(heightFn(a + da), 0) - Math.max(heightFn(a - da), 0)) / (2 * da * R);
+    slope.push(sl, sl);
     const x = Math.cos(a) * R, z = Math.sin(a) * R;
     pos.push(x, -40, z, x, h, z);
     frac.push(0, h, 1, h);
@@ -241,31 +244,42 @@ function ridgeLayer(R, a0, a1, cols, heightFn, depth) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aInfo', new THREE.Float32BufferAttribute(frac, 2));
   g.setAttribute('aAz', new THREE.Float32BufferAttribute(az, 1));
+  g.setAttribute('aSlope', new THREE.Float32BufferAttribute(slope, 1));
   g.setIndex(idx);
   const m = new THREE.ShaderMaterial({
     uniforms: { ...skylineUniforms, uDepth: { value: depth } },
     vertexShader: /* glsl */`
-      attribute vec2 aInfo; attribute float aAz;
-      varying float vT; varying float vH; varying float vAz; varying float vY;
-      void main(){ vT = aInfo.x; vH = aInfo.y; vAz = aAz; vY = position.y;
+      attribute vec2 aInfo; attribute float aAz; attribute float aSlope;
+      varying float vT; varying float vH; varying float vAz; varying float vY; varying float vSl;
+      void main(){ vT = aInfo.x; vH = aInfo.y; vAz = aAz; vY = position.y; vSl = aSlope;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */`
       uniform vec3 uHaze, uBase, uSunDir, uSunCol; uniform float uSunVis, uDepth;
-      varying float vT; varying float vH; varying float vAz; varying float vY;
+      varying float vT; varying float vH; varying float vAz; varying float vY; varying float vSl;
       float h21(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
       float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
         return mix(mix(h21(i), h21(i+vec2(1,0)), u.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), u.x), u.y); }
       void main(){
         float t = clamp(vY / max(vH, 1.0), 0.0, 1.0);
-        // foschia: più densa in basso, il crinale resta nitido
-        float haze = uDepth + (1.0 - uDepth) * (1.0 - smoothstep(0.0, 0.85, t)) * 0.75;
-        vec3 c = mix(uBase, uHaze, clamp(haze, 0.0, 1.0));
-        // canaloni e vegetazione appena accennati
-        float g = vn(vec2(vAz * 900.0, vY * 0.03)) * 0.6 + vn(vec2(vAz * 2600.0, vY * 0.09)) * 0.4;
-        c *= 1.0 - (g - 0.5) * 0.08 * (1.0 - uDepth);
-        // versanti esposti al sole
-        float lit = pow(max(dot(normalize(vec3(-cos(vAz), 0.4, -sin(vAz))), uSunDir), 0.0), 2.0);
-        c += uSunCol * lit * 0.08 * uSunVis * (1.0 - uDepth) * t;
+        float near = 1.0 - uDepth;
+        // versanti: pendenza del crinale + canaloni che scendono (rumore stirato in verticale)
+        float gul = vn(vec2(vAz * 1400.0, vY * 0.012)) * 0.65 + vn(vec2(vAz * 4200.0, vY * 0.03)) * 0.35;
+        float sl = vSl * 1.6 + (gul - 0.5) * 2.2;
+        vec3 radial = vec3(cos(vAz), 0.0, sin(vAz)), tang = vec3(-sin(vAz), 0.0, cos(vAz));
+        vec3 n = normalize(-radial - tang * sl + vec3(0.0, 0.55 + 0.4 * (1.0 - t), 0.0));
+        float lit = max(dot(n, uSunDir), 0.0);
+        // materiali: macchia scura in basso, gariga e roccia chiara verso le creste
+        float rk = smoothstep(0.45, 0.9, t + (vn(vec2(vAz * 700.0, vY * 0.02)) - 0.5) * 0.5);
+        vec3 veg = mix(vec3(0.16, 0.2, 0.11), vec3(0.3, 0.3, 0.17), vn(vec2(vAz * 2200.0, vY * 0.05)));
+        vec3 rock = vec3(0.52, 0.49, 0.44);
+        vec3 alb = mix(veg, rock, rk * 0.75);
+        vec3 amb = uBase * 1.5 + uHaze * 0.25;
+        vec3 surf = alb * (amb + uSunCol * lit * 1.4 * uSunVis);
+        // prospettiva aerea: lontano tutto diventa cielo; in basso la foschia è più densa
+        float haze = clamp(uDepth + near * (1.0 - smoothstep(0.0, 0.7, t)) * 0.45, 0.0, 1.0);
+        vec3 c = mix(surf, uHaze, haze);
+        // il crinale controluce si accende appena
+        c += uSunCol * smoothstep(0.92, 1.0, t) * 0.06 * uSunVis * near;
         gl_FragColor = vec4(c, 1.0);
       }`,
   });
@@ -281,11 +295,11 @@ const ridged = (x, seed) => { let s = 0, a = 1, f = 1; for (let i = 0; i < 5; i+
 export function buildSkyline(scene) {
   const g = new THREE.Group();
   // catena lontana alle spalle del golfo
-  g.add(ridgeLayer(3400, -30 * D, 115 * D, 900, (a) => sm(-30 * D, -5 * D, a) * sm(115 * D, 80 * D, a) * (170 + 260 * ridged(a * 9, 3.1)), 0.62));
+  g.add(ridgeLayer(3400, -30 * D, 115 * D, 900, (a) => sm(-30 * D, -5 * D, a) * sm(115 * D, 80 * D, a) * (170 + 260 * ridged(a * 9, 3.1)), 0.55));
   // promontorio che scende a picco nel mare
-  g.add(ridgeLayer(2300, -24 * D, 55 * D, 900, (a) => sm(-24 * D, -15 * D, a) * sm(55 * D, 30 * D, a) * (110 + 150 * ridged(a * 14, 7.7) + 60 * sm(-15 * D, 5 * D, a)), 0.42));
+  g.add(ridgeLayer(2300, -24 * D, 55 * D, 900, (a) => sm(-24 * D, -15 * D, a) * sm(55 * D, 30 * D, a) * (110 + 150 * ridged(a * 14, 7.7) + 60 * sm(-15 * D, 5 * D, a)), 0.34));
   // colline basse dietro il paese
-  g.add(ridgeLayer(1500, 15 * D, 100 * D, 700, (a) => sm(15 * D, 30 * D, a) * sm(100 * D, 85 * D, a) * (35 + 55 * ridged(a * 22, 1.3)), 0.3));
+  g.add(ridgeLayer(1500, 15 * D, 100 * D, 700, (a) => sm(15 * D, 30 * D, a) * sm(100 * D, 85 * D, a) * (35 + 55 * ridged(a * 22, 1.3)), 0.2));
   // isola appena visibile sull'orizzonte del mare
   g.add(ridgeLayer(4200, -160 * D, -128 * D, 300, (a) => sm(-160 * D, -150 * D, a) * sm(-128 * D, -136 * D, a) * (40 + 50 * ridged(a * 30, 5.5)), 0.82));
 

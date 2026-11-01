@@ -139,11 +139,12 @@ function inlandColor(x, z, ny, out, i) {
     const sl = Math.sqrt(Math.max(0, 1 - ny * ny)) / Math.max(ny, 0.2);
     const land = smooth(70, 84, d);
     const n = vnoise(x * 0.04 + 3, z * 0.04);
-    let cr = 0.7 + 0.1 * n, cg = 0.67 + 0.06 * n, cb = 0.4;           // erba secca
-    const mac = smooth(-0.1, 0.4, vnoise(x * 0.02 + 7, z * 0.02 + 1)) * smooth(90, 130, d);
-    cr = cr * (1 - mac) + 0.3 * mac; cg = cg * (1 - mac) + 0.44 * mac; cb = cb * (1 - mac) + 0.24 * mac; // macchia
+    let cr = 0.62 + 0.1 * n, cg = 0.6 + 0.06 * n, cb = 0.36;           // erba secca
+    // macchia mediterranea: copre gran parte dei versanti, scura e verde-oliva
+    const mac = Math.min(1, smooth(-0.45, 0.15, vnoise(x * 0.02 + 7, z * 0.02 + 1) + vnoise(x * 0.09, z * 0.09) * 0.3) * smooth(88, 125, d) * 1.1);
+    cr = cr * (1 - mac) + (0.22 + 0.06 * n) * mac; cg = cg * (1 - mac) + (0.3 + 0.05 * n) * mac; cb = cb * (1 - mac) + 0.15 * mac; // macchia
     const rock = smooth(0.5, 0.95, sl);
-    cr = cr * (1 - rock) + 0.82 * rock; cg = cg * (1 - rock) + 0.8 * rock; cb = cb * (1 - rock) + 0.82 * rock;
+    cr = cr * (1 - rock) + 0.66 * rock; cg = cg * (1 - rock) + 0.63 * rock; cb = cb * (1 - rock) + 0.58 * rock;
     r = r * (1 - land) + cr * land; g = g * (1 - land) + cg * land; b = b * (1 - land) + cb * land;
   }
   out[i] = r; out[i + 1] = g; out[i + 2] = b;

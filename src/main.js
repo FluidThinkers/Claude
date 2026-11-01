@@ -399,6 +399,12 @@ let touchUp = false;
 document.getElementById('jumpBtn').addEventListener('touchend', () => { touchUp = false; });
 document.getElementById('bookBtn').addEventListener('touchstart', (e) => { journal.toggle(); e.preventDefault(); });
 document.getElementById('journal').addEventListener('click', () => journal.toggle(false));
+// ricominciare: la giornata torna al suo inizio (nessun salvataggio da cancellare: si ricarica la pagina pulita)
+{
+  const rb = document.getElementById('resetBtn');
+  const reset = (e) => { e.stopPropagation(); e.preventDefault(); if (confirm('Ricominciare la giornata dall\'inizio?')) location.replace(location.pathname); };
+  rb.addEventListener('click', reset); rb.addEventListener('touchend', reset);
+}
 
 // ---------- HUD
 const phaseEl = document.getElementById('phase'), countEl = document.getElementById('count'), msgEl = document.getElementById('msg'), promptEl = document.getElementById('prompt'), clockEl = document.getElementById('clock'), invEl = document.getElementById('inv');
