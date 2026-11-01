@@ -19,7 +19,7 @@ import { Minimap } from './minimap.js';
 import { buildExplore, updateExplore, exploreHeight, exploreCollide, nearLadder, MOLO } from './explore.js';
 import { DISCOVERIES, ECHOES, FINALE } from './story.js';
 import { Physics } from './physics.js';
-import { FORM_TEXT, gullWings, moveForm } from './forms.js';
+import { FORM_TEXT, gullWings, moveForm, flapWings } from './forms.js';
 import { SCOGLIERA, PERGOLA, BARCA, TORRETTA, BELVEDERE } from './places.js';
 import { FOCE } from './terrain.js';
 import { Motes, LightBurst } from './particles.js';
@@ -899,7 +899,7 @@ function frame() {
     eyeH = 0;
     player.formRoll = r.roll;
     if (r.timeScale && !todAnim && running) tod += dt * r.timeScale / CYCLE;
-    if (M === 'gull') { wings.userData.L.rotation.z = r.flap; wings.userData.R.rotation.z = -r.flap; sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.03) sound.gull((Math.random() - 0.5) * 0.4, 7); }
+    if (M === 'gull') { flapWings(wings, r.flap, player.bank || 0, fz > 0 || upK ? 0 : 1); sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.03) sound.gull((Math.random() - 0.5) * 0.4, 7); }
     if (M === 'tree') sound.wind(Math.min(1, wind.strength.value + 0.3));
     if (M === 'fish' && r.leapStart) { sound.splash('stroke', 1); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl, player.pos.z), 40, 2); actOnce('leap', 'Salti fuori dall\'acqua: per un attimo vedi il cielo, poi torni giù.'); }
     if (M === 'fish' && r.reentry) { sound.splash('dive', 0.7); spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl, player.pos.z), 30, 1.6); }

@@ -384,6 +384,54 @@ export class Sound {
     }
   }
 
+  // Voci di gabbiano costruite campione per campione: impulsi glottali irregolari, raddoppio di periodo
+  // (la raucedine tipica), soffio, poi formanti nasali. Niente oscillatori puliti: suona come una gola, non come un synth.
+  _gullBank() {
+    const ctx = this.ctx, sr = ctx.sampleRate, out = [];
+    const bq = (x, f, Q) => { const w = 2 * Math.PI * f / sr, al = Math.sin(w) / (2 * Q), a0 = 1 + al;
+      const b0 = al / a0, b2 = -al / a0, a1 = -2 * Math.cos(w) / a0, a2 = (1 - al) / a0; const y = new Float32Array(x.length);
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = b0 * x[i] + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y; };
+    for (let v = 0; v < 7; v++) {
+      const notes = [];
+      const f0 = 520 + Math.random() * 260;
+      if (v % 3 !== 2) notes.push({ len: 0.38 + Math.random() * 0.22, up: 1.22, down: 0.62, rough: 0.55, gap: 0.09 });
+      const nh = v % 3 === 1 ? 0 : 2 + (Math.random() * 4 | 0);
+      for (let i = 0; i < nh; i++) notes.push({ len: 0.1 + Math.random() * 0.05, up: 1.1, down: 0.8, rough: 0.35, gap: 0.05 + Math.random() * 0.05 });
+      const total = notes.reduce((a, n) => a + n.len + n.gap, 0.05);
+      const x = new Float32Array(Math.ceil(total * sr));
+      let o = Math.floor(0.02 * sr), ph = 0;
+      for (const N of notes) {
+        const L = Math.floor(N.len * sr);
+        let drift = 0;
+        for (let i = 0; i < L; i++) {
+          const t = i / L;
+          const cont = t < 0.25 ? 0.82 + (N.up - 0.82) * (t / 0.25) : N.up + (N.down - N.up) * Math.pow((t - 0.25) / 0.75, 1.3);
+          drift += (Math.random() - 0.5) * 0.004; drift *= 0.995;
+          const f = f0 * cont * (1 + drift + (Math.random() - 0.5) * 0.03);
+          ph += f / sr;
+          const pf = ph % 1;
+          // impulso glottale asimmetrico: apertura lenta, chiusura brusca
+          let g = pf < 0.55 ? Math.sin(Math.PI * pf / 0.55) ** 2 : 0;
+          g -= 0.3;
+          const env = Math.min(1, t / 0.06) * Math.pow(1 - t, 0.6) * (1 - 0.25 * Math.sin(t * 40));
+          // raddoppio di periodo nella parte forte: un impulso sì e uno più debole
+          const sub = (Math.floor(ph) % 2) ? 1 - N.rough * Math.sin(Math.PI * Math.min(1, t * 1.6)) : 1;
+          const breath = (Math.random() * 2 - 1) * (0.05 + 0.06 * (1 - t));
+          x[o + i] += (g * sub + breath) * env;
+        }
+        o += L + Math.floor(N.gap * sr);
+      }
+      // gola e becco: formanti in parallelo, un passa-alto, un po' di saturazione
+      const a = bq(x, 1400 + Math.random() * 300, 3), b = bq(x, 2500 + Math.random() * 400, 4), c = bq(x, 3800, 5), d = bq(x, 700, 2);
+      const y = new Float32Array(x.length); let mx = 0;
+      for (let i = 0; i < x.length; i++) { const s0 = a[i] * 1.2 + b[i] * 0.9 + c[i] * 0.25 + d[i] * 0.12; y[i] = Math.tanh(s0 * 1.6); mx = Math.max(mx, Math.abs(y[i])); }
+      const buf = ctx.createBuffer(1, y.length, sr); const ch = buf.getChannelData(0);
+      for (let i = 0; i < y.length; i++) ch[i] = y[i] / (mx || 1) * 0.9;
+      out.push(buf);
+    }
+    return out;
+  }
+
   // campioni veri: se nella cartella audio/ c'è manifest.json con { "gull": ["gull1.m4a", ...] } li usa
   async loadSamples() {
     if (this.samples || !this.ctx) return;
@@ -411,6 +459,15 @@ export class Sound {
   gull(pan = 0, dist = 30) {
     if (!this.ctx) return;
     if (this._sample('gull', pan, dist)) return;
+    if (!this.gullSyn) this.gullSyn = this._gullBank();
+    { // voce costruita: con l'aria che la attenua e un po' di eco della riva
+      const ctx = this.ctx, { lp, gain } = this.mk;
+      const s = ctx.createBufferSource(); s.buffer = this.gullSyn[(Math.random() * this.gullSyn.length) | 0];
+      s.playbackRate.value = 0.9 + Math.random() * 0.2;
+      const f = lp(Math.max(1400, 12000 - dist * 80)), g = gain(Math.min(0.5, 3.2 / (dist + 6)));
+      s.connect(f); f.connect(g); g.connect(this._pan(pan)); s.start();
+      return;
+    }
     const ctx = this.ctx, { bp, lp, hp, gain } = this.mk;
     const vol = Math.min(0.09, 2.0 / (dist + 8));
     if (vol < 0.006) return;

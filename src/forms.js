@@ -18,26 +18,77 @@ export const FORM_TEXT = {
   wind: { name: 'Vento', unlock: 'Il petalo si posa. Tu continui.', enter: 'Sei vento. Nessuno ti vede, tutti ti sentono.' },
 };
 
-// ali in prima persona per il gabbiano
+// ali in prima persona: gabbiano reale, mantello grigio perla, punte nere con macchie bianche.
+// Ogni ala ha braccio (copritrici + secondarie) e mano (remiganti primarie separate, che si aprono).
+function featherTex() {
+  const W = 256, H = 128, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#f2f1ee'); g.addColorStop(0.35, '#c9ccd0'); g.addColorStop(1, '#b4b8bd');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  // file di copritrici: archi sottili
+  c.strokeStyle = 'rgba(90,95,100,0.25)'; c.lineWidth = 1;
+  for (let row = 0; row < 4; row++) for (let x = -10; x < W + 10; x += 14 + row * 3) { c.beginPath(); c.arc(x, 18 + row * 22, 9 + row * 2, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke(); }
+  // secondarie lungo il bordo d'uscita, punta bianca
+  for (let x = 0; x < W; x += 12) { c.fillStyle = '#aeb3b8'; c.beginPath(); c.moveTo(x, 92); c.lineTo(x + 12, 92); c.lineTo(x + 10, 124); c.quadraticCurveTo(x + 6, 128, x + 2, 124); c.fill(); c.strokeStyle = 'rgba(70,75,80,0.35)'; c.stroke(); c.fillStyle = '#f4f4f2'; c.fillRect(x + 2, 118, 8, 6); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function primaryTex() {
+  const W = 64, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#b9bdc2'; c.fillRect(0, 0, W, H);
+  const g = c.createLinearGradient(0, H * 0.35, 0, H * 0.55); g.addColorStop(0, 'rgba(25,25,27,0)'); g.addColorStop(1, 'rgba(25,25,27,1)');
+  c.fillStyle = g; c.fillRect(0, H * 0.35, W, H * 0.65);
+  c.fillStyle = '#f5f5f3'; c.beginPath(); c.ellipse(W / 2, H * 0.83, W * 0.28, H * 0.05, 0, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(W * 0.45, 0); c.lineTo(W * 0.5, H); c.stroke();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 export function gullWings() {
   const g = new THREE.Group();
-  const m = new THREE.MeshStandardMaterial({ color: 0xe9e8e3, roughness: 0.8, side: THREE.DoubleSide });
-  const tipM = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.8, side: THREE.DoubleSide });
+  const armM = new THREE.MeshStandardMaterial({ map: featherTex(), roughness: 0.85, side: THREE.DoubleSide });
+  const primM = new THREE.MeshStandardMaterial({ map: primaryTex(), roughness: 0.75, side: THREE.DoubleSide });
   const mk = (s) => {
-    const w = new THREE.Group();
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0); shape.quadraticCurveTo(0.5 * s, 0.12, 1.1 * s, 0.05); shape.lineTo(1.25 * s, -0.12); shape.quadraticCurveTo(0.6 * s, -0.28, 0, -0.32); shape.lineTo(0, 0);
-    const geo = new THREE.ShapeGeometry(shape, 12); geo.rotateX(-Math.PI / 2);
-    w.add(new THREE.Mesh(geo, m));
-    const tip = new THREE.Mesh(new THREE.CircleGeometry(0.16, 10), tipM); tip.rotation.x = -Math.PI / 2; tip.position.set(1.12 * s, -0.005, 0.05); tip.scale.set(1.2, 0.6, 1); w.add(tip);
-    w.position.set(0.22 * s, -0.24, -0.5);
-    return w;
+    const root = new THREE.Group();
+    // braccio: superficie curva (profilo d'ala), più spessa al bordo d'attacco
+    const arm = new THREE.PlaneGeometry(0.62, 0.3, 14, 6);
+    const p = arm.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i) + 0.31, y = p.getY(i); const camber = 0.035 * Math.cos((y / 0.3) * Math.PI); p.setXYZ(i, x * s, camber - x * 0.05, -y - 0.02 * Math.sin(x * 4)); }
+    arm.computeVertexNormals();
+    const armMesh = new THREE.Mesh(arm, armM); root.add(armMesh);
+    // mano: perno al polso, 9 primarie a ventaglio
+    const hand = new THREE.Group(); hand.position.set(0.6 * s, -0.03, 0); root.add(hand);
+    const prim = new THREE.PlaneGeometry(0.075, 0.5, 1, 6);
+    { const q = prim.attributes.position; for (let i = 0; i < q.count; i++) { const y = q.getY(i) + 0.25; q.setXYZ(i, q.getX(i), 0.02 * Math.sin(y * 4), -y); } prim.rotateY(0); prim.computeVertexNormals(); }
+    const feathers = [];
+    for (let k = 0; k < 9; k++) {
+      const f = new THREE.Mesh(prim, primM);
+      const a = (k / 8) * 1.1 - 0.15;
+      f.position.set(s * (0.02 + k * 0.012), 0, -0.02 - k * 0.02);
+      f.rotation.y = -s * (Math.PI / 2 - a);
+      f.scale.y = 0.8 + 0.25 * Math.sin((k / 8) * Math.PI);
+      f.userData.a = a; hand.add(f); feathers.push(f);
+    }
+    // piccola copertura scura sul polso
+    const cov = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.16), armM); cov.rotation.x = -Math.PI / 2; cov.position.set(s * 0.07, 0.005, -0.05); hand.add(cov);
+    root.position.set(0.1 * s, -0.2, -0.22);
+    root.rotation.y = s * 0.12;
+    return { root, hand, feathers, s };
   };
   const L = mk(-1), R = mk(1);
-  g.add(L, R);
-  g.userData = { L, R };
+  g.add(L.root, R.root);
+  // compatibilità: L/R ruotano su z come prima, ma l'animazione vera è in flapWings
+  g.userData = { L: L.root, R: R.root, W: [L, R] };
   g.visible = false;
   return g;
+}
+// battito: il braccio ruota, la mano segue in ritardo e si piega; in planata le primarie si allargano
+export function flapWings(g, flap, bank, glide) {
+  for (const w of g.userData.W) {
+    const s = w.s;
+    w.root.rotation.z = -s * flap - bank * 0.4;
+    w.hand.rotation.z = -s * flap * 0.7;
+    w.hand.rotation.y = s * (0.15 - glide * 0.12);
+    w.feathers.forEach((f, k) => { f.rotation.y = -s * (Math.PI / 2 - f.userData.a * (0.8 + glide * 0.35)); });
+  }
 }
 
 const tmp = new THREE.Vector3();
