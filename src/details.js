@@ -400,3 +400,59 @@ export class SandSpray {
     this.geo.attributes.position.needsUpdate = true;
   }
 }
+
+// ---------- La fascia di posidonia secca lasciata dalle mareggiate, con le palline di fibra
+export class Wrack {
+  constructor(scene) {
+    const strip = new THREE.PlaneGeometry(1.0, 0.55, 4, 2); strip.rotateX(-Math.PI / 2);
+    const sp = strip.attributes.position;
+    for (let i = 0; i < sp.count; i++) sp.setY(i, Math.sin(sp.getX(i) * 5) * 0.012);
+    strip.computeVertexNormals();
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+    const c2 = cv.getContext('2d');
+    for (let i = 0; i < 160; i++) {
+      const x = 20 + Math.random() * 216, y = 20 + Math.random() * 88, l = 20 + Math.random() * 70, a = (Math.random() - 0.5) * 0.7;
+      if (Math.hypot((x - 128) / 1.8, y - 64) > 52) continue;
+      const t = 50 + Math.random() * 60;
+      c2.strokeStyle = `rgba(${t + 25 | 0},${t + 8 | 0},${t - 12 | 0},1)`; c2.lineWidth = 2 + Math.random() * 3; c2.lineCap = 'round';
+      c2.beginPath(); c2.moveTo(x, y); c2.quadraticCurveTo(x + Math.cos(a) * l * 0.5, y + Math.sin(a) * l * 0.5 + (Math.random() - 0.5) * 8, x + Math.cos(a) * l, y + Math.sin(a) * l); c2.stroke();
+    }
+    const wt = new THREE.CanvasTexture(cv); wt.colorSpace = THREE.SRGBColorSpace;
+    this.leaves = new THREE.InstancedMesh(strip, new THREE.MeshStandardMaterial({ map: wt, alphaTest: 0.4, roughness: 0.95, side: THREE.DoubleSide }), 2600);
+    this.balls = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 2), new THREE.MeshStandardMaterial({ color: 0x8a6e4e, roughness: 1 }), 260);
+    for (const m of [this.leaves, this.balls]) { m.frustumCulled = false; m.receiveShadow = true; m.castShadow = true; scene.add(m); }
+    const c = new THREE.Color();
+    for (let i = 0; i < 2600; i++) this.leaves.setColorAt(i, c.setHSL(0.08 + cellHash(i, 1, 2) * 0.04, 0.3, 0.55 + cellHash(i, 3, 4) * 0.35));
+    this.cx = null;
+  }
+  update(px, pz) {
+    const cx = Math.round(px / 6) * 6;
+    if (cx === this.cx && Math.abs(pz - shoreZ(px)) > 60) return;
+    if (cx === this.cx) return;
+    this.cx = cx;
+    let n = 0, nb = 0;
+    for (let i = -70; i <= 70; i++) {
+      const ci = Math.round(cx / 1.2) + i;
+      const x0 = ci * 1.2;
+      const patch = vnoise(x0 * 0.04 + 9, 2.0) * 0.6 + vnoise(x0 * 0.13, 5.0) * 0.4;
+      if (patch < -0.25) continue;
+      const per = Math.floor((patch + 0.25) * 7);
+      for (let k = 0; k < per && n < 2600; k++) {
+        const x = x0 + (cellHash(ci, k, 1) - 0.5) * 1.2;
+        const d = 3.3 + (cellHash(ci, k, 2) - 0.5) * (1.0 + patch) + vnoise(x * 0.05, 3.0) * 0.8;
+        const z = shoreZ(x) + d;
+        dummy.position.set(x, heightAt(x, z) + 0.012 + k * 0.002, z);
+        dummy.rotation.set(0, cellHash(ci, k, 3) * 6.28, 0);
+        dummy.scale.set(0.6 + cellHash(ci, k, 4) * 0.8, 1, 1);
+        dummy.updateMatrix(); this.leaves.setMatrixAt(n++, dummy.matrix);
+      }
+      if (cellHash(ci, 9, 9) > 0.7 && nb < 260) {
+        const x = x0, d = 3.2 + (cellHash(ci, 9, 8) - 0.5) * 2, z = shoreZ(x) + d, s = 0.025 + cellHash(ci, 9, 7) * 0.025;
+        dummy.position.set(x, heightAt(x, z) + s * 0.8, z); dummy.rotation.set(0, 0, 0); dummy.scale.set(s * 1.3, s, s);
+        dummy.updateMatrix(); this.balls.setMatrixAt(nb++, dummy.matrix);
+      }
+    }
+    this.leaves.count = n; this.balls.count = nb;
+    this.leaves.instanceMatrix.needsUpdate = true; this.balls.instanceMatrix.needsUpdate = true;
+  }
+}

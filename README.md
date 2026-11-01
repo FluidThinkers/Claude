@@ -62,7 +62,17 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - **Scoperte**: si trovano vagando, senza ordine obbligato, e finiscono nel diario. Alcune portano ad altre: il registro porta alla radio, la radio al relitto (sulla mappa compare una zona azzurra).
 - **Fluire**: il relitto accende un pensiero, e da quel momento in acqua puoi **diventare il mare** (F, su telefono FLUISCI). Scorri veloce sopra e sotto la superficie, con Spazio sollevi un'onda che si allarga, e quando arrivi a riva l'onda si scioglie e torni corpo.
 
+**Fisicità**
+- Niente più oggetti attraversati: tronchi, palme, pali del pontile, piloni del molo, gambe della piattaforma, pergola, torretta, muretto del belvedere, navi, moto e barchino sono ostacoli veri. La moto e il barchino ci sbattono e rimbalzano.
+- Atterrando da un salto lo sguardo si abbassa e risale; le salite ripide rallentano, quelle troppo ripide non si scalano.
+- Scie nell'acqua: barchino, SUP, nuoto, Fluire, guado e moto in acqua lasciano onde che si allargano e una scia di schiuma sfilacciata che svanisce.
+
+**Eco**
+- La prima volta che entri in un luogo riaffiora un piccolo ricordo, a margine (il pontile, la foce, le cabine, il molo, il largo...).
+
 **Materiali e superfici**
+- Pini marittimi con chiome di aghi, rami e corteccia; macchia a foglie; ciuffi d'erba sulle dune e prati secchi sulle colline, tutti mossi dal vento.
+- Granelli di sabbia che scintillano controsole; la fascia di posidonia secca con le palline di fibra lungo la linea dove arriva il mare.
 - Sabbia con grana a più scale; la sabbia bagnata è lucida e specchia il cielo, con piccole pozze.
 - Moto con plastiche, metalli e gomme con micro-variazioni e un velo di polvere, sella con la sua trama. Sulla sabbia morbida affonda, rallenta e scoda; lascia solchi delle gomme (che il mare cancella) e alza spruzzi di sabbia.
 - Ruggine, cemento macchiato e mattoni per le strutture industriali.

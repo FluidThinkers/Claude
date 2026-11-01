@@ -108,3 +108,20 @@ export const DISCOVERIES = {
     text: 'Una stella cadente, lunga, sopra il mare.',
     thought: 'Non hai fatto in tempo a esprimere un desiderio. Forse non serviva.' },
 };
+
+// Eco: ricordi che riaffiorano la prima volta che entri in un luogo. Piccoli, a margine.
+export const ECHOES = {
+  pontile: 'Qui si facevano le gare a chi arrivava prima in fondo. Vinceva sempre chi non correva.',
+  foce: 'Qui l\'acqua dolce incontra quella salata, senza fretta. Ci si veniva a togliere la sabbia dai piedi.',
+  chiosco: 'Un\'estate intera di granite al limone, e la sera il rumore delle serrande che si abbassano.',
+  stabilimento: 'Le cabine hanno ancora i numeri dipinti. La sette era la nostra.',
+  scogliera: 'Tra gli scogli si cercavano i granchi con le mani. Nessuno ne ha mai preso uno davvero.',
+  barca: 'Ogni settembre la tiravano un po\' più in alto, come se il mare potesse dimenticarsene.',
+  lungomare: 'La sera si camminava fin qui, e poi si tornava indietro. Non si andava mai oltre.',
+  colline: 'Da bambini sembravano montagne. Adesso sono colline, ma il vento è lo stesso.',
+  molo: 'Il molo è servito alle navi, poi alle canne da pesca, poi a nessuno.',
+  capannone: 'Dentro c\'è ancora odore di ferro e di sale.',
+  piattaforma: 'Di notte la luce rossa in cima si vedeva dalla finestra. Era il modo di sapere dov\'era il largo.',
+  bandiera: 'La bandiera rossa c\'era sempre, anche col mare calmo. Nessuno si ricorda perché.',
+  largo: 'Da qui la riva è una linea sottile. Tutto quello che conosci sta lì dentro.',
+};

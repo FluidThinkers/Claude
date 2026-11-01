@@ -185,6 +185,9 @@ export const waterUniforms = {
   uLamp: { value: new THREE.Vector4(0, 0, 0, 0) },
   uUnderCol: { value: new THREE.Color(0x0e4a58) },
   uWindK: { value: 0.4 },
+  uTrail: { value: Array.from({ length: 24 }, () => new THREE.Vector4(0, 0, -100, 0)) },
+  uTrailBox: { value: new THREE.Vector3(0, 0, -1) },
+  uRingBox: { value: new THREE.Vector3(0, 0, -1) },
   uRings: { value: [new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0)] },
   uWindDir: { value: new THREE.Vector2(0.6, -0.8) },
   uUnderFog: { value: 0.06 },
@@ -209,7 +212,28 @@ export function makeWater() {
     vertexShader: /* glsl */`
       uniform float uLevel, uTime, uWindK;
       uniform vec4 uRings[4];
-      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing;
+      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing; varying float vTrail;
+      // scia: ogni punto lasciato da chi si muove manda un'onda circolare lenta;
+      // l'inviluppo dei cerchi forma la V, al centro resta la schiuma rimescolata
+      uniform vec4 uTrail[24];
+      uniform vec3 uTrailBox, uRingBox;
+      vec2 trailField(vec2 p){
+        float h = 0.0, foam = 0.0;
+        for (int i = 0; i < 24; i++) {
+          float age = uTime - uTrail[i].z;
+          if (age < 0.0 || age > 16.0) continue;
+          vec2 dd = p - uTrail[i].xy;
+          float r = length(dd);
+          if (r > 2.0 + age * 1.8) continue;
+          float st = uTrail[i].w;
+          float front = age * 1.5;
+          float x = (r - front) / (0.45 + age * 0.08);
+          h += exp(-x * x) * st * 0.12 * exp(-age * 0.22);
+          foam = max(foam, st * exp(-r * r / (0.4 + age * 0.6)) * exp(-age * 0.35));
+          foam = max(foam, st * 0.6 * exp(-x * x * 3.0) * exp(-age * 0.45));
+        }
+        return vec2(h, foam);
+      }
       // onde ad anello sollevate quando sei il mare
       float rings(vec2 p, out float crest){
         float h = 0.0; crest = 0.0;
@@ -235,10 +259,20 @@ export function makeWater() {
         float e = 0.35;
         float yx = surfY(w.x + e, (w.z) - shoreZ(w.x + e), uTime, uLevel, uWindK, s2, b2, o2, f2, fr2);
         float yz = surfY(w.x, d + e, uTime, uLevel, uWindK, s2, b2, o2, f2, fr2);
-        float cr, c2;
-        float rg = rings(w.xz, cr);
-        float rgx = rings(w.xz + vec2(e, 0.0), c2), rgz = rings(w.xz + vec2(0.0, e), c2);
+        float cr = 0.0, c2;
+        float rg = 0.0, rgx = 0.0, rgz = 0.0;
+        if (length(w.xz - uRingBox.xy) < uRingBox.z) {
+          rg = rings(w.xz, cr);
+          rgx = rings(w.xz + vec2(e, 0.0), c2); rgz = rings(w.xz + vec2(0.0, e), c2);
+        }
         float seaK = smoothstep(0.0, -2.0, d);
+        vec2 tf = vec2(0.0);
+        if (length(w.xz - uTrailBox.xy) < uTrailBox.z) {
+          tf = trailField(w.xz);
+          float tfx = trailField(w.xz + vec2(e, 0.0)).x, tfz = trailField(w.xz + vec2(0.0, e)).x;
+          rg += tf.x; rgx += tfx; rgz += tfz;
+        }
+        vTrail = tf.y * seaK;
         vSlope = vec2(yx - y + (rgx - rg) * seaK, yz - y + (rgz - rg) * seaK) / e;
         w.y = y + rg * seaK;
         vRing = cr * seaK;
@@ -251,7 +285,7 @@ export function makeWater() {
       uniform vec3 uUnderCol;
       uniform float uFog, uUnderFog, uWindK;
       uniform vec2 uWindDir;
-      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing;
+      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing; varying float vTrail;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
       void main(){
         vec2 p = vW.xz;
@@ -331,6 +365,9 @@ export function makeWater() {
         float filmLace = (film > 0.0) ? lace * 0.6 : 0.0;
         foam = max(foam * 0.0, max(max(lip, white), max(residual, max(edgeF, filmLace))));
         foam = max(foam, smoothstep(0.55, 0.95, vRing) * (0.5 + 0.5 * brkUp));
+        // schiuma della scia, sfilacciata
+        float tl = 1.0 - smoothstep(0.0, 0.12, abs(vn(vW.xz * 2.2 + uTime * 0.3) - 0.5));
+        foam = max(foam, vTrail * (0.45 + 0.55 * max(brkUp, tl)));
         foam = clamp(foam, 0.0, 1.0);
         // l'onda che si alza diventa verde-azzurra e traslucida contro la luce
         float rise = brk * smoothstep(0.7, 0.97, sP);
@@ -357,13 +394,13 @@ export function makeWater() {
 export const causticUniforms = { uCaustic: { value: 1 } };
 export function enhanceSand(material) {
   material.onBeforeCompile = (shader) => {
-    for (const k of ['uTime', 'uCamPos', 'uCloud', 'uCirrus', 'uMist', 'uSunDir', 'uSunVis']) shader.uniforms[k] = skyUniforms[k];
+    for (const k of ['uTime', 'uCamPos', 'uCloud', 'uCirrus', 'uMist', 'uSunDir', 'uSunVis', 'uSunCol']) shader.uniforms[k] = skyUniforms[k];
     shader.uniforms.uCaustic = causticUniforms.uCaustic;
     shader.vertexShader = 'varying vec3 vWPos;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>',
       '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
     );
-    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis;\nuniform vec3 uSunDir;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + shader.fragmentShader
+    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis;\nuniform vec3 uSunDir, uSunCol;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + shader.fragmentShader
       .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
       {
         // colline: erba secca e macchia invece della sabbia
@@ -409,6 +446,19 @@ export function enhanceSand(material) {
         reflectedLight.directSpecular *= csh;
       }`)
       .replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
+      {
+        // granelli che scintillano controsole sulla sabbia asciutta
+        float dc = length(cameraPosition - vWPos);
+        float dS = vWPos.z - shoreZ(vWPos.x);
+        if (dc < 22.0 && dS > 1.0 && dS < 74.0 && uSunVis > 0.0) {
+          vec2 cell = floor(vWPos.xz * 55.0);
+          float h1 = h21(cell), h2 = h21(cell + 17.3), h3 = h21(cell + 41.7);
+          vec3 gn = normalize(vec3(h1 - 0.5, 0.9, h2 - 0.5));
+          vec3 Vv = normalize(cameraPosition - vWPos);
+          float sp = pow(max(dot(reflect(-uSunDir, gn), Vv), 0.0), 60.0) * step(0.955, h3);
+          totalEmissiveRadiance += uSunCol * sp * 2.5 * uSunVis * (1.0 - smoothstep(6.0, 22.0, dc));
+        }
+      }
       if (vWPos.y < 0.0) {
         vec2 p = mod(vWPos.xz * 0.35, 6.2831853) - 250.0;
         vec2 i = p; float c = 1.0; float inten = 0.005;
