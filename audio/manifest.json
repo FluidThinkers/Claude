@@ -1,23 +1,23 @@
 {
  "gull": [
-  "gull1.m4a",
-  "gull2.m4a",
-  "gull3.m4a",
-  "gull4.m4a",
-  "gull5.m4a",
-  "gull6.m4a",
-  "gull7.m4a",
-  "gull8.m4a",
-  "gull9.m4a"
+  "gull1.mp3",
+  "gull2.mp3",
+  "gull3.mp3",
+  "gull4.mp3",
+  "gull5.mp3",
+  "gull6.mp3",
+  "gull7.mp3",
+  "gull8.mp3",
+  "gull9.mp3"
  ],
  "beds": {
-  "sea": "sea.m4a",
-  "wind": "wind.m4a",
-  "trees": "trees.m4a",
-  "under": "under.m4a",
-  "purr": "purr.m4a",
-  "rain": "rain.m4a",
-  "night": "night.m4a",
-  "gulls": "gulls.m4a"
+  "sea": "sea.mp3",
+  "wind": "wind.mp3",
+  "trees": "trees.mp3",
+  "under": "under.mp3",
+  "purr": "purr.mp3",
+  "rain": "rain.mp3",
+  "night": "night.mp3",
+  "gulls": "gulls.mp3"
  }
 }
