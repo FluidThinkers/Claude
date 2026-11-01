@@ -179,9 +179,11 @@ function echo(id) {
 }
 const minimap = new Minimap(document.getElementById('map'));
 {
-  const anchor = new THREE.Object3D(); anchor.position.set(2.6, 1.22, 0.7);
-  craft.ships[0].g.add(anchor);
-  const bt = places.traces[7]; bt.follow = anchor; bt.g.rotation.set(0, 0.4, Math.PI / 2 - 0.1);
+  // il cappello in cima alla gru, l'orologio nel relitto
+  const mv = (t, x, y, z) => { t.pos.set(x, y, z); t.base = y; t.g.position.copy(t.pos); };
+  const hat = places.traces.find((t) => t.kind === 'hat'), watch = places.traces.find((t) => t.kind === 'watch');
+  if (explore.craneTop) mv(hat, explore.craneTop.x + 0.6, explore.craneTop.y + 0.05, explore.craneTop.z + 0.4);
+  if (explore.wreck) { const x = explore.wreck.x + 4, z = explore.wreck.z + 3; mv(watch, x, heightAt(x, z) + 0.05, z); }
 }
 bike.g.position.y = Math.max(heightAt(bike.g.position.x, bike.g.position.z), placeHeight(bike.g.position.x, bike.g.position.z, 99));
 camera.add(bike.fp);
@@ -493,8 +495,7 @@ function setGoal(txt) {
 function setZone(i) {
   const t = places.traces[i];
   if (!t) { zone = null; return; }
-  const a = Math.random() * 6.28, r = 15 + Math.random() * 25;
-  zone = { i, x: t.pos.x + Math.cos(a) * r, z: t.pos.z + Math.sin(a) * r, r: 55 };
+  zone = { i, x: t.pos.x, z: t.pos.z, r: 30 };
 }
 // una piccola luce che si stacca dall'oggetto e vola verso il prossimo ricordo
 const wisp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffe2b8, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
@@ -532,7 +533,30 @@ function memoryEvent(t) {
   if (k === 'binoculars') { zoomPulse = 1; }
   if (p.y < lvl + 0.3 && k !== 'watch') spawnRipple(W, p.x, p.z, false);
 }
-let zoomPulse = 0, pileTick = 0, lastSea = -1;
+let zoomPulse = 0, pileTick = 0, lastSea = -1, lastBreak = null;
+// il gesto che apre ogni ricordo, con la forma giusta
+const ACT_FORM = { land: 'gull', stir: 'fish', break: 'wave', pounce: 'cat', cover: 'sand', rain: 'cloud' };
+const FORM_NAME = { walk: 'umano', swim: 'umano, in acqua', dive: 'umano, sott\'acqua', sup: 'umano, sul SUP', bike: 'umano, in moto', boat: 'umano, in barca', glide: 'in volo, sul deltaplano', flow: 'acqua', gull: 'gabbiano', fish: 'pesce', wave: 'onda', cloud: 'nuvola', rain: 'pioggia', sand: 'sabbia', tree: 'albero', light: 'luce', petal: 'petalo', wind: 'vento', cat: 'gatto' };
+function curForm() { return player.cat && player.mode === 'walk' ? 'cat' : player.mode; }
+function collectTrace(t) { if (t.found) return; t.appear = 1; t.found = true; t.sp.material.opacity = 0; places.found++; onFind(t); }
+function checkAct(jump, downK) {
+  const t = places.traces[active], F = FRAGMENTS[active];
+  if (!t || t.found || !F || !F.act || F.act === 'pick') return;
+  const eye = FORMS.includes(player.mode) || player.mode === 'flow' ? camera.position : player.pos;
+  const dh = Math.hypot(t.pos.x - eye.x, t.pos.z - eye.z), M = curForm();
+  let near = false, ok = false;
+  if (F.act === 'land') { near = M === 'gull' && dh < 40; ok = near && dh < 8 && eye.y - t.pos.y < 4.5; }
+  else if (F.act === 'stir') { near = M === 'fish' && dh < 25; ok = near && dh < 7 && player.pos.y < heightAt(player.pos.x, player.pos.z) + 2.4 && (jump || downK); if (ok) { spray.burst(new THREE.Vector3(t.pos.x, t.pos.y + 0.2, t.pos.z), 120, 1.4); sound.bubbles(); } }
+  else if (F.act === 'break') { near = M === 'wave' && dh < 70; ok = !!lastBreak && elapsed - lastBreak.t < 1.5 && Math.hypot(lastBreak.x - t.pos.x, lastBreak.z - t.pos.z) < 38; }
+  else if (F.act === 'pounce') { near = M === 'cat' && dh < 15; ok = near && dh < 4.5 && jump; }
+  else if (F.act === 'cover') { near = M === 'sand' && dh < 25; ok = near && dh < 9 && jump; if (ok) { addDune(t.pos.x + 1.5, t.pos.z + 1, 3.5, 0.6); terrain.rebuild(); spray.burst(t.pos.clone(), 160, 2.2); } }
+  else if (F.act === 'rain') { near = (M === 'cloud' || M === 'rain') && dh < 70; ok = M === 'rain' && dh < 32; }
+  if (near && !ok && F.prompt) { promptEl.textContent = F.prompt; promptEl.classList.add('on'); actPrompt = true; }
+  else if (actPrompt) { actPrompt = false; promptEl.classList.remove('on'); }
+  if (ok) { actPrompt = false; promptEl.classList.remove('on'); collectTrace(t); }
+}
+let actPrompt = false, baseFov = 72, formLblTxt = null;
+const formLblEl = document.getElementById('formLbl');
 // gesti delle forme: ognuno si racconta la prima volta
 const acts = new Set();
 function actOnce(id, txt, t = 5) { if (acts.has(id)) return; acts.add(id); illum = Math.max(illum, 0.4); msgEl.classList.add('thought'); showMsg(txt, t); setTimeout(() => msgEl.classList.remove('thought'), t * 1000); }
@@ -644,10 +668,18 @@ function nearestGull(maxD) {
 // i cambi di forma li decide la storia: qui resta solo ciò che la storia chiede di fare con le tue mani
 function formOptions() {
   if (player.mode === 'cloud') return 'rain';
-  return null;
+  // se sei tornato umano a metà strada, Q ti ridà la forma che questa tappa chiede
+  const F = FRAGMENTS[active]; const need = F && ACT_FORM[F.act];
+  if (!need || curForm() === need || (need === 'cloud' && player.mode === 'rain')) return null;
+  const lvl = waterUniforms.uLevel.value, deep = lvl - heightAt(player.pos.x, player.pos.z);
+  if ((need === 'fish' || need === 'wave') && deep < 1.2) return null;
+  if (need === 'sand' && deep > 0) return null;
+  if (!['walk', 'swim', 'dive'].includes(player.mode)) return null;
+  return need;
 }
 function enterForm(f) {
   if (!f) { showMsg('Qui non c\'è niente in cui entrare.', 2.5); return; }
+  if (f !== 'rain') { storyForm(f, null, null); return; }
   if (['walk', 'swim', 'dive'].includes(player.mode) && !body) body = { pos: player.pos.clone(), yaw: player.yaw, mode: player.mode };
   if (f === 'flow') { if (player.mode === 'gull') { player.pos.y = waterUniforms.uLevel.value + 0.2; } player.mode = 'swim'; toggleFlow(); return; }
   const from = player.mode;
@@ -702,7 +734,7 @@ function storyForm(form, text, why) {
   showMsg('Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '…', 3.6);
   fadeTarget = 0.8; post.uniforms.uFadeCol.value.setRGB(1, 0.96, 0.9);
   sound.chord(); illum = Math.max(illum, 0.6);
-  setTimeout(() => { applyForm(form); fadeTarget = 0; if (text) showMsg(text, 5.5); }, 3000);
+  setTimeout(() => { applyForm(form); fadeTarget = 0; if (text) showMsg(text, 5.5); }, 3600);
   if (why) setTimeout(() => { msgEl.classList.add('thought'); showMsg(why, 11); setTimeout(() => msgEl.classList.remove('thought'), 11000); }, 9200);
 }
 function applyForm(form) {
@@ -794,7 +826,7 @@ function frame() {
     const onDeck = placeHeight(player.pos.x, player.pos.z, player.pos.y) > heightAt(player.pos.x, player.pos.z) + 0.1;
     const wade = onDeck ? 0 : Math.min(depth / 1.25, 1);
     const speed = (run ? 9 : 4.2) * (1 - 0.62 * wade) * slopeK * (player.cat ? 1.35 : 1);
-    if (player.cat && depth > 0.15) { player.pos.x -= player.vel.x * dt * 2; player.pos.z -= player.vel.z * dt * 2; player.vel.x *= -0.3; player.vel.z *= -0.3; }
+    if (player.cat && depth > 0.15 && !onDeck) { player.pos.x -= player.vel.x * dt * 2; player.pos.z -= player.vel.z * dt * 2; player.vel.x *= -0.3; player.vel.z *= -0.3; }
     const tx = (-ys * fz + yc * fx) * speed, tz = (-yc * fz - ys * fx) * speed;
     const acc = player.ground ? 10 : 2;
     player.vel.x += (tx - player.vel.x) * Math.min(1, acc * dt);
@@ -945,6 +977,7 @@ function frame() {
     if (M === 'wave') {
       const T = waterUniforms.uTrail.value; if (Math.random() < dt * 6) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, r.size || 1);
       if (!player.waveHint) { player.waveHint = true; setTimeout(() => showMsg(isTouch ? 'Avanti per crescere e correre, indietro per rallentare e farti piccola, ai lati per piegare.' : 'W cresci e corri · S rallenti e ti fai piccola · A e D pieghi.', 5), 6500); }
+      if (r.broke) lastBreak = { x: player.pos.x, z: player.pos.z, t: elapsed };
       if (r.broke && player.questWave) {
         player.questWave = false;
         addRing(player.pos.x, player.pos.z - 2, 0.6 * (player.wsize || 1)); sound.splash('dive', 1.4);
@@ -1063,7 +1096,7 @@ function frame() {
   }
   // il viaggio dell'acqua: nuvola → pioggia sull'isola → fioritura → petalo → vento → vele
   {
-    if (player.mode === 'cloud' && isleQ === 0) {
+    if (player.mode === 'cloud' && isleQ === 0 && !(FRAGMENTS[active] && FRAGMENTS[active].act === 'rain')) {
       isleQ = 1;
       setTimeout(() => { msgEl.classList.add('thought'); showMsg('Lontano, al largo, c\'è un\'isola secca che aspetta la pioggia. Portaci la nuvola, poi piovi (Q).', 7); setTimeout(() => msgEl.classList.remove('thought'), 7000); discZone = { x: ISLAND.x, z: ISLAND.z, r: 110 }; }, 5000);
     }
@@ -1193,7 +1226,7 @@ function frame() {
     if (sitting) { promptEl.textContent = 'Il tempo passa · E per alzarti'; promptEl.classList.add('on'); }
     else if (a) { promptEl.textContent = (isTouch ? 'AZIONE · ' : 'E · ') + a; promptEl.classList.add('on'); }
     else if (player.mode === 'dive' && player.breath < 0.35) { promptEl.textContent = 'risali'; promptEl.classList.add('on'); }
-    else if (formOptions()) { promptEl.textContent = (isTouch ? 'FORMA · ' : 'Q · ') + 'diventa ' + FORM_TEXT[formOptions()].name.toLowerCase(); promptEl.classList.add('on'); }
+    else if (formOptions() && !actPrompt) { promptEl.textContent = (isTouch ? 'FORMA · ' : 'Q · ') + 'diventa ' + FORM_TEXT[formOptions()].name.toLowerCase(); promptEl.classList.add('on'); }
     else if (FORMS.includes(player.mode) && body) { promptEl.textContent = (isTouch ? 'CORPO' : 'B') + ' · torna corpo'; promptEl.classList.add('on'); }
     else promptEl.classList.remove('on');
   }
@@ -1294,7 +1327,7 @@ function frame() {
   });
   updateWisp(dt);
   illum = Math.max(0, illum - dt * 0.25);
-  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind, windDir: wind.dir, locked: false,
+  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind, windDir: wind.dir, locked: false, allow: (t) => (FRAGMENTS[t.i].act || 'pick') === 'pick',
     reach: ['gull', 'cloud', 'rain', 'wave'].includes(player.mode) ? 7 : FORMS.includes(player.mode) || player.mode === 'flow' ? 4 : 2.7 });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
@@ -1342,6 +1375,7 @@ function frame() {
     beam.material.uniforms.uTime.value = elapsed; beam.visible = beam.material.uniforms.uOp.value > 0.01;
   }
   burst.update(dt, wind.dir);
+  if (running) checkAct(jump, downK);
   {
     const pi = fpath.update(dt, elapsed, player.mode === 'walk' || player.mode === 'swim' ? player.pos : camera.position, true);
     if (pi >= 0) {
@@ -1354,13 +1388,8 @@ function frame() {
     }
   }
   if ((pileTick = (pileTick + 1) % 4) === 0) updatePiles();
-  if (zoomPulse > 0) {
-    // il binocolo: per un attimo lo sguardo si avvicina a ciò che vede
-    zoomPulse = Math.max(0, zoomPulse - dt / 5);
-    if (!camera.userData.fov0) camera.userData.fov0 = camera.fov;
-    camera.fov = camera.userData.fov0 * (1 - 0.55 * Math.sin(Math.PI * (1 - zoomPulse)));
-    camera.updateProjectionMatrix();
-  }
+  // il binocolo: per un attimo lo sguardo si avvicina a ciò che vede (applicato col campo visivo della forma)
+  if (zoomPulse > 0) zoomPulse = Math.max(0, zoomPulse - dt / 5);
   motes.update(dt, elapsed, camera.position, under ? 'snow' : player.mode === 'rain' || cloudBias > 0.35 ? 'rain' : player.mode === 'light' ? 'light' : '', underDeep, wind.dir, renderer.domElement.height);
   // mappa
   minimap.draw({
@@ -1407,10 +1436,21 @@ function frame() {
   P.uIllum.value = illum;
   P.uDrops.value = Math.min(1, drops * 1.5) * (under ? 0 : 1);
   P.uFlow.value = player.mode === 'flow' || player.mode === 'wave' ? 1 : 0;
-  P.uForm.value.set(...({ cloud: [1.03, 1.03, 1.05, 0.12], gull: [1.02, 1.02, 1.04, 0.2], tree: [1.04, 1.06, 0.92, 0.35], sand: [1.1, 1.0, 0.86, 0.35] }[player.mode] || [1, 1, 1, 0]));
+  {
+    // ogni forma vede a modo suo: colore, campo visivo
+    const LOOK = { cloud: [1.03, 1.03, 1.05, 0.14, 68], gull: [1.03, 1.03, 1.05, 0.22, 84], tree: [1.04, 1.06, 0.92, 0.35, 74], sand: [1.12, 1.0, 0.84, 0.38, 78], fish: [0.86, 1.04, 1.1, 0.3, 82], wave: [0.92, 1.04, 1.1, 0.3, 80], rain: [0.9, 0.95, 1.03, 0.32, 74], cat: [0.94, 0.97, 0.99, 0.4, 90], wind: [0.96, 0.99, 1.02, 0.3, 86], petal: [1.08, 1.0, 1.04, 0.3, 76], light: [1.08, 1.04, 0.96, 0.3, 72] };
+    const L = LOOK[curForm()] || [1, 1, 1, 0, 72];
+    const U4 = P.uForm.value; U4.x += (L[0] - U4.x) * Math.min(1, dt * 1.2); U4.y += (L[1] - U4.y) * Math.min(1, dt * 1.2); U4.z += (L[2] - U4.z) * Math.min(1, dt * 1.2); U4.w += (L[3] - U4.w) * Math.min(1, dt * 1.2);
+    baseFov += (L[4] - baseFov) * Math.min(1, dt * 1.2);
+    const zf = zoomPulse > 0 ? 1 - 0.55 * Math.sin(Math.PI * (1 - zoomPulse)) : 1;
+    const fv = baseFov * zf;
+    if (Math.abs(camera.fov - fv) > 0.01) { camera.fov = fv; camera.updateProjectionMatrix(); }
+    const lbl = FORM_NAME[curForm()] || '';
+    if (lbl !== formLblTxt) { formLblTxt = lbl; formLblEl.textContent = lbl ? 'sei · ' + lbl : ''; formLblEl.classList.toggle('on', !!lbl && started); }
+  }
   P.uUnderCol.value.copy(underDeep);
   P.uBreath.value = player.mode === 'dive' ? THREE.MathUtils.smoothstep(0.4 - player.breath, 0, 0.4) : 0;
-  fade += (fadeTarget - fade) * Math.min(1, dt * 1.5);
+  fade += (fadeTarget - fade) * Math.min(1, dt * 1.1);
   P.uFade.value = fade;
 
   renderer.setRenderTarget(post.rt);
@@ -1434,4 +1474,4 @@ if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, pla
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };

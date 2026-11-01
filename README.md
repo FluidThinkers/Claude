@@ -107,17 +107,23 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - Il percorso usa tutti i modi di muoversi: a piedi, sul pontile, sott'acqua con la maschera, in barchino o SUP fino alla barca a vela, in moto sulle colline, in deltaplano per scendere. Quando serve, un pensiero suggerisce come arrivarci.
 - Il diario (J) conserva ogni ricordo con il suo pensiero. Alla fine, alla bandiera, c'è qualcuno che ti aspetta.
 
-**Ogni ricordo ti cambia forma**
-Dopo il pensiero diventi, nel punto esatto in cui sei, la cosa giusta per arrivare al ricordo successivo: umano → aria → vento e sabbia → acqua → pesce → onda → nuvola → pioggia → gatto → umano con i mezzi → gabbiano → deltaplano → luce.
-1. Il vasetto con la candela, trovato a piedi → **gabbiano**: dall'alto vedi le travi del chiosco.
-2. Il libro → **sabbia**: il vento ti porta verso il pontile; quando tocchi l'acqua diventi **acqua** (Fluire).
-3. I sandali, in fondo al pontile → **pesce**: scendi verso l'orologio sul fondo e vedi nitido.
-4. L'orologio → **onda**: corri verso riva e pieghi verso la torretta.
-5. Il cappello → **nuvola**: sopra la barca in secco scendi come **pioggia** (Q) e tocchi terra.
-6. La lettera → **gatto**: leggero tra i sassi, fino alla punta degli scogli.
-7. La lanterna → di nuovo **umano**: per il largo servono un barchino o un SUP.
-8. La bottiglia, a bordo della barca a vela → **gabbiano**, fino al cipresso sulle colline.
-9. Il binocolo → **deltaplano** verso la bandiera. Dopo l'incontro diventi **luce**, poi resti libero di esplorare.
+**Ogni ricordo ti cambia forma, e ogni forma ha la sua tappa**
+Trovi un ricordo, diventi (lentamente, con un annuncio) la forma giusta per il viaggio successivo; sulla mappa compare il prossimo ricordo; ci arrivi con quella forma e lo apri con un gesto che solo quella forma sa fare. In alto a sinistra è sempre scritto cosa sei.
+
+| # | Ricordo | Dove | Ci arrivi come | Il gesto | Poi diventi |
+|---|---|---|---|---|---|
+| 1 | Candela | sul cumulo di sabbia | umano | la raccogli | gabbiano |
+| 2 | Cappello di paglia | in cima alla gru del vecchio molo | gabbiano | ti posi sulla cima | pesce (ti lasci cadere in mare) |
+| 3 | Orologio | nel relitto sul fondo | pesce | smuovi la sabbia (Spazio o C) | onda |
+| 4 | Bottiglia | sulla riva della torretta | onda | ti rompi sulla riva e la lasci lì | umano |
+| 5 | Sandali | in fondo al pontile | umano | ci arrivi a piedi | gatto |
+| 6 | Libro | sotto la pergola del chiosco | gatto | salti sul tavolo (Spazio) | sabbia |
+| 7 | Lettera | nella barca in secco | sabbia | ti ammucchi contro la barca (Spazio) | nuvola |
+| 8 | Binocolo | al belvedere | nuvola → pioggia | piovi sul cipresso (Q) | deltaplano |
+| 9 | Lanterna | in punta agli scogli | in volo, poi a piedi | atterri e la raggiungi | l'incontro alla bandiera, poi luce |
+
+- Se torni umano a metà strada (B), Q ti ridà la forma che quella tappa chiede, nel punto in cui sei.
+- Ogni forma vede il mondo a modo suo: il gabbiano ha lo sguardo largo e limpido, il gatto basso e grandangolare, il pesce verde-azzurro, la sabbia calda e dorata, la nuvola velata.
 - Sulla mappa c'è solo il prossimo ricordo, verde e pulsante, con una freccia che lo indica; quelli già trovati spariscono. Nel mondo una colonna di luce verde lo segnala da lontano.
 - In ogni luogo del ricordo succede qualcosa: la luce si libera a spirale, e poi la candela alza la sabbia e i gabbiani, il libro e la lettera volano via nel vento, il cappello se lo porta il vento, l'orologio riprende a ticchettare tra le bolle, la lanterna illumina tutto, il binocolo avvicina lo sguardo.
 - Ogni forma ha un **percorso** facoltativo verso il ricordo: correnti d'aria (anelli di luce che girano) per gabbiano, nuvola e deltaplano, mulinelli di sabbia, cerchi di luce sul mare, colonne di bolle sul fondo. Ogni passaggio dà una spinta; il ricordo si prende comunque, appena lo raggiungi.

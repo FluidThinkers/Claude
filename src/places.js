@@ -462,16 +462,18 @@ export function buildPlaces(scene, glowTex, platform) {
     const pontileEnd = new THREE.Vector3(PONTILE.x + 0.5, PONTILE.deck + 0.02, PONTILE.z0 + PONTILE.to + 1.2);
     const rockEnd = { x: SCOGLIERA.x + 0.4, z: SCOGLIERA.z0 + SCOGLIERA.to + 7 };
     const tor = at(TORRETTA.x - 1.2, 7.2);
+    // l'ordine è quello della storia; cappello (gru) e orologio (relitto) li sposta main dopo aver costruito il molo
+    const shoreB = { x: TORRETTA.x - 14, z: shoreZ(TORRETTA.x - 14) + 1.6 };
     const list = [
       ['jar', new THREE.Vector3(spawn.x, heightAt(spawn.x, spawn.z) + 0.01, spawn.z)],
-      ['book', P.bookAt],
-      ['sandals', pontileEnd],
-      ['watch', (() => { const x = PONTILE.x + 7, z = PONTILE.z0 - 122; return new THREE.Vector3(x, heightAt(x, z) + 0.03, z); })()],
       ['hat', new THREE.Vector3(tor.x, heightAt(tor.x, tor.z) + 0.01, tor.z)],
+      ['watch', (() => { const x = PONTILE.x + 7, z = PONTILE.z0 - 122; return new THREE.Vector3(x, heightAt(x, z) + 0.03, z); })()],
+      ['bottle', new THREE.Vector3(shoreB.x, heightAt(shoreB.x, shoreB.z) + 0.04, shoreB.z)],
+      ['sandals', pontileEnd],
+      ['book', P.bookAt],
       ['letter', P.letterAt],
-      ['lantern', new THREE.Vector3(rockEnd.x, rockTop(0.4, SCOGLIERA.to + 7) + 0.0, rockEnd.z)],
-      ['bottle', new THREE.Vector3(platform.x + 26, 0.02, platform.z + 34)],
       ['binoculars', P.belvedereSpot],
+      ['lantern', new THREE.Vector3(rockEnd.x, rockTop(0.4, SCOGLIERA.to + 7) + 0.0, rockEnd.z)],
     ];
     list.forEach(([kind, pos], i) => {
       const g = traceModel(kind);
@@ -520,7 +522,7 @@ export function updatePlaces(P, dt, time, ctx) {
   let nd = 1e9;
   for (const t of P.traces) {
     if (t.follow) { t.follow.getWorldPosition(t.pos); t.g.position.copy(t.pos); }
-    if (t.kind === 'bottle' && !t.follow) { t.g.position.y = t.base + Math.sin(time * 0.9) * 0.05; t.g.rotation.x = Math.sin(time * 0.7) * 0.15; }
+    if (t.kind === 'bottle' && !t.follow && !t.found) { t.g.rotation.set(0, 0.7, Math.PI / 2 - 0.08); }
     t.sp.position.copy(t.pos); t.sp.position.y += 0.14;
     const active = t.i === ctx.active;
     // un ricordo trovato si congeda: cappello, lettera e libro li prende il vento, gli altri si sciolgono in luce
@@ -548,7 +550,7 @@ export function updatePlaces(P, dt, time, ctx) {
       nd = d;
       const dh = Math.hypot(t.pos.x - ctx.eye.x, t.pos.z - ctx.eye.z), dv = Math.abs(t.pos.y - ctx.eye.y);
       const close = ctx.reach > 2.7 ? (dh < ctx.reach && dv < 9) : d < 2.7;
-      if (close && t.appear > 0.5 && !ctx.locked) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
+      if (close && t.appear > 0.5 && !ctx.locked && (!ctx.allow || ctx.allow(t))) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
     } else t.sp.material.opacity = 0;
     if (t.flame) {
       const fl = 0.85 + 0.15 * Math.sin(time * 17 + t.ph) * Math.sin(time * 9.1);
