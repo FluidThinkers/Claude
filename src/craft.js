@@ -257,13 +257,15 @@ export function updateCraft(C, dt, time, ctx) {
   for (const S of C.ships) {
     const near = S.g.position.distanceTo(ctx.player) < (S.kind === 'ferry' ? 320 : 180);
     S.anchored = near;
-    if (!near) S.s += S.speed * dt;
+    if (S.blown > 0) S.blown -= dt;
+    const bk = Math.min(1, Math.max(0, S.blown || 0) / 5);
+    if (!near || bk > 0) S.s += S.speed * (1 + 3 * bk) * dt;
     const P = S.path(S.s);
     const P2 = S.path(S.s + 1);
     S.g.position.x = P.x; S.g.position.z = P.z;
     S.g.position.y = ctx.water + (S.kind === 'sail' ? Math.sin(time * 0.8) * 0.06 : Math.sin(time * 0.3) * 0.05);
     S.g.rotation.y = Math.atan2(P2.z - P.z, -(P2.x - P.x));
-    if (S.kind === 'sail') S.g.rotation.x = Math.sin(time * 0.6) * 0.03;
+    if (S.kind === 'sail') { S.g.rotation.x = Math.sin(time * 0.6) * 0.03; S.g.rotation.z = (S.heel = (S.heel || 0) + (bk * 0.14 - (S.heel || 0)) * Math.min(1, dt * 0.5)); }
     // foschia manuale: da lontano le navi si sciolgono nell'orizzonte
     const d = S.g.position.distanceTo(ctx.camera);
     const f = Math.min(0.85, 1 - Math.exp(-Math.pow(d * ctx.fog * 0.55, 2)));

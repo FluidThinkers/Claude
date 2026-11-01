@@ -14,6 +14,8 @@ export const FORM_TEXT = {
   rain: { name: 'Pioggia', unlock: 'Diventi pesante, e cadi.', enter: 'Diventi pioggia.' },
   cat: { name: 'Gatto', unlock: 'Un gatto ti guarda dal muretto, senza fretta.', enter: 'Sei un gatto.' },
   light: { name: 'Luce', enter: '' },
+  petal: { name: 'Petalo', unlock: 'Un petalo si stacca, e tu con lui.', enter: 'Sei un petalo. Il vento sa dove andare.' },
+  wind: { name: 'Vento', unlock: 'Il petalo si posa. Tu continui.', enter: 'Sei vento. Nessuno ti vede, tutti ti sentono.' },
 };
 
 // ali in prima persona per il gabbiano
@@ -108,6 +110,27 @@ export function moveForm(form, P, ctx) {
     P.pos.x += -ys * 1.5 * dt; P.pos.z += -yc * 1.5 * dt;
     P.pos.y += (lvl + 30 - P.pos.y) * Math.min(1, dt * 0.05);
     out.speed = 2;
+  } else if (form === 'petal') {
+    // petalo: leggero, portato dal vento, ondeggia; puoi solo inclinarti un poco
+    const w = 3 + ctx.wind * 6;
+    let wx = ctx.windDir.x, wz = ctx.windDir.y;
+    if (ctx.target) { const tx = ctx.target.x - P.pos.x, tz = ctx.target.z - P.pos.z, tl = Math.hypot(tx, tz) || 1; wx = wx * 0.3 + tx / tl * 0.7; wz = wz * 0.3 + tz / tl * 0.7; const wl = Math.hypot(wx, wz); wx /= wl; wz /= wl; }
+    P.pos.x += (wx * w + (-ys * fz + yc * fx) * 4) * dt;
+    P.pos.z += (wz * w + (-yc * fz - ys * fx) * 4) * dt;
+    const fl = Math.sin(ctx.time * 2.3) * 0.8 + Math.sin(ctx.time * 5.1) * 0.3;
+    P.pos.y += (fl + (ctx.up ? 2 : 0) - (ctx.down ? 2 : 0)) * dt;
+    P.pos.y = Math.max(ground + 1.5, Math.min(P.pos.y, ground + 40));
+    roll = Math.sin(ctx.time * 1.7) * 0.25;
+    out.speed = w;
+  } else if (form === 'wind') {
+    // vento: veloce, radente; dove passi l'acqua si increspa e l'erba si piega
+    P.vs = (P.vs || 10) + ((fz > 0 ? (run ? 34 : 24) : fz < 0 ? 6 : 14) - (P.vs || 10)) * Math.min(1, dt * 1.2);
+    P.yaw -= fx * 1.1 * dt;
+    const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
+    P.pos.x += -ys * cp * P.vs * dt; P.pos.z += -yc * cp * P.vs * dt; P.pos.y += (sp * P.vs + (ctx.up ? 6 : 0)) * dt;
+    P.pos.y = Math.max(ground + 1.2, Math.min(P.pos.y, ground + 60));
+    roll = -fx * 0.15 + Math.sin(ctx.time * 3) * 0.02;
+    out.speed = P.vs;
   } else if (form === 'wave') {
     // la cresta corre verso riva; tu sei la cresta
     P.ws = Math.min(9, (P.ws || 4) + dt * 1.5);

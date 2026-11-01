@@ -87,6 +87,12 @@ export class Journal {
 
 // Scoperte: si trovano vagando, senza ordine obbligato. Alcune portano ad altre.
 export const DISCOVERIES = {
+  isola: { title: 'L\'isola che beve',
+    text: 'Hai piovuto su un\'isola secca. La terra ha bevuto, e in un pomeriggio è nato tutto: macchia, fiori, pini storti dal vento.',
+    thought: 'Un petalo si stacca, e tu con lui. Il vento ti porta verso una vela ferma, al largo.' },
+  vento: { title: 'Il vento nelle vele',
+    text: 'La barca a vela era ferma da giorni, senza un filo d\'aria. Sei passato tu, e le vele si sono gonfiate.',
+    thought: 'Ora va verso casa. Tu puoi restare vento, o tornare corpo (B).' },
   registro: { title: 'Il registro del molo',
     text: 'Registro di carico, fine anni ottanta. Tonnellate, nomi di navi, orari. L\'ultima riga è scritta da un\'altra mano: «Domani smontano la gru. La radio della piattaforma la lascio accesa.»',
     thought: 'Una radio lasciata accesa, là in mezzo al mare. Chissà se parla ancora.', next: 'radio' },

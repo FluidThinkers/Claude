@@ -43,6 +43,12 @@ export class Minimap {
     band(74, 'rgba(150,152,110,0.95)');
     band(220, 'rgba(118,128,90,0.95)');
     band(500, 'rgba(98,104,82,0.95)');
+    // isola
+    if (S.island) {
+      const [ix, iy] = toS(S.island.x, S.island.z);
+      c.beginPath(); c.ellipse(ix, iy, S.island.r * 0.95 * scale, S.island.r * 0.8 * scale, 0.3, 0, 7);
+      c.fillStyle = S.bloom > 0.5 ? 'rgba(120,150,90,0.95)' : 'rgba(196,176,140,0.95)'; c.fill();
+    }
     // foce
     c.strokeStyle = 'rgba(70,120,140,0.95)'; c.lineWidth = Math.max(2, 7 * scale); c.beginPath();
     for (let d = -6, i = 0; d <= 58; d += 4, i++) { const x = S.foce.x + 7 * Math.sin(d * 0.06) + 2 * Math.sin(d * 0.17 + 1); const [sx, sy] = toS(x, shoreZ(x) + d); i ? c.lineTo(sx, sy) : c.moveTo(sx, sy); }

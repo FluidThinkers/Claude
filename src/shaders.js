@@ -425,17 +425,27 @@ export function makeWater() {
 
 // Sabbia: increspature del vento / del fondale, caustiche, ombre delle nuvole
 export const causticUniforms = { uCaustic: { value: 1 } };
+export const islandUniforms = { uBloom: { value: 0 } };
 export function enhanceSand(material) {
   material.onBeforeCompile = (shader) => {
     for (const k of ['uTime', 'uCamPos', 'uCloud', 'uCirrus', 'uMist', 'uSunDir', 'uSunVis', 'uSunCol']) shader.uniforms[k] = skyUniforms[k];
     shader.uniforms.uCaustic = causticUniforms.uCaustic;
     shader.uniforms.uWindK = waterUniforms.uWindK;
+    shader.uniforms.uBloom = islandUniforms.uBloom;
     shader.vertexShader = 'varying vec3 vWPos;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>',
       '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
     );
-    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis, uWindK;\nuniform vec3 uSunDir, uSunCol;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + SURF_GLSL + shader.fragmentShader
+    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis, uWindK, uBloom;\nuniform vec3 uSunDir, uSunCol;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + SURF_GLSL + shader.fragmentShader
       .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+      // l'isola: dopo la pioggia la terra secca diventa verde
+      if (uBloom > 0.0 && vWPos.z < -500.0) {
+        float ir = length(vWPos.xz - vec2(-380.0, -720.0));
+        float im = smoothstep(108.0, 72.0, ir) * smoothstep(1.2, 2.2, vWPos.y);
+        float gn = vn(vWPos.xz * 0.5) * 0.5 + vn(vWPos.xz * 0.08) * 0.5;
+        float dry = smoothstep(0.62, 0.8, vn(vWPos.xz * 0.11 + 7.0));
+        diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.2, 0.31, 0.11), vec3(0.42, 0.47, 0.2), gn) * (0.75 + 0.4 * vn(vWPos.xz * 2.3)), im * uBloom * 0.9 * (1.0 - dry * 0.7));
+      }
       // la sabbia bagnata segue la risacca: dove l'onda è appena arrivata è scura e lucida, poi asciuga
       float swWet = 0.0;
       {

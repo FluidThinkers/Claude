@@ -110,16 +110,23 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - Il diario (J) conserva ogni ricordo con il suo pensiero. Alla fine, alla bandiera, c'è qualcuno che ti aspetta.
 
 **Ogni ricordo ti cambia forma**
-Dopo il pensiero diventi la cosa giusta per raggiungere il ricordo successivo. Il viaggio va dai piedi alla luce:
-1. Il vasetto con la candela, a piedi → **sabbia**: il vento ti porta fino all'ombra della pergola.
-2. Il libro → **gatto**: leggero e veloce, salta alto, scansa l'acqua, fa le fusa quando è fermo. Va fino in fondo al pontile.
-3. I sandali → **pesce**: scivoli in acqua verso l'orologio sul fondo. Vedi nitido.
+Dopo il pensiero diventi, nel punto esatto in cui sei, la cosa giusta per arrivare al ricordo successivo: umano → aria → vento e sabbia → acqua → pesce → onda → nuvola → pioggia → gatto → umano con i mezzi → gabbiano → deltaplano → luce.
+1. Il vasetto con la candela, trovato a piedi → **gabbiano**: dall'alto vedi le travi del chiosco.
+2. Il libro → **sabbia**: il vento ti porta verso il pontile; quando tocchi l'acqua diventi **acqua** (Fluire).
+3. I sandali, in fondo al pontile → **pesce**: scendi verso l'orologio sul fondo e vedi nitido.
 4. L'orologio → **onda**: corri verso riva e pieghi verso la torretta.
-5. Il cappello → **gabbiano**: da lassù vedi la barca in secco.
-6. La lettera → di nuovo **corpo**, il passo lento, fino agli scogli.
-7. La lanterna: un mezzo degli uomini (barchino o SUP) fino alla barca a vela.
-8. La bottiglia → **nuvola**: sopra il cipresso scendi come **pioggia** (Q).
-9. Il binocolo → **deltaplano** verso la bandiera. Dopo l'incontro diventi **luce** e ti alzi sopra il mare della sera; poi resti libero di esplorare.
+5. Il cappello → **nuvola**: sopra la barca in secco scendi come **pioggia** (Q) e tocchi terra.
+6. La lettera → **gatto**: leggero tra i sassi, fino alla punta degli scogli.
+7. La lanterna → di nuovo **umano**: per il largo servono un barchino o un SUP.
+8. La bottiglia, a bordo della barca a vela → **gabbiano**, fino al cipresso sulle colline.
+9. Il binocolo → **deltaplano** verso la bandiera. Dopo l'incontro diventi **luce**, poi resti libero di esplorare.
+- I ricordi sono verdi sulla mappa: pieni quelli trovati, il prossimo pulsa.
+
+**Il viaggio dell'acqua (l'isola)**
+- Da nuvola vedi il mondo nitido: in alto l'aria è più limpida.
+- Al largo c'è un'isola vera, secca. Portaci la nuvola e piovi (Q): la terra beve e in pochi istanti nascono erba, macchia, fiori e pini.
+- Un petalo si stacca e tu con lui: il vento ti porta verso la barca a vela, ferma senza vento. Lì diventi **vento**: radente e veloce, increspi l'acqua. Soffia nelle vele e la barca riparte, inclinata, verso casa.
+
 - In alto al centro c'è una freccia lieve verso il prossimo ricordo, con la distanza e un puntino per ogni ricordo (pieni quelli trovati).
 - Da Fluire, ogni onda sollevata subito dopo l'altra è più grande.
 
@@ -129,6 +136,7 @@ Dopo il pensiero diventi la cosa giusta per raggiungere il ricordo successivo. I
 
 **Luce sott'acqua e ombre**
 - Più scendi, meno luce: il rosso sparisce per primo, i raggi dalla superficie si spengono in profondità, vicino alla superficie le caustiche tremano sul primo piano. Il pulviscolo marino galleggia attorno a te.
+- La risacca disegna una lama d'acqua a lobi: ogni onda arriva diversa, sale, rallenta e si ritira lasciando la sabbia scura e lucida, che poi asciuga.
 - Le ombre seguono lo sguardo e si allargano quando voli (gabbiano, deltaplano, nuvola), così il paesaggio sotto ha sempre le sue ombre.
 
 ## Parametri di debug (URL)

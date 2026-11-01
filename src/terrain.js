@@ -67,7 +67,25 @@ export function foceK(x, d) {
   return k * smooth(-8, -2, d) * (1 - smooth(55, 60, d));
 }
 
+// L'isola al largo: secca, aspetta la pioggia
+export const ISLAND = { x: -380, z: -720, r: 115 };
+export function islandK(x, z) {
+  const dx = x - ISLAND.x, dz = z - ISLAND.z;
+  const q = dx * dx + dz * dz;
+  if (q > 260 * 260) return { k: 0, h: 0, rho: 1e9 };
+  const a = Math.atan2(dz, dx);
+  const rho = Math.sqrt(q) * (1 + 0.16 * Math.sin(a * 3 + 0.7) + 0.09 * Math.sin(a * 7 + 2.1) + 0.12 * (vnoise(dx * 0.02, dz * 0.02) - 0.5));
+  const k = smooth(ISLAND.r * 1.45, ISLAND.r * 0.7, rho);
+  const hill = 30 * Math.exp(-((rho / 62) ** 2)) + 9 * Math.exp(-(((dx + 30) ** 2 + (dz - 25) ** 2) / 1600)) + fbm(x * 0.05, z * 0.05, 3) * 2.2;
+  return { k, h: 1.0 + hill * smooth(ISLAND.r * 0.95, ISLAND.r * 0.45, rho), rho };
+}
 export function heightAt(x, z) {
+  const hi = heightAt0(x, z);
+  if (z > -300) return hi;
+  const I = islandK(x, z);
+  return I.k > 0 ? hi * (1 - I.k) + I.h * I.k : hi;
+}
+function heightAt0(x, z) {
   const d = z - shoreZ(x);
   let h = baseH(d);
   if (d > 74) h += mountainH(x, z, d);
@@ -100,7 +118,16 @@ function colorAt(x, z, out, i) {
   // fondale: verdognolo
   const uw = smooth(0, -3, d);
   r = r * (1 - uw) + 0.7 * uw; g = g * (1 - uw) + 0.78 * uw; b = b * (1 - uw) + 0.72 * uw;
-  // entroterra: erba secca, macchia, roccia sui pendii ripidi
+  // isola: sabbia chiara sulla riva, terra secca e roccia sopra
+  if (z < -300) {
+    const I = islandK(x, z);
+    if (I.k > 0.3) {
+      const up = smooth(ISLAND.r * 0.85, ISLAND.r * 0.55, I.rho), n = vnoise(x * 0.06, z * 0.06);
+      const ir = 0.95 * (1 - up) + (0.66 + 0.08 * n) * up, ig = 0.9 * (1 - up) + (0.56 + 0.06 * n) * up, ib = 0.78 * (1 - up) + (0.42 + 0.04 * n) * up;
+      const kk = smooth(0.3, 0.8, I.k);
+      r = r * (1 - kk) + ir * kk; g = g * (1 - kk) + ig * kk; b = b * (1 - kk) + ib * kk;
+    }
+  }
   out[i] = r; out[i + 1] = g; out[i + 2] = b;
 }
 
