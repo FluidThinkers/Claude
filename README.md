@@ -12,7 +12,7 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - WASD / frecce: cammina, nuota, pagaia · Mouse: guarda · Shift: corri / nuota più forte
 - Spazio: salta, o risali quando sei sott'acqua · C: immergiti
 - E: azione (moto, SUP, barchino, deltaplano, sali a bordo, scalette, maschera e pinne, panchine)
-- F: fluire · Q: cambia forma · B: torna corpo
+- F: fluire (quando la storia te lo concede) · Q: piovi, quando sei nuvola · B: torna corpo, lì dove sei
 - N: mappa (piccola / grande)
 - T: fase successiva del giorno · J: diario · M: audio on/off
 - Touch: metà sinistra per muoverti, metà destra per guardare, tasti SU / GIÙ / AZIONE / ORA / DIARIO
@@ -64,11 +64,9 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - **Fluire**: il relitto accende un pensiero, e da quel momento in acqua puoi **diventare il mare** (F, su telefono FLUISCI). Scorri veloce sopra e sotto la superficie, con Spazio sollevi un'onda che si allarga, e quando arrivi a riva l'onda si scioglie e torni corpo.
 
 **Le forme: trasferirsi nelle cose, in un pensiero**
-- **Gabbiano**: si sblocca quando ne vedi uno alzarsi vicino a te. Voli: lo sguardo guida la quota, A e D virano, Spazio batte le ali.
-- **Albero**: si sblocca appoggiandoti a un tronco. Sei in cima alla chioma, il vento ti muove e il tempo corre veloce.
-- **Sabbia**: si sblocca restando fermo sulla sabbia asciutta quando c'è vento. Scivoli a filo del suolo dove va il vento; se arrivi all'acqua diventi acqua.
-- **Acqua → onda → nuvola**: il ciclo dell'acqua. Da Fluire, sollevando un'onda sblocchi l'onda; come onda corri verso riva, ti rompi nella schiuma e il sole ti solleva in nuvola. Dalla nuvola scendi come gabbiano, dal gabbiano entri in un albero, nell'acqua o nella sabbia.
-- Q (su telefono FORMA) cambia forma secondo dove sei; B (CORPO) ti riporta al tuo corpo, che resta dove l'hai lasciato.
+- **Le forme le decide la storia**: ogni ricordo trovato ti trasforma nella cosa giusta per arrivare al successivo, sempre nel punto in cui sei. Non ci sono cambi di forma a caso.
+- **Gabbiano**: lo sguardo guida la quota, A e D virano, Spazio batte le ali. **Sabbia**: scivoli dove va il vento; se tocchi l'acqua diventi acqua. **Onda**: corri verso riva e ti rompi sulla sabbia, dove arrivi. **Nuvola**: Q per scendere come pioggia.
+- B (su telefono CORPO) ti fa tornare umano proprio dove sei, mai nel punto da cui eri partito.
 
 **Al largo**
 - Una zattera ancorata (si sale con la scaletta), una boa di segnalazione che lampeggia di notte, meduse che pulsano a mezz'acqua, delfini che ti nuotano accanto quando sei in mare.

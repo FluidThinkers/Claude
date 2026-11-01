@@ -80,7 +80,7 @@ const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 60, 16, 1, true
   fragmentShader: 'uniform float uOp, uTime; varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(1.0 - abs(dot(normalize(vN.xz), normalize(vV.xz))), 0.5); float h = vUv.y; float a = (1.0 - rim) * pow(1.0 - h, 1.6) * smoothstep(0.0, 0.03, h) * (0.85 + 0.15 * sin(uTime * 2.0 - h * 20.0)); gl_FragColor = vec4(vec3(0.62, 1.0, 0.66) * a * uOp, 1.0); }',
 }));
 beam.frustumCulled = false; scene.add(beam);
-let isleQ = 0;
+let isleQ = 0, lastFO = null;
 const W = buildWorld(scene, glowTex);
 const places = buildPlaces(scene, glowTex, PLATFORM);
 const footprints = new Footprints(scene);
@@ -576,30 +576,9 @@ function nearestGull(maxD) {
   for (const b of gulls.birds) { const d = b.m.position.distanceTo(camera.position); if (d < bd) { bd = d; ok = true; } }
   return ok;
 }
+// i cambi di forma li decide la storia: qui resta solo ciò che la storia chiede di fare con le tue mani
 function formOptions() {
-  const M = player.mode, lvl = waterUniforms.uLevel.value;
-  const deep = lvl - heightAt(player.pos.x, player.pos.z);
-  const dS = player.pos.z - shoreZ(player.pos.x);
-  const drySand = dS > 3.5 && dS < 60 && heightAt(player.pos.x, player.pos.z) > lvl + 0.1;
-  if (M === 'flow') return unlocked.has('wave') ? 'wave' : null;
-  if (M === 'wave') return unlocked.has('cloud') ? 'cloud' : null;
-  if (M === 'cloud') return 'rain';
-  if (M === 'fish') return flowUnlocked ? 'flow' : null;
-  if (M === 'tree') return unlocked.has('gull') ? 'gull' : null;
-  if (M === 'sand') return unlocked.has('cloud') ? 'cloud' : unlocked.has('gull') ? 'gull' : null;
-  if (M === 'gull') {
-    const tr = nearestTree(14);
-    if (tr && unlocked.has('tree') && player.pos.y > tr.top - 6) return 'tree';
-    if (player.pos.y < lvl + 6 && deep > 1.5 && flowUnlocked) return 'flow';
-    if (player.pos.y < heightAt(player.pos.x, player.pos.z) + 5 && drySand && unlocked.has('sand')) return 'sand';
-    if (player.pos.y > 120 && unlocked.has('cloud')) return 'cloud';
-    return null;
-  }
-  if (!['walk', 'swim', 'dive'].includes(M)) return null;
-  if (unlocked.has('tree') && nearestTree(2.5)) return 'tree';
-  if (unlocked.has('gull') && nearestGull(35)) return 'gull';
-  if (flowUnlocked && (M === 'swim' || M === 'dive')) return 'flow';
-  if (unlocked.has('sand') && drySand && M === 'walk') return 'sand';
+  if (player.mode === 'cloud') return 'rain';
   return null;
 }
 function enterForm(f) {
@@ -621,23 +600,17 @@ function enterForm(f) {
   wings.visible = f === 'gull';
   if (FORM_TEXT[f].enter) showMsg(FORM_TEXT[f].enter, 3);
 }
+// tornare corpo: sempre dove sei adesso, mai dove eri prima
 function returnToBody() {
+  body = null;
   if (player.cat) { player.cat = false; showMsg('Torni corpo.', 2.5); fade = 0.5; return; }
-  if (!body) {
-    if (player.mode === 'flow') { toggleFlow(); return; }
-    if (FORMS.includes(player.mode)) { // tornare a una persona proprio qui
-      const lvl = waterUniforms.uLevel.value;
-      if (lvl - heightAt(player.pos.x, player.pos.z) > 1.3) { player.mode = 'swim'; player.pos.y = lvl + 0.12 - 1.65; }
-      else { player.mode = 'walk'; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 2); }
-      wings.visible = false; fade = 0.6; post.uniforms.uFadeCol.value.setRGB(0.05, 0.05, 0.06); showMsg('Torni corpo.', 2.5);
-    }
-    return;
-  }
-  player.pos.copy(body.pos); player.yaw = body.yaw; player.mode = body.mode; player.vel.set(0, 0, 0);
-  if (player.mode === 'walk') player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 0.5);
-  body = null; wings.visible = false;
-  fade = 0.7; post.uniforms.uFadeCol.value.setRGB(0.05, 0.05, 0.06);
-  showMsg('Torni corpo.', 2.5);
+  if (player.mode === 'flow') { toggleFlow(); return; }
+  if (!FORMS.includes(player.mode)) return;
+  const lvl = waterUniforms.uLevel.value;
+  if (lvl - heightAt(player.pos.x, player.pos.z) > 1.3) { player.mode = 'swim'; player.pos.y = lvl + 0.12 - 1.65; }
+  else { player.mode = 'walk'; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 2); }
+  player.vel.set(0, 0, 0); player.questWave = false;
+  wings.visible = false; fade = 0.6; post.uniforms.uFadeCol.value.setRGB(0.05, 0.05, 0.06); showMsg('Torni corpo, qui.', 2.5);
 }
 function onMeet() {
   zone = null;
@@ -828,7 +801,7 @@ function frame() {
     if (jump && elapsed - lastRing > 1.2 && player.pos.y > lvl - 1.5) {
       // ogni onda sollevata subito dopo l'altra è più grande
       ringPow = elapsed - lastRing < 4 ? Math.min(2.8, ringPow + 0.45) : 1;
-      lastRing = elapsed; setTimeout(() => unlockForm('wave'), 2500);
+      lastRing = elapsed;
       addRing(player.pos.x - ys * 7, player.pos.z - yc * 7, ringPow + (run ? 0.4 : 0)); camDip = 0.08 * ringPow;
       if (ringPow > 2.2) showMsg('Il mare risponde. Ogni onda più grande della prima.', 3);
     }
@@ -850,9 +823,9 @@ function frame() {
     if (M === 'fish' && r.shallow) { player.mode = 'walk'; player.pos.y = heightAt(player.pos.x, player.pos.z); showMsg('Il fondo sale, e torni sulla riva.', 3); }
     if (M === 'rain' && r.landed) {
       const deep = lvl - heightAt(player.pos.x, player.pos.z) > 1.3;
-      if (deep) { player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; if (flowUnlocked) toggleFlow(); addRing(player.pos.x, player.pos.z, 0.5); }
+      if (deep) { player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; addRing(player.pos.x, player.pos.z, 0.5); }
       else { player.mode = 'walk'; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y); camDip = 0.25; }
-      showMsg(deep ? 'Cadi nel mare, e ne fai parte.' : 'Tocchi terra. Torni corpo.', 3);
+      showMsg(deep ? 'Cadi nel mare. Torni corpo, qui.' : 'Tocchi terra. Torni corpo.', 3);
       fade = 0.4; post.uniforms.uFadeCol.value.setRGB(0.7, 0.75, 0.8);
     }
     if (M === 'sand' && r.inWater) { addRing(player.pos.x, player.pos.z, 0.4); player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; toggleFlow(); showMsg('La sabbia scivola in acqua, e tu con lei.', 3); }
@@ -865,8 +838,9 @@ function frame() {
         showMsg('L\'onda si rompe e ti lascia sulla riva.', 3.5);
       } else if (r.broke) {
         addRing(player.pos.x, player.pos.z - 2, 0.9); sound.splash('dive', 1.4);
-        if (!unlocked.has('cloud')) unlockForm('cloud');
-        player.pos.y = lvl + 0.5; enterForm('cloud');
+        // l'onda si rompe e ti lascia sulla riva, lì dove sei arrivato
+        player.mode = 'walk'; player.pos.z += 2; player.pos.y = groundAt(player.pos.x, player.pos.z, 3);
+        showMsg('L\'onda si rompe e ti lascia sulla riva.', 3);
       }
     }
   } else if (M === 'boat') {
@@ -968,10 +942,10 @@ function frame() {
   if (player.mode === 'walk') {
     const tr = nearestTree(1.3);
     touchT = tr ? touchT + dt : 0;
-    if (touchT > 1.5) unlockForm('tree');
+
     const dS2 = player.pos.z - shoreZ(player.pos.x);
     stillT = (hs < 0.15 && dS2 > 4 && dS2 < 60 && Math.abs(player.pos.y - heightAt(player.pos.x, player.pos.z)) < 0.1 && wind.strength.value > 0.3) ? stillT + dt : 0;
-    if (stillT > 7) unlockForm('sand');
+
   }
   // il viaggio dell'acqua: nuvola → pioggia sull'isola → fioritura → petalo → vento → vele
   {
@@ -1091,7 +1065,7 @@ function frame() {
     const rel = tmp.copy(p).sub(camera.position);
     const pan = rel.x * Math.cos(player.yaw) - rel.z * Math.sin(player.yaw);
     sound.gull(pan / Math.max(rel.length(), 1), rel.length() * (under ? 4 : 1));
-    if (takeoff && rel.length() < 16 && player.mode === 'walk') setTimeout(() => unlockForm('gull'), 1500);
+
     if (takeoff) sound.splash('stroke', 0.3);
   });
 
@@ -1101,7 +1075,7 @@ function frame() {
     if (sitting) { promptEl.textContent = 'Il tempo passa · E per alzarti'; promptEl.classList.add('on'); }
     else if (a) { promptEl.textContent = (isTouch ? 'AZIONE · ' : 'E · ') + a; promptEl.classList.add('on'); }
     else if (player.mode === 'dive' && player.breath < 0.35) { promptEl.textContent = 'risali'; promptEl.classList.add('on'); }
-    else if (unlocked.size && formOptions() && formOptions() !== 'flow') { promptEl.textContent = (isTouch ? 'FORMA · ' : 'Q · ') + 'diventa ' + FORM_TEXT[formOptions()].name.toLowerCase(); promptEl.classList.add('on'); }
+    else if (formOptions()) { promptEl.textContent = (isTouch ? 'FORMA · ' : 'Q · ') + 'diventa ' + FORM_TEXT[formOptions()].name.toLowerCase(); promptEl.classList.add('on'); }
     else if (FORMS.includes(player.mode) && body) { promptEl.textContent = (isTouch ? 'CORPO' : 'B') + ' · torna corpo'; promptEl.classList.add('on'); }
     else promptEl.classList.remove('on');
   }
@@ -1240,6 +1214,7 @@ function frame() {
   }
 
   updateHint();
+  { const fo = !!formOptions(); if (fo !== lastFO) { lastFO = fo; document.getElementById('formBtn').classList.toggle('hidden', !fo); } }
   {
     const t = places.traces[active];
     let op = 0;
