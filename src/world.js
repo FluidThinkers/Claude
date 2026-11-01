@@ -118,26 +118,6 @@ export function buildWorld(scene, glow) {
     W.rippleIdx = 0;
   }
 
-  // ---- All'orizzonte: una barca a vela e un traghetto che passano lenti
-  {
-    const mk = () => new THREE.MeshBasicMaterial({ fog: false, color: 0xffffff });
-    const ferry = new THREE.Group();
-    const fm = mk(), fd = mk(), fw = mk();
-    const hull = new THREE.Mesh(new THREE.CapsuleGeometry(9, 130, 4, 12), fm); hull.rotation.z = Math.PI / 2; hull.scale.set(1, 1, 0.55); hull.position.y = 6; ferry.add(hull);
-    const sup = new THREE.Mesh(new THREE.BoxGeometry(95, 14, 15), fm); sup.position.set(-8, 20, 0); ferry.add(sup);
-    const sup2 = new THREE.Mesh(new THREE.BoxGeometry(40, 7, 12), fm); sup2.position.set(-20, 30, 0); ferry.add(sup2);
-    const band = new THREE.Mesh(new THREE.BoxGeometry(140, 1.6, 10.2), fd); band.position.set(0, 9, 0); ferry.add(band);
-    const win = new THREE.Mesh(new THREE.BoxGeometry(90, 1.4, 15.2), fw); win.position.set(-8, 22, 0); ferry.add(win);
-    scene.add(ferry);
-    const sail = new THREE.Group();
-    const sm = mk(), sh2 = mk();
-    const sh = new THREE.Mesh(new THREE.CapsuleGeometry(1.4, 10, 4, 8), sh2); sh.rotation.z = Math.PI / 2; sh.scale.set(1, 1, 0.6); sh.position.y = 0.8; sail.add(sh);
-    const tri = (w, h, x) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([x, 2, 0, x, 2 + h, 0, x + w, 2, 0], 3)); const m = new THREE.Mesh(g, sm); m.material.side = THREE.DoubleSide; return m; };
-    sail.add(tri(5.5, 15, 0.2), tri(-3.5, 12.5, -0.2));
-    scene.add(sail);
-    W.horizon = { ferry, sail, fm, fd, fw, sm, sh2 };
-  }
-
   return W;
 }
 
@@ -167,19 +147,6 @@ export function updateWorld(W, dt, time, ctx) {
     W.flag.geometry.computeVertexNormals();
   }
 
-  {
-    const H = W.horizon, px = ctx.player.x, pz = ctx.player.z;
-    const fx = ((time * 5 + 2000) % 7000) - 3500, sx = ((time * 1.6 + 400) % 2400) - 1200;
-    H.ferry.position.set(px + fx, 0, shoreZ(px) - 2300); H.ferry.rotation.y = 0;
-    H.sail.position.set(px + sx, 0, shoreZ(px) - 950); H.sail.rotation.set(0, 0.3, Math.sin(time * 0.6) * 0.05);
-    const hz = ctx.pal.hor, sea = ctx.pal.sea, lit = 0.45 + 0.55 * (1 - ctx.night);
-    H.fm.color.setRGB(0.92, 0.92, 0.9).multiplyScalar(lit).lerp(hz, 0.45);
-    H.fd.color.setRGB(0.15, 0.25, 0.45).lerp(hz, 0.5);
-    H.fw.color.setRGB(0.2, 0.22, 0.25).lerp(hz, 0.5);
-    if (ctx.night > 0.5) H.fw.color.setRGB(1.4, 1.0, 0.6);
-    H.sm.color.setRGB(0.95, 0.94, 0.9).multiplyScalar(lit).lerp(hz, 0.3);
-    H.sh2.color.setRGB(0.9, 0.9, 0.88).multiplyScalar(lit).lerp(sea, 0.4);
-  }
   for (const [i, b] of W.buoys.entries()) b.position.y = 0.15 + Math.sin(time * 0.9 + i * 1.7) * 0.12;
   W.platformLamp.material.opacity = (Math.sin(time * 2.2) > 0.6 ? 1 : 0.15) * (0.3 + ctx.night * 0.7);
 

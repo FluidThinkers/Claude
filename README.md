@@ -11,7 +11,8 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 ## Comandi
 - WASD / frecce: cammina, nuota, pagaia · Mouse: guarda · Shift: corri / nuota più forte
 - Spazio: salta, o risali quando sei sott'acqua · C: immergiti
-- E: azione (sali e scendi dal SUP, prendi maschera e pinne, siediti sulle panchine)
+- E: azione (moto, SUP, barchino, deltaplano, sali a bordo, maschera e pinne, panchine)
+- N: mappa (piccola / grande)
 - T: fase successiva del giorno · J: diario · M: audio on/off
 - Touch: metà sinistra per muoverti, metà destra per guardare, tasti SU / GIÙ / AZIONE / ORA / DIARIO
 
@@ -32,6 +33,9 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - **Immergersi** (C): sotto la superficie tutto diventa ovattato, la luce scende a fasci e dall'alto si vede la finestra del cielo. Il respiro è limitato. Senza maschera si vede sfocato.
 - **Maschera e pinne**: le trovi davanti a una cabina dello stabilimento. Con la maschera vedi nitido sott'acqua, con le pinne nuoti più veloce e resti sotto più a lungo.
 - **Moto da enduro**: parcheggiata sul lungomare. Con E ci sali, W accelera, A e D sterzano. Ti porta su per le colline fino al belvedere. Di notte accende il faro.
+- **Barchino a motore**: legato in fondo al pontile. Ti porta veloce al largo.
+- **Navi raggiungibili**: la barca a vela e il traghetto navigano davvero. Quando ti avvicini gettano l'ancora: con E sali a bordo (dall'acqua, dal SUP o dal barchino) e cammini sul ponte. Per tornare in acqua, ti tuffi.
+- **Deltaplano**: è sul crinale vicino al belvedere. Con E decolli. W picchia, S cabra, A e D virano. Le termiche sulle colline e il vento sui pendii ti sollevano; atterri su sabbia, prato o in acqua.
 - **SUP**: la tavola è sulla sabbia davanti allo stabilimento. Con E la spingi in acqua e ci sali, poi pagai fino al largo. Quando scendi resta dove l'hai lasciata.
 - **Fondale vivo**: prati di posidonia che ondeggiano, banchi di salpe che si allontanano se ti avvicini, scogli con ricci.
 - **Gabbiani**: alcuni volano alti e planano, altri riposano su sabbia e pali del pontile e si alzano in volo se ti avvicini. Si sentono, e la voce si sposta nello spazio.
@@ -44,10 +48,10 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - La foce: un canale d'acqua bassa che taglia la sabbia e riflette il cielo.
 - Il chiosco chiuso sotto la pergola: le travi disegnano strisce d'ombra sulla sabbia.
 - Il pontile di legno che entra nel mare. Ci si cammina sopra fino in fondo.
-- Lo stabilimento chiuso per la stagione: cabine colorate, ombrelloni chiusi, lettini impilati, la torretta del bagnino.
+- Lo stabilimento chiuso per la stagione: cabine colorate, lettini impilati, la torretta del bagnino.
 - Una barca da pesca tirata in secco.
 - La scogliera di massi, su cui si può salire.
-- Il lungomare: muretto basso, lampioni che si accendono al tramonto, palme mosse dal vento.
+- Il lungomare: muretto basso e palme mosse dal vento.
 - La passerella con la bandiera rossa mossa dal vento, la piattaforma offshore con le boe.
 
 **Vento, mare e cielo**
@@ -64,4 +68,4 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - Ogni tanto una persona cammina lontana sul bagnasciuga e si dissolve se ti avvicini. Quando hai trovato tutto, ti aspetta vicino alla bandiera.
 
 ## Parametri di debug (URL)
-`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup|bike`, `&alto=1` per il cielo a pecorelle per partire in acqua, `&autostart` per saltare la schermata iniziale.
+`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup|bike|boat|glide`, `&alto=1` per il cielo a pecorelle per partire in acqua, `&autostart` per saltare la schermata iniziale.

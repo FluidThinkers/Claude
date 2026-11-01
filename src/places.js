@@ -339,17 +339,6 @@ export function buildPlaces(scene, glowTex, platform) {
       scene.add(g);
       addCollider(c.x, c.z, 0.95, 0.9, y0 + 2.2);
     }
-    // ombrelloni chiusi in file
-    const poleG = new THREE.CylinderGeometry(0.025, 0.025, 2.4, 8);
-    const furl = lathe([[0, 0], [0.13, 0.15], [0.11, 0.9], [0.05, 1.25], [0, 1.32]], 16);
-    const poleM = std(0xe6e2da, 0.4, 0.3);
-    const furlMs = [std(0x2f5d73, 0.9), std(0xe8e2d4, 0.9), std(0xb5523e, 0.9)];
-    for (let r = 0; r < 3; r++) for (let k = 0; k < 6; k++) {
-      const c = at(82 + k * 4.5, 16 + r * 5.5);
-      const y0 = heightAt(c.x, c.z);
-      const pole = mesh(poleG, poleM); pole.position.set(c.x, y0 + 1.0, c.z); scene.add(pole);
-      const f = mesh(furl, furlMs[(r + k) % 3]); f.position.set(c.x, y0 + 0.95, c.z); scene.add(f);
-    }
     // lettini impilati
     for (let s = 0; s < 3; s++) {
       const c = at(122 + s * 2.4, 28);
@@ -393,7 +382,7 @@ export function buildPlaces(scene, glowTex, platform) {
     P.letterAt = new THREE.Vector3(BARCA.x, y0 + 0.42, BARCA.z);
   }
 
-  // ---- Lungomare: muretto basso, passeggiata, lampioni, palme (ripetuti attorno a te)
+  // ---- Lungomare: muretto basso, passeggiata, palme (ripetuti attorno a te)
   {
     const wallM = std(0xd9d1c3, 0.9), paveM = std(0xc7beb0, 0.9);
     const SEG = 24, NS = 13;
@@ -403,15 +392,6 @@ export function buildPlaces(scene, glowTex, platform) {
       const wall = boxM(SEG + 0.1, 1.0, 0.4, wallM); wall.position.set(0, LUNGO.wall - 0.5, 0); g.add(wall);
       const cap = rboxM(SEG + 0.1, 0.09, 0.5, 0.03, std(0xe8e2d6, 0.8)); cap.position.set(0, LUNGO.wall + 0.04, 0); g.add(cap);
       const pave = boxM(SEG + 0.1, 0.4, 9, paveM); pave.position.set(0, LUNGO.wall - 0.2, 4.6); pave.castShadow = false; g.add(pave);
-      // lampione
-      const lamp = new THREE.Group();
-      const post = mesh(lathe([[0, 0], [0.12, 0], [0.12, 0.3], [0.07, 0.5], [0.05, 3.6], [0, 3.6]], 14), std(0x2d3033, 0.45, 0.6)); lamp.add(post);
-      const head = mesh(lathe([[0, 0], [0.18, 0.05], [0.12, 0.35], [0, 0.4]], 16), std(0x2d3033, 0.45, 0.6)); head.position.y = 3.6; lamp.add(head);
-      const bulbM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.28, 0.25) });
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), bulbM); bulb.position.y = 3.62; lamp.add(bulb);
-      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffc58a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
-      glow.position.y = 3.6; glow.scale.setScalar(3.2); lamp.add(glow);
-      lamp.position.set(0, LUNGO.wall, 0.7); g.add(lamp);
       // palma ogni due segmenti
       if (i % 2 === 0) {
         const palm = new THREE.Group();
@@ -435,10 +415,8 @@ export function buildPlaces(scene, glowTex, platform) {
         palm.position.set(SEG / 2, LUNGO.wall, 6.5); g.add(palm); g.userData.palm = palm;
       }
       scene.add(g);
-      P.walls.push({ g, glow, bulbM, i });
+      P.walls.push({ g, i });
     }
-    P.lampLights = [new THREE.PointLight(0xffb878, 0, 22, 1.5), new THREE.PointLight(0xffb878, 0, 22, 1.5)];
-    for (const l of P.lampLights) scene.add(l);
     P.SEG = SEG; P.NS = NS;
   }
 
@@ -528,21 +506,15 @@ export function updatePlaces(P, dt, time, ctx) {
   // lungomare che ti segue lungo la costa
   {
     const base = Math.round(ctx.player.x / P.SEG);
-    const lamps = [];
     for (const w of P.walls) {
       const k = base + w.i - Math.floor(P.NS / 2);
       const x = k * P.SEG;
       const z = shoreZ(x) + LUNGO.d;
       w.g.position.set(x, heightAt(x, z), z);
       w.g.rotation.y = -Math.atan2(shoreZ(x + 1) - shoreZ(x - 1), 2);
-      w.glow.material.opacity = on;
       const pc = w.g.userData.palm?.userData.crown;
       if (pc) { const ws = ctx.wind || 0.4; pc.rotation.set(Math.sin(time * 1.1 + w.i) * 0.05 * ws, 0, 0.08 * ws + Math.sin(time * 1.7 + w.i * 2) * 0.06 * ws); }
-      w.bulbM.color.setRGB(0.3 + on * 4, 0.28 + on * 3, 0.25 + on * 1.8);
-      lamps.push({ x, z, y: w.g.position.y + LUNGO.wall + 3.5, d: Math.abs(x - ctx.player.x) + Math.abs(z - ctx.player.z) });
     }
-    lamps.sort((a, b) => a.d - b.d);
-    P.lampLights.forEach((l, j) => { const L = lamps[j]; l.position.set(L.x, L.y, L.z + 0.7); l.intensity = on * 18; });
   }
 
   // tracce

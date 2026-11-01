@@ -14,6 +14,10 @@ import { PONTILE } from './places.js';
 import { Flora } from './flora.js';
 import { wind, updateWind, SandDrift } from './wind.js';
 import { buildBike, rideBike } from './bike.js';
+import { buildCraft, updateCraft, deckHeight, shipCollide, boardable, driveBoat, flyGlider } from './craft.js';
+import { Minimap } from './minimap.js';
+import { SCOGLIERA, PERGOLA, BARCA, TORRETTA, BELVEDERE } from './places.js';
+import { FOCE } from './terrain.js';
 
 const Q = new URLSearchParams(location.search);
 const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
@@ -66,6 +70,8 @@ const gulls = new Gulls(scene, gullPerches(PONTILE));
 const flora = new Flora(scene, wind);
 const drift = new SandDrift(scene);
 const bike = buildBike(scene);
+const craft = buildCraft(scene);
+const minimap = new Minimap(document.getElementById('map'));
 bike.g.position.y = Math.max(heightAt(bike.g.position.x, bike.g.position.z), placeHeight(bike.g.position.x, bike.g.position.z, 99));
 camera.add(bike.fp);
 // luce riflessa dal cielo su tutti i materiali (aggiornata ogni tanto)
@@ -101,14 +107,21 @@ const underCol = new THREE.Color();
 player.pos.z = num('z', shoreZ(player.pos.x) + 21.5);
 player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), 0);
 terrain.update(player.pos.x, player.pos.z, true);
-const groundAt = (x, z, feet) => Math.max(heightAt(x, z), placeHeight(x, z, feet));
+const groundAt = (x, z, feet) => Math.max(heightAt(x, z), placeHeight(x, z, feet), deckHeight(craft, x, z, feet));
 // seduti su una panchina il tempo scorre più veloce
 let sitting = null;
 // azione contestuale: SUP, attrezzatura, panchina
 function nearSup() { const g = sea.sup.g.position; return Math.hypot(g.x - player.pos.x, g.z - player.pos.z) < 2.8; }
 function nearGear() { return !hasGear && Math.hypot(GEAR.x - player.pos.x, GEAR.z - player.pos.z) < 2.2; }
+function nearBoat() { const g = craft.boat.g.position; return Math.hypot(g.x - player.pos.x, g.z - player.pos.z) < 3.2; }
+function nearGlider() { const g = craft.glider.g.position; return Math.hypot(g.x - player.pos.x, g.z - player.pos.z) < 3.2; }
 function contextAction() {
   if (player.mode === 'bike') return 'scendi dalla moto';
+  if (player.mode === 'glide') return null;
+  if ((player.mode === 'swim' || player.mode === 'boat' || player.mode === 'sup') && boardable(craft, player.pos.x, player.pos.z)) return 'sali a bordo';
+  if (player.mode === 'boat') return 'scendi dal barchino';
+  if ((player.mode === 'walk' || player.mode === 'swim') && nearBoat()) return 'sali sul barchino';
+  if (player.mode === 'walk' && nearGlider()) return 'prendi il deltaplano';
   if (player.mode === 'sup') return 'scendi dal SUP';
   if (player.mode === 'walk' && Math.hypot(bike.g.position.x - player.pos.x, bike.g.position.z - player.pos.z) < 2.6) return 'sali sulla moto';
   if (nearSup() && player.mode !== 'dive') return 'sali sul SUP';
@@ -119,6 +132,38 @@ function contextAction() {
 }
 function action() {
   const a = contextAction();
+  if (a === 'sali a bordo') {
+    const b = boardable(craft, player.pos.x, player.pos.z);
+    if (player.mode === 'boat') { craft.boat.on = false; sound.engine(false, 0, 0); }
+    if (player.mode === 'sup') { sea.sup.onBoard = false; sea.fpPaddle.visible = false; }
+    player.mode = 'walk'; player.pos.set(b.x, b.y, b.z); player.vel.set(0, 0, 0); player.ground = true;
+    sound.splash('stroke', 0.8); showMsg(b.S.name, 3);
+    return;
+  }
+  if (a === 'sali sul barchino') {
+    player.mode = 'boat'; craft.boat.on = true; craft.boat.speed = 0; player.yaw = craft.boat.yaw; player.pitch = -0.05;
+    if (!seenBoatHint) { seenBoatHint = true; showMsg(isTouch ? 'Avanti per dare gas · lati per girare' : 'W gas · S indietro · A e D per girare', 4); }
+    return;
+  }
+  if (a === 'scendi dal barchino') {
+    const B = craft.boat; B.on = false; sound.engine(false, 0, 0);
+    const px = B.g.position.x + Math.cos(B.yaw) * 1.6, pz = B.g.position.z - Math.sin(B.yaw) * 1.6;
+    const lvl = waterUniforms.uLevel.value;
+    const ph = placeHeight(px, pz, 99);
+    player.pos.set(px, 0, pz);
+    if (ph > lvl) { player.mode = 'walk'; player.pos.y = ph; }
+    else if (lvl - heightAt(px, pz) > 1.3) { player.mode = 'swim'; player.pos.y = lvl + 0.15 - 1.65; sound.splash('dive', 0.7); }
+    else { player.mode = 'walk'; player.pos.y = heightAt(px, pz); }
+    player.vel.set(0, 0, 0);
+    return;
+  }
+  if (a === 'prendi il deltaplano') {
+    const G = craft.glider;
+    player.mode = 'glide'; G.yaw = player.yaw; G.speed = 9; G.vy = 0; G.bank = 0;
+    G.g.position.set(player.pos.x, player.pos.y + 1.9 + 0.6, player.pos.z);
+    if (!seenGlideHint) { seenGlideHint = true; showMsg(isTouch ? 'Avanti per scendere veloce · indietro per rallentare · lati per virare' : 'W picchia · S cabra · A e D virano. Le colline e il vento ti sollevano.', 5); }
+    return;
+  }
   if (a === 'sali sulla moto') {
     player.mode = 'bike'; bike.on = true; bike.yaw = bike.g.rotation.y; bike.speed = 0; bike.fp.visible = true;
     player.yaw = bike.yaw; player.pitch = -0.05;
@@ -150,7 +195,7 @@ function mountSup() {
   sea.fpPaddle.visible = true;
   if (!seenSupHint) { seenSupHint = true; showMsg('W per pagaiare · A e D per girare', 4); }
 }
-let seenSupHint = false, seenDiveHint = false, seenBikeHint = false;
+let seenSupHint = false, seenDiveHint = false, seenBikeHint = false, seenBoatHint = false, seenGlideHint = false;
 function dismountSup() {
   const g = sea.sup.g;
   sea.sup.onBoard = false; sea.fpPaddle.visible = false;
@@ -183,6 +228,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyT') advancePhase();
   if (e.code === 'KeyM') sound.toggle();
   if (e.code === 'KeyJ') journal.toggle();
+  if (e.code === 'KeyN') minimap.toggle();
   if (e.code === 'KeyE') action();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -362,7 +408,7 @@ function frame() {
     if (jump && player.ground && wade < 0.5) { player.vel.y = 5.2; player.ground = false; }
     player.vel.y -= 13 * dt;
     player.pos.addScaledVector(player.vel, dt);
-    collide(player.pos);
+    collide(player.pos); shipCollide(craft, player.pos);
     const gh = groundAt(player.pos.x, player.pos.z, player.pos.y);
     const d2 = depthAt(player.pos.x, player.pos.z);
     if (d2 > 1.3 && player.pos.y < lvl - 0.2) {
@@ -382,7 +428,7 @@ function frame() {
     player.vel.z += (tz - player.vel.z) * Math.min(1, 2.2 * dt);
     player.vel.y = 0;
     player.pos.x += player.vel.x * dt; player.pos.z += player.vel.z * dt;
-    collide(player.pos);
+    collide(player.pos); shipCollide(craft, player.pos);
     player.pos.y = lvl + 0.12 - 1.65 + Math.sin(elapsed * 1.6) * 0.04;
     const hsw = Math.hypot(player.vel.x, player.vel.z);
     player.stroke += dt * hsw * 0.9;
@@ -409,6 +455,37 @@ function frame() {
       if (player.mode === 'walk') player.pos.y = heightAt(player.pos.x, player.pos.z);
       sound.splash('stroke', 1.2);
       if (player.breath < 0.3) showMsg('Aria.', 2);
+    }
+  } else if (M === 'boat') {
+    const B = craft.boat;
+    driveBoat(B, dt, { fx, fz, run }, { water: lvl, time: elapsed });
+    // seduto a poppa, vicino al motore
+    tmp.set(1.5, 0.45, 0).applyEuler(B.g.rotation).add(B.g.position);
+    player.pos.set(tmp.x, tmp.y - 0.6, tmp.z);
+    player.vel.set(-Math.sin(B.yaw) * B.speed, 0, -Math.cos(B.yaw) * B.speed);
+    let dy = B.yaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    player.yaw += dy * Math.min(1, dt * (Math.abs(B.speed) > 1 ? 2 : 0.2));
+    eyeH = 1.45;
+    player.boatRoll = B.g.rotation.x;
+    sound.engine(true, B.speed * 1.6, Math.max(0, fz));
+    if (Math.abs(B.speed) > 3 && Math.random() < dt * 4) spawnRipple(W, B.g.position.x, B.g.position.z, night > 0.5);
+  } else if (M === 'glide') {
+    const G = craft.glider;
+    const r = flyGlider(G, dt, { fx, fz }, { wind: wind.strength.value, day: 1 - night, water: lvl });
+    player.pos.set(G.g.position.x - Math.sin(G.yaw) * -0.5, G.g.position.y - 2.05 - 1.6, G.g.position.z - Math.cos(G.yaw) * -0.5);
+    let dy = G.yaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    player.yaw += dy * Math.min(1, dt * 1.5);
+    player.vel.set(-Math.sin(G.yaw) * G.speed, G.vy, -Math.cos(G.yaw) * G.speed);
+    eyeH = 1.6;
+    sound.wind(Math.min(1, 0.4 + G.speed / 20));
+    if (r.landed) {
+      player.mode = 'walk';
+      const gy = groundAt(G.g.position.x, G.g.position.z, 99);
+      player.pos.set(G.g.position.x, Math.max(gy, lvl - 1.0), G.g.position.z);
+      if (lvl - heightAt(player.pos.x, player.pos.z) > 1.3) { player.mode = 'swim'; player.pos.y = lvl + 0.15 - 1.65; sound.splash('dive', 1); G.g.position.y = lvl + 0.3; }
+      else { G.g.position.y = gy + 1.9; sound.step('sand', 4); }
+      G.wing.rotation.set(0.12, 0, 0);
+      showMsg('Atterrato.', 2);
     }
   } else if (M === 'bike') {
     const r = rideBike(bike, dt, { fx, fz, run }, { ground: (x, z, y) => groundAt(x, z, y + 0.4), water: lvl });
@@ -452,8 +529,10 @@ function frame() {
   let roll = Math.sin(player.bob) * 0.004 * Math.min(hs / 4, 1.5);
   if (player.mode === 'sup') roll = Math.sin(elapsed * 0.9) * 0.025 + Math.sin(elapsed * 1.7) * 0.01;
   if (player.mode === 'swim') roll = Math.sin(elapsed * 1.3) * 0.02;
+  if (player.mode === 'boat') roll = (player.boatRoll || 0) * 0.8 + Math.sin(elapsed * 1.1) * 0.012;
+  if (player.mode === 'glide') roll = craft.glider.bank * 0.85;
   if (player.mode === 'bike') roll = (player.bikeLean || 0) * 0.7 + Math.sin(elapsed * 23) * 0.0015 * Math.min(Math.abs(bike.speed), 10);
-  if (player.mode !== 'bike' && bike.on === false) sound.engine(false, 0, 0);
+  if (player.mode !== 'bike' && player.mode !== 'boat') sound.engine(false, 0, 0);
   const bob = Math.sin(player.bob * 2) * bobAmp;
   camera.position.set(player.pos.x, player.pos.y + (sitting ? 1.12 : eyeH) + bob, player.pos.z);
   camera.rotation.set(player.pitch + (player.mode === 'bike' ? (player.bikePitch || 0) * 0.6 : 0), player.yaw, roll);
@@ -474,6 +553,7 @@ function frame() {
   sound.wind(windK);
   waterUniforms.uWindK.value = windK; waterUniforms.uWindDir.value.copy(wind.dir);
   updateSea(sea, dt, elapsed, { player: player.pos, water: lvl });
+  updateCraft(craft, dt, elapsed, { player: player.pos, camera: camera.position, water: lvl, fog: pal.fog * 2.2, hor: pal.hor });
   gulls.update(dt, elapsed, camera.position, (p, takeoff) => {
     const rel = tmp.copy(p).sub(camera.position);
     const pan = rel.x * Math.cos(player.yaw) - rel.z * Math.sin(player.yaw);
@@ -574,6 +654,28 @@ function frame() {
     if (clockEl.textContent !== txt) clockEl.textContent = txt;
   }
 
+  // mappa
+  minimap.draw({
+    player: player.pos, yaw: player.yaw, foce: FOCE,
+    pontile: [{ x: PONTILE.x, z: PONTILE.z0 + PONTILE.from }, { x: PONTILE.x, z: PONTILE.z0 + PONTILE.to }],
+    scogliera: [{ x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.from }, { x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.to }],
+    places: [
+      { ...PERGOLA, name: 'Chiosco' }, { ...BARCA, name: 'Barca in secco' }, { ...TORRETTA, name: 'Stabilimento' },
+      { ...BELVEDERE, name: 'Belvedere' }, { x: PLATFORM.x, z: PLATFORM.z, name: 'Piattaforma' },
+      { x: FOCE.x, z: shoreZ(FOCE.x) + 20, name: 'Foce' }, { x: 15, z: shoreZ(15) + 2, name: 'Bandiera' },
+    ],
+    vehicles: [
+      { x: bike.g.position.x, z: bike.g.position.z, name: 'Moto', color: '#e0623f' },
+      { x: sea.sup.g.position.x, z: sea.sup.g.position.z, name: 'SUP', color: '#7fd0e6' },
+      { x: craft.boat.g.position.x, z: craft.boat.g.position.z, name: 'Barchino', color: '#f2efe6' },
+      { x: craft.glider.g.position.x, z: craft.glider.g.position.z, name: 'Deltaplano', color: '#ff8a5c' },
+      ...(hasGear ? [] : [{ x: GEAR.x, z: GEAR.z, name: 'Maschera e pinne', color: '#9fe0a0' }]),
+      ...craft.ships.map((S) => ({ x: S.g.position.x, z: S.g.position.z, name: S.name, color: '#d8e6f2' })),
+    ],
+    traces: places.traces.map((t) => ({ x: t.pos.x, z: t.pos.z, found: t.found })),
+    figure: W.phantom.state === 'final' ? W.phantom.g.position : null,
+  });
+
   // post
   const P = post.uniforms;
   P.uTime.value = elapsed;
@@ -609,7 +711,9 @@ addEventListener('resize', () => {
 if (Q.has('autostart')) { started = running = true; overlay.classList.add('hidden'); }
 if (Q.get('mode') === 'sup') { sea.sup.g.position.set(player.pos.x, 0, player.pos.z); sea.sup.g.position.y = 0.06; mountSup(); }
 if (Q.get('mode') === 'swim') { player.mode = 'swim'; }
+if (Q.get('mode') === 'glide') { craft.glider.g.position.set(player.pos.x, player.pos.y + 2.5, player.pos.z); player.mode = 'walk'; action(); }
+if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, player.pos.z); player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
