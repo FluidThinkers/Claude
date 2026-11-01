@@ -38,7 +38,7 @@
   #stick.on { opacity: 1; }
   .tbtn { position: fixed; right: 24px; width: 64px; height: 64px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.08);
     color: #fff; font-size: 13px; letter-spacing: .1em; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; }
-  #jumpBtn { bottom: 32px; } #diveBtn { bottom: 32px; right: 100px; } #actBtn { bottom: 108px; right: 100px; } #timeBtn { bottom: 108px; } #bookBtn { bottom: 184px; }
+  #flowBtn { bottom: 184px; right: 100px; } .tbtn.hidden { display: none; } #journalList li.sep { margin-top: 28px; } #jumpBtn { bottom: 32px; } #diveBtn { bottom: 32px; right: 100px; } #actBtn { bottom: 108px; right: 100px; } #timeBtn { bottom: 108px; } #bookBtn { bottom: 184px; }
   #journal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,10,16,.55);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .8s; }
   #journal.open { opacity: 1; pointer-events: auto; }
@@ -59,7 +59,7 @@
   <h1>RIVA</h1>
   <div class="sub">una spiaggia, fuori stagione</div>
   <div class="cta">Clicca per entrare</div>
-  <div class="keys">WASD — cammina, nuota, pagaia · Mouse — guarda · Shift — corri · Spazio — salta / risali · C — immergiti<br>E — azione (SUP, attrezzatura, panchine) · T — cambia l'ora · J — diario · N — mappa · M — audio<br>Ritrova i ricordi: ognuno ti porterà al prossimo.</div>
+  <div class="keys">WASD — cammina, nuota, pagaia · Mouse — guarda · Shift — corri · Spazio — salta / risali · C — immergiti<br>E — azione (SUP, attrezzatura, panchine) · T — cambia l'ora · J — diario · N — mappa · F — fluire (quando lo scopri) · M — audio<br>Ritrova i ricordi: ognuno ti porterà al prossimo.</div>
 </div>
 <div id="phase" class="hud"></div>
 <div id="count" class="hud"></div>
@@ -77,6 +77,7 @@
   <div id="jumpBtn" class="tbtn">SU</div>
   <div id="diveBtn" class="tbtn">GIÙ</div>
   <div id="actBtn" class="tbtn">AZIONE</div>
+  <div id="flowBtn" class="tbtn hidden">FLUISCI</div>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>

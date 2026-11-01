@@ -302,3 +302,101 @@ export function updateSkyline(S, camPos, pal, sunDir, sunVis) {
   U.uSunDir.value.copy(sunDir); U.uSunCol.value.copy(pal.sun); U.uSunVis.value = sunVis;
   S.mNear.color.copy(U.uHaze.value).lerp(U.uBase.value, 0.62);
 }
+
+// ---------- Solchi delle gomme sulla sabbia e spruzzi dietro la ruota
+function trackTexture() {
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 64, 128);
+  c.filter = 'blur(1.5px)';
+  c.fillStyle = 'rgb(150,140,130)'; c.fillRect(14, 0, 36, 128);
+  c.fillStyle = 'rgb(110,100,92)';
+  for (let y = 0; y < 128; y += 10) { c.fillRect(16, y, 13, 5); c.fillRect(35, y + 5, 13, 5); }
+  c.fillStyle = 'rgb(232,226,218)'; c.fillRect(8, 0, 6, 128); c.fillRect(50, 0, 6, 128);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+export class TireTracks {
+  constructor(scene) {
+    this.count = 700;
+    const geo = new THREE.PlaneGeometry(0.2, 0.55); geo.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({ map: trackTexture(), blending: THREE.MultiplyBlending, premultipliedAlpha: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, fog: false });
+    mat.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>',
+        '#if defined( USE_INSTANCING_COLOR ) || defined( USE_COLOR )\n diffuseColor.rgb = mix(vec3(1.0), diffuseColor.rgb, vColor.r);\n#endif');
+    };
+    this.mesh = new THREE.InstancedMesh(geo, mat, this.count);
+    this.mesh.frustumCulled = false;
+    this.items = [];
+    for (let i = 0; i < this.count; i++) { this.items.push({ age: 0, life: 0 }); dummy.position.set(0, -999, 0); dummy.updateMatrix(); this.mesh.setMatrixAt(i, dummy.matrix); this.mesh.setColorAt(i, new THREE.Color(0, 0, 0)); }
+    this.next = 0; this.dist = 0;
+    scene.add(this.mesh);
+  }
+  update(dt, pos, yaw, onSand, step) {
+    if (onSand) {
+      this.dist += step;
+      while (this.dist > 0.45) {
+        this.dist -= 0.45;
+        const i = this.next; this.next = (this.next + 1) % this.count;
+        const it = this.items[i]; it.age = 0; it.life = (pos.z - shoreZ(pos.x) < 3.5) ? 10 : 160;
+        const x = pos.x + Math.sin(yaw) * 0.7, z = pos.z + Math.cos(yaw) * 0.7;
+        normalAt(x, z, tmpN);
+        tmpQ.setFromUnitVectors(UP, tmpN); tmpQ2.setFromAxisAngle(UP, yaw);
+        dummy.quaternion.copy(tmpQ).multiply(tmpQ2);
+        dummy.position.set(x, heightAt(x, z) + 0.015, z); dummy.scale.setScalar(1); dummy.updateMatrix();
+        this.mesh.setMatrixAt(i, dummy.matrix);
+      }
+      this.mesh.instanceMatrix.needsUpdate = true;
+    }
+    const c = new THREE.Color();
+    for (let i = 0; i < this.count; i++) {
+      const it = this.items[i]; if (it.life === 0) continue;
+      it.age += dt; const k = Math.min(it.age / it.life, 1);
+      this.mesh.setColorAt(i, c.setScalar((1 - k * k) * 0.85));
+      if (k >= 1) it.life = 0;
+    }
+    this.mesh.instanceColor.needsUpdate = true;
+  }
+}
+
+export class SandSpray {
+  constructor(scene) {
+    this.n = 260;
+    this.p = new Float32Array(this.n * 3).fill(-999);
+    this.v = new Float32Array(this.n * 3);
+    this.life = new Float32Array(this.n);
+    this.geo = new THREE.BufferGeometry();
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.p, 3));
+    this.mat = new THREE.PointsMaterial({ color: 0xcdb798, size: 0.05, transparent: true, opacity: 0.85, depthWrite: false });
+    this.pts = new THREE.Points(this.geo, this.mat); this.pts.frustumCulled = false;
+    scene.add(this.pts);
+    this.k = 0;
+  }
+  emit(pos, yaw, speed, amount, dt) {
+    let n = Math.floor(amount * dt * 400 + Math.random());
+    while (n-- > 0) {
+      const i = this.k = (this.k + 1) % this.n;
+      const back = 0.75;
+      this.p[i * 3] = pos.x + Math.sin(yaw) * back + (Math.random() - 0.5) * 0.2;
+      this.p[i * 3 + 1] = pos.y + 0.08;
+      this.p[i * 3 + 2] = pos.z + Math.cos(yaw) * back + (Math.random() - 0.5) * 0.2;
+      const sp = 1 + speed * 0.25 * Math.random();
+      this.v[i * 3] = Math.sin(yaw) * sp + (Math.random() - 0.5) * 1.5;
+      this.v[i * 3 + 1] = 1.2 + Math.random() * 2.2;
+      this.v[i * 3 + 2] = Math.cos(yaw) * sp + (Math.random() - 0.5) * 1.5;
+      this.life[i] = 0.6 + Math.random() * 0.5;
+    }
+  }
+  update(dt) {
+    for (let i = 0; i < this.n; i++) {
+      if (this.life[i] <= 0) continue;
+      this.life[i] -= dt;
+      this.v[i * 3 + 1] -= 9 * dt;
+      this.p[i * 3] += this.v[i * 3] * dt; this.p[i * 3 + 1] += this.v[i * 3 + 1] * dt; this.p[i * 3 + 2] += this.v[i * 3 + 2] * dt;
+      const h = heightAt(this.p[i * 3], this.p[i * 3 + 2]);
+      if (this.p[i * 3 + 1] < h || this.life[i] <= 0) { this.life[i] = 0; this.p[i * 3 + 1] = -999; }
+    }
+    this.geo.attributes.position.needsUpdate = true;
+  }
+}

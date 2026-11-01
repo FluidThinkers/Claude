@@ -7,22 +7,30 @@ function rng(seed) {
 
 // Sabbia con granulosità e ciottoli sparsi (come in primo piano nelle foto)
 export function sandTextures() {
-  const S = 512;
+  const S = 1024;
   const col = document.createElement('canvas'); col.width = col.height = S;
   const bmp = document.createElement('canvas'); bmp.width = bmp.height = S;
   const c = col.getContext('2d'), b = bmp.getContext('2d');
   const img = c.createImageData(S, S), bimg = b.createImageData(S, S);
   const r = rng(7);
+  // granelli a più scale: macchie larghe, grana media, singoli granelli chiari e scuri
+  const blot = new Float32Array(64 * 64).map(() => r());
+  const bl = (x, y) => { const gx = x / S * 64, gy = y / S * 64, ix = Math.floor(gx), iy = Math.floor(gy), fx = gx - ix, fy = gy - iy;
+    const a = blot[(iy & 63) * 64 + (ix & 63)], b = blot[(iy & 63) * 64 + ((ix + 1) & 63)], c = blot[((iy + 1) & 63) * 64 + (ix & 63)], d = blot[((iy + 1) & 63) * 64 + ((ix + 1) & 63)];
+    return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy; };
   for (let i = 0; i < S * S; i++) {
+    const x = i % S, y = (i / S) | 0;
     const n = r();
-    const v = 0.86 + n * 0.2;
-    img.data[i * 4] = 194 * v; img.data[i * 4 + 1] = 166 * v; img.data[i * 4 + 2] = 132 * v; img.data[i * 4 + 3] = 255;
-    const bv = 110 + n * 60;
+    const grain = n < 0.03 ? 0.62 : n > 0.985 ? 1.28 : 0.9 + n * 0.16;
+    const v = grain * (0.93 + 0.12 * bl(x, y));
+    const hue = n < 0.05 ? [0.92, 0.9, 0.95] : n > 0.97 ? [1.05, 0.98, 0.9] : [1, 1, 1];
+    img.data[i * 4] = Math.min(255, 192 * v * hue[0]); img.data[i * 4 + 1] = Math.min(255, 164 * v * hue[1]); img.data[i * 4 + 2] = Math.min(255, 130 * v * hue[2]); img.data[i * 4 + 3] = 255;
+    const bv = 100 + n * 70 + bl(x, y) * 30;
     bimg.data[i * 4] = bimg.data[i * 4 + 1] = bimg.data[i * 4 + 2] = bv; bimg.data[i * 4 + 3] = 255;
   }
   c.putImageData(img, 0, 0); b.putImageData(bimg, 0, 0);
   const tones = ['#8a8580', '#c9c4bc', '#6f6a66', '#a89a88', '#e8e2d8', '#5b5552', '#9c7a5c'];
-  for (let k = 0; k < 140; k++) {
+  for (let k = 0; k < 420; k++) {
     const x = r() * S, y = r() * S;
     const rad = 0.8 + Math.pow(r(), 3) * 7;
     const rot = r() * Math.PI;

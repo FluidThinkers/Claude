@@ -70,6 +70,7 @@ export class Journal {
     this.render();
   }
   add(i) { this.found.add(i); this.render(); }
+  addDiscovery(d) { (this.disc ||= []).push(d); this.render(); }
   toggle(force) {
     this.open = force ?? !this.open;
     this.el.classList.toggle('open', this.open);
@@ -77,6 +78,33 @@ export class Journal {
   render() {
     this.list.innerHTML = FRAGMENTS.map((f, i) => this.found.has(i)
       ? `<li><span class="pl">${f.label} · ${f.place}</span><span class="tx">${f.text}</span><span class="th">${f.thought}</span></li>`
-      : `<li class="miss"><span class="pl">· · ·</span></li>`).join('');
+      : `<li class="miss"><span class="pl">· · ·</span></li>`).join('')
+      + (this.disc && this.disc.length ? '<li class="sep"><span class="pl">Scoperte</span></li>' + this.disc.map((d) => `<li><span class="pl">${d.title}</span><span class="tx">${d.text}</span><span class="th">${d.thought}</span></li>`).join('') : '');
   }
 }
+
+// Scoperte: si trovano vagando, senza ordine obbligato. Alcune portano ad altre.
+export const DISCOVERIES = {
+  registro: { title: 'Il registro del molo',
+    text: 'Registro di carico, fine anni ottanta. Tonnellate, nomi di navi, orari. L\'ultima riga è scritta da un\'altra mano: «Domani smontano la gru. La radio della piattaforma la lascio accesa.»',
+    thought: 'Una radio lasciata accesa, là in mezzo al mare. Chissà se parla ancora.', next: 'radio' },
+  radio: { title: 'La radio sulla piattaforma',
+    text: 'Il quadrante verde è ancora acceso. Tra i fruscii, una voce ripete sempre la stessa cosa: delle coordinate, e il nome di una barca da pesca.',
+    thought: 'Quella barca è affondata davanti al vecchio molo. È ancora là sotto.', next: 'relitto' },
+  relitto: { title: 'Il relitto',
+    text: 'Sul fondo, una barca da pesca coricata su un fianco. Il nome sulla prua è lo stesso scritto dentro il cappello di paglia.',
+    thought: 'Resti fermo tra le correnti, e per un momento non senti più dove finisci tu e dove comincia l\'acqua.',
+    unlock: 'flow' },
+  delfini: { title: 'I delfini',
+    text: 'Escono dall\'acqua tutti insieme, uno dopo l\'altro, e rientrano senza rumore.',
+    thought: 'Come un pensiero che torna, quando hai smesso di cercarlo.' },
+  tartaruga: { title: 'La tartaruga',
+    text: 'Una tartaruga marina nuota piano accanto a te, senza fretta.',
+    thought: 'Torna ogni anno sulla stessa spiaggia. Nessuno le ha mai spiegato la strada.' },
+  gru: { title: 'In cima alla gru',
+    text: 'Da quassù il molo è una frase interrotta: mancano dei pezzi, eppure si capisce lo stesso.',
+    thought: 'Forse anche i ricordi funzionano così.' },
+  stella: { title: 'Una stella cadente',
+    text: 'Una stella cadente, lunga, sopra il mare.',
+    thought: 'Non hai fatto in tempo a esprimere un desiderio. Forse non serviva.' },
+};

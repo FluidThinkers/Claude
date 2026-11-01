@@ -185,6 +185,7 @@ export const waterUniforms = {
   uLamp: { value: new THREE.Vector4(0, 0, 0, 0) },
   uUnderCol: { value: new THREE.Color(0x0e4a58) },
   uWindK: { value: 0.4 },
+  uRings: { value: [new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0)] },
   uWindDir: { value: new THREE.Vector2(0.6, -0.8) },
   uUnderFog: { value: 0.06 },
 };
@@ -207,7 +208,24 @@ export function makeWater() {
     side: THREE.DoubleSide,
     vertexShader: /* glsl */`
       uniform float uLevel, uTime, uWindK;
-      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront;
+      uniform vec4 uRings[4];
+      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing;
+      // onde ad anello sollevate quando sei il mare
+      float rings(vec2 p, out float crest){
+        float h = 0.0; crest = 0.0;
+        for (int i = 0; i < 4; i++) {
+          float age = uTime - uRings[i].z;
+          if (age < 0.0 || age > 14.0) continue;
+          float r = length(p - uRings[i].xy);
+          float front = age * 7.0;
+          float a = uRings[i].w * exp(-age * 0.28) * (1.0 / (1.0 + r * 0.04));
+          float x = (r - front) / 2.2;
+          float w = exp(-x * x) * a;
+          h += w * (1.0 - 0.6 * smoothstep(0.0, 2.0, -x));
+          crest = max(crest, w / max(uRings[i].w, 0.01));
+        }
+        return h;
+      }
       ` + NOISE_GLSL + SHORE_GLSL + SURF_GLSL + /* glsl */`
       void main(){
         vec4 w = modelMatrix * vec4(position, 1.0);
@@ -217,8 +235,13 @@ export function makeWater() {
         float e = 0.35;
         float yx = surfY(w.x + e, (w.z) - shoreZ(w.x + e), uTime, uLevel, uWindK, s2, b2, o2, f2, fr2);
         float yz = surfY(w.x, d + e, uTime, uLevel, uWindK, s2, b2, o2, f2, fr2);
-        vSlope = vec2(yx - y, yz - y) / e;
-        w.y = y;
+        float cr, c2;
+        float rg = rings(w.xz, cr);
+        float rgx = rings(w.xz + vec2(e, 0.0), c2), rgz = rings(w.xz + vec2(0.0, e), c2);
+        float seaK = smoothstep(0.0, -2.0, d);
+        vSlope = vec2(yx - y + (rgx - rg) * seaK, yz - y + (rgz - rg) * seaK) / e;
+        w.y = y + rg * seaK;
+        vRing = cr * seaK;
         vW = w.xyz; vSurf = vec4(s, brk, bore, film); vFront = front - d;
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
@@ -228,7 +251,7 @@ export function makeWater() {
       uniform vec3 uUnderCol;
       uniform float uFog, uUnderFog, uWindK;
       uniform vec2 uWindDir;
-      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront;
+      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
       void main(){
         vec2 p = vW.xz;
@@ -307,6 +330,7 @@ export function makeWater() {
         float edgeF = (film > 0.0) ? smoothstep(1.6, 0.0, vFront) * (0.45 + 0.55 * lace) : 0.0;
         float filmLace = (film > 0.0) ? lace * 0.6 : 0.0;
         foam = max(foam * 0.0, max(max(lip, white), max(residual, max(edgeF, filmLace))));
+        foam = max(foam, smoothstep(0.55, 0.95, vRing) * (0.5 + 0.5 * brkUp));
         foam = clamp(foam, 0.0, 1.0);
         // l'onda che si alza diventa verde-azzurra e traslucida contro la luce
         float rise = brk * smoothstep(0.7, 0.97, sP);
@@ -368,6 +392,15 @@ export function enhanceSand(material) {
           gr *= fadeR;
           normal = normalize(normal + (viewMatrix * vec4(-gr.x, 0.0, -gr.y, 0.0)).xyz);
         }
+      }`)
+      .replace('#include <roughnessmap_fragment>', /* glsl */`#include <roughnessmap_fragment>
+      {
+        // sabbia bagnata: lucida, specchia il cielo; asciutta: opaca
+        float dW = vWPos.z - shoreZ(vWPos.x);
+        float wet = smoothstep(3.2, 0.3, dW) * smoothstep(-1.5, -0.2, vWPos.y);
+        float puddle = smoothstep(0.55, 0.75, vn(vWPos.xz * 0.35)) * wet;
+        roughnessFactor = mix(roughnessFactor, 0.16, wet * 0.8);
+        roughnessFactor = mix(roughnessFactor, 0.05, puddle * 0.7);
       }`)
       .replace('#include <lights_fragment_end>', /* glsl */`#include <lights_fragment_end>
       {
@@ -451,10 +484,10 @@ export function makePost(renderer) {
     tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
     uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
-    uUnder: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
+    uUnder: { value: 0 }, uFlow: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
   }, /* glsl */`
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
-    uniform float uUnder, uIllum, uMask, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
+    uniform float uUnder, uFlow, uIllum, uMask, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
     float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -465,6 +498,12 @@ export function makePost(renderer) {
     void main(){
       vec2 uv = vUv; vec2 c = uv - 0.5; float r2 = dot(c, c);
       if (uUnder > 0.0) uv += vec2(sin(uv.y * 22.0 + uTime * 1.7), cos(uv.x * 18.0 + uTime * 1.3)) * 0.0025 * uUnder;
+      if (uFlow > 0.0) {
+        // essere acqua: i bordi scorrono e si allungano, la vista ondeggia come in una corrente
+        float ed = smoothstep(0.15, 0.7, length(c));
+        uv += vec2(sin(uv.y * 9.0 + uTime * 2.2), cos(uv.x * 7.0 + uTime * 1.9)) * 0.006 * uFlow * (0.3 + ed);
+        uv += c * ed * 0.03 * uFlow * sin(uTime * 1.3);
+      }
       vec3 col;
       col.r = texture2D(tScene, uv - c * r2 * 0.012).r;
       col.g = texture2D(tScene, uv).g;
@@ -522,6 +561,11 @@ export function makePost(renderer) {
         float frame = max(smoothstep(-0.01, 0.04, dm), nose);
         col = mix(col, vec3(0.015, 0.02, 0.025), frame * uMask);
         col += vec3(0.6, 0.8, 0.9) * 0.04 * smoothstep(-0.06, -0.0, dm) * (1.0 - frame) * uMask;
+      }
+      if (uFlow > 0.0) {
+        float ed2 = smoothstep(0.2, 0.8, length(c));
+        col = mix(col, col * vec3(0.75, 1.0, 1.08) + vec3(0.0, 0.03, 0.05), uFlow * 0.6);
+        col = mix(col, uUnderCol * 2.2 + vec3(0.08, 0.14, 0.16), ed2 * uFlow * 0.45);
       }
       // illuminazione: un ricordo che torna, luce calda e morbida
       if (uIllum > 0.0) {

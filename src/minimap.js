@@ -47,6 +47,7 @@ export class Minimap {
     // pontile e scogliera
     const line = (a, b, w, col) => { const [ax, ay] = toS(a.x, a.z), [bx, by] = toS(b.x, b.z); c.strokeStyle = col; c.lineWidth = Math.max(1.5, w * scale); c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke(); };
     line(S.pontile[0], S.pontile[1], 2.3, 'rgba(120,95,70,1)');
+    if (S.molo) line(S.molo[0], S.molo[1], 7, 'rgba(130,128,120,1)');
     line(S.scogliera[0], S.scogliera[1], 6, 'rgba(120,118,112,1)');
 
     // simboli
@@ -72,6 +73,13 @@ export class Minimap {
       c.beginPath(); c.arc(Math.max(zr * 0.3, Math.min(W - zr * 0.3, zx)), Math.max(zr * 0.3, Math.min(H - zr * 0.3, zy)), zr * (0.92 + 0.08 * Math.sin(t * 2)), 0, 7);
       c.fillStyle = 'rgba(255,214,150,0.18)'; c.fill();
       c.setLineDash([3, 3]); c.strokeStyle = 'rgba(255,224,170,0.85)'; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
+    }
+    if (S.discZone) {
+      const [zx, zy] = toS(S.discZone.x, S.discZone.z);
+      const zr = Math.max(9, S.discZone.r * scale);
+      c.beginPath(); c.arc(Math.max(zr * 0.3, Math.min(W - zr * 0.3, zx)), Math.max(zr * 0.3, Math.min(H - zr * 0.3, zy)), zr, 0, 7);
+      c.fillStyle = 'rgba(150,220,235,0.15)'; c.fill();
+      c.setLineDash([2, 4]); c.strokeStyle = 'rgba(170,230,240,0.85)'; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
     }
     for (const p of S.places) { dot(p.x, p.z, 2.5, 'rgba(255,255,255,0.75)'); label(p.x, p.z, p.name); }
     for (const v of S.vehicles) { dot(v.x, v.z, 4, v.color, 'rgba(0,0,0,0.5)'); label(v.x, v.z, v.name, v.color); }

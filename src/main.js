@@ -5,7 +5,7 @@ import { makeSky, makeWater, makePost, skyUniforms, waterUniforms, enhanceSand }
 import { sandTextures, glowTexture } from './textures.js';
 import { buildWorld, updateWorld, spawnRipple, PLATFORM } from './world.js';
 import { buildPlaces, updatePlaces, placeHeight, collide, nearBench } from './places.js';
-import { Footprints, Scatter, buildSkyline, updateSkyline } from './details.js';
+import { Footprints, Scatter, buildSkyline, updateSkyline, TireTracks, SandSpray } from './details.js';
 import { Journal, FRAGMENTS, INTRO, ENDING } from './story.js';
 import { Sound } from './audio.js';
 import { buildSea, updateSea, SUP_START, GEAR } from './sea.js';
@@ -16,11 +16,14 @@ import { wind, updateWind, SandDrift } from './wind.js';
 import { buildBike, rideBike } from './bike.js';
 import { buildCraft, updateCraft, deckHeight, shipCollide, boardable, driveBoat, flyGlider } from './craft.js';
 import { Minimap } from './minimap.js';
+import { buildExplore, updateExplore, exploreHeight, exploreCollide, nearLadder, MOLO } from './explore.js';
+import { DISCOVERIES } from './story.js';
 import { SCOGLIERA, PERGOLA, BARCA, TORRETTA, BELVEDERE } from './places.js';
 import { FOCE } from './terrain.js';
 
 const Q = new URLSearchParams(location.search);
 const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
+let discZone = null, flowUnlocked = Q.has('flow'), lastRing = -9, ringI = 0, seenMeteor = false;
 
 // ---------- renderer / scena
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -70,7 +73,12 @@ const gulls = new Gulls(scene, gullPerches(PONTILE));
 const flora = new Flora(scene, wind);
 const drift = new SandDrift(scene);
 const bike = buildBike(scene);
+const tracks = new TireTracks(scene);
+const spray = new SandSpray(scene);
+// sabbia morbida: spiaggia asciutta, non la passeggiata né l'erba
+const softSand = (x, z) => { const d = z - shoreZ(x); if (d < 1 || d > 74) return 0; if (placeHeight(x, z, 99) > heightAt(x, z) + 0.1) return 0; return Math.min(1, (d - 1) / 4) * (d > 60 ? Math.max(0, (74 - d) / 14) : 1); };
 const craft = buildCraft(scene);
+const explore = buildExplore(scene, PLATFORM, glowTex);
 const minimap = new Minimap(document.getElementById('map'));
 {
   const anchor = new THREE.Object3D(); anchor.position.set(2.6, 1.22, 0.7);
@@ -112,7 +120,7 @@ const underCol = new THREE.Color();
 player.pos.z = num('z', shoreZ(player.pos.x) + 21.5);
 player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), 0);
 terrain.update(player.pos.x, player.pos.z, true);
-const groundAt = (x, z, feet) => Math.max(heightAt(x, z), placeHeight(x, z, feet), deckHeight(craft, x, z, feet));
+const groundAt = (x, z, feet) => Math.max(heightAt(x, z), placeHeight(x, z, feet), deckHeight(craft, x, z, feet), exploreHeight(explore, x, z, feet));
 // seduti su una panchina il tempo scorre più veloce
 let sitting = null;
 // azione contestuale: SUP, attrezzatura, panchina
@@ -121,6 +129,9 @@ function nearGear() { return !hasGear && Math.hypot(GEAR.x - player.pos.x, GEAR.
 function nearBoat() { const g = craft.boat.g.position; return Math.hypot(g.x - player.pos.x, g.z - player.pos.z) < 3.2; }
 function nearGlider() { const g = craft.glider.g.position; return Math.hypot(g.x - player.pos.x, g.z - player.pos.z) < 3.2; }
 function contextAction() {
+  if (player.mode === 'flow') return null;
+  const lad = nearLadder(explore, player.pos, player.mode);
+  if (lad) return lad.name;
   if (player.mode === 'bike') return 'scendi dalla moto';
   if (player.mode === 'glide') return null;
   if ((player.mode === 'swim' || player.mode === 'boat' || player.mode === 'sup') && boardable(craft, player.pos.x, player.pos.z)) return 'sali a bordo';
@@ -137,6 +148,19 @@ function contextAction() {
 }
 function action() {
   const a = contextAction();
+  const lad = nearLadder(explore, player.pos, player.mode);
+  if (lad && a === lad.name) {
+    // sali: ti porta sul ponte, un passo verso l'interno
+    let best = null, bd = 1e9;
+    for (const r of explore.rects) { if (Math.abs(r.y - lad.top) > 0.3) continue; const d = Math.hypot(r.x - lad.x, r.z - lad.z); if (d < bd) { bd = d; best = r; } }
+    const tx = best ? lad.x + (best.x - lad.x) / bd * 1.6 : lad.x, tz = best ? lad.z + (best.z - lad.z) / bd * 1.6 : lad.z;
+    if (player.mode === 'boat') { craft.boat.on = false; sound.engine(false, 0, 0); }
+    if (player.mode === 'sup') { sea.sup.onBoard = false; sea.fpPaddle.visible = false; }
+    player.mode = 'walk'; player.pos.set(tx, lad.top, tz); player.vel.set(0, 0, 0); player.ground = true;
+    fade = 0.5; post.uniforms.uFadeCol.value.setRGB(0.1, 0.1, 0.1);
+    sound.step('sand', 3);
+    return;
+  }
   if (a === 'sali a bordo') {
     const b = boardable(craft, player.pos.x, player.pos.z);
     if (player.mode === 'boat') { craft.boat.on = false; sound.engine(false, 0, 0); }
@@ -234,6 +258,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') sound.toggle();
   if (e.code === 'KeyJ') journal.toggle();
   if (e.code === 'KeyN') minimap.toggle();
+  if (e.code === 'KeyF') toggleFlow();
   if (e.code === 'KeyE') action();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -297,6 +322,8 @@ let touchJump = false;
 document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { touchJump = true; touchUp = true; e.preventDefault(); });
 document.getElementById('timeBtn').addEventListener('touchstart', (e) => { advancePhase(); e.preventDefault(); });
 document.getElementById('actBtn').addEventListener('touchstart', (e) => { action(); e.preventDefault(); });
+document.getElementById('flowBtn').addEventListener('touchstart', (e) => { toggleFlow(); e.preventDefault(); });
+if (flowUnlocked) document.getElementById('flowBtn').classList.remove('hidden');
 let touchDive = false;
 document.getElementById('diveBtn').addEventListener('touchstart', (e) => { touchDive = true; e.preventDefault(); });
 document.getElementById('diveBtn').addEventListener('touchend', () => { touchDive = false; });
@@ -396,6 +423,50 @@ function onFind(t) {
     P.state = 'final'; P.op = 0; P.dir = -1; P.d = 1.6; P.g.visible = true;
   }
 }
+// ---------- scoperte libere
+const discovered = new Set();
+function onDiscover(id) {
+  if (discovered.has(id)) return;
+  discovered.add(id);
+  const D = DISCOVERIES[id]; if (!D) return;
+  journal.addDiscovery(D);
+  sound.chime(4 + discovered.size); illum = 0.8;
+  showMsg(D.title + '. ' + D.text, 8);
+  setTimeout(() => {
+    msgEl.classList.add('thought'); showMsg(D.thought, 7);
+    setTimeout(() => msgEl.classList.remove('thought'), 7000);
+    if (D.next === 'radio') discZone = { x: PLATFORM.x, z: PLATFORM.z, r: 45 };
+    else if (D.next === 'relitto') discZone = { x: explore.wreck.x + 20, z: explore.wreck.z - 15, r: 45 };
+    else if (D.next === undefined && (id === 'relitto')) discZone = null;
+    if (D.unlock === 'flow') {
+      flowUnlocked = true;
+      setTimeout(() => { showMsg(isTouch ? 'Ora puoi fluire: in acqua tocca FLUISCI.' : 'Ora puoi fluire: in acqua premi F. Spazio solleva un\'onda.', 7); document.getElementById('flowBtn').classList.remove('hidden'); }, 7500);
+    }
+  }, 8500);
+}
+function addRing(x, z, amp) {
+  const r = waterUniforms.uRings.value[ringI++ % 4];
+  r.set(x, z, elapsed, amp);
+  sound.splash('dive', 1.2);
+}
+function toggleFlow() {
+  if (!flowUnlocked) return;
+  const lvl = waterUniforms.uLevel.value;
+  if (player.mode === 'flow') {
+    const deep = lvl - heightAt(player.pos.x, player.pos.z) > 1.3;
+    if (camera.position.y < lvl - 0.2) { player.mode = 'dive'; player.pos.y = camera.position.y - 1.65; }
+    else if (deep) { player.mode = 'swim'; player.pos.y = lvl + 0.12 - 1.65; }
+    else { player.mode = 'walk'; player.pos.y = heightAt(player.pos.x, player.pos.z); }
+    showMsg('Torni corpo.', 2.5);
+    return;
+  }
+  if (player.mode === 'swim' || player.mode === 'dive') {
+    player.mode = 'flow';
+    player.pos.y = camera.position.y;
+    illum = 0.6; sound.chord();
+    showMsg('Sei il mare.', 3);
+  }
+}
 function onMeet() {
   zone = null;
   goalEl.classList.remove('on');
@@ -467,7 +538,7 @@ function frame() {
     if (jump && player.ground && wade < 0.5) { player.vel.y = 5.2; player.ground = false; }
     player.vel.y -= 13 * dt;
     player.pos.addScaledVector(player.vel, dt);
-    collide(player.pos); shipCollide(craft, player.pos);
+    collide(player.pos); shipCollide(craft, player.pos); exploreCollide(explore, player.pos);
     const gh = groundAt(player.pos.x, player.pos.z, player.pos.y);
     const d2 = depthAt(player.pos.x, player.pos.z);
     if (d2 > 1.3 && player.pos.y < lvl - 0.2) {
@@ -487,7 +558,7 @@ function frame() {
     player.vel.z += (tz - player.vel.z) * Math.min(1, 2.2 * dt);
     player.vel.y = 0;
     player.pos.x += player.vel.x * dt; player.pos.z += player.vel.z * dt;
-    collide(player.pos); shipCollide(craft, player.pos);
+    collide(player.pos); shipCollide(craft, player.pos); exploreCollide(explore, player.pos);
     player.pos.y = lvl + 0.12 - 1.65 + Math.sin(elapsed * 1.6) * 0.04;
     const hsw = Math.hypot(player.vel.x, player.vel.z);
     player.stroke += dt * hsw * 0.9;
@@ -514,6 +585,28 @@ function frame() {
       if (player.mode === 'walk') player.pos.y = heightAt(player.pos.x, player.pos.z);
       sound.splash('stroke', 1.2);
       if (player.breath < 0.3) showMsg('Aria.', 2);
+    }
+  } else if (M === 'flow') {
+    // essere il mare: scorri sopra e sotto la superficie, sollevi onde
+    const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+    const speed = run ? 24 : 12;
+    const tx = (-ys * cp * fz + yc * fx) * speed, tz = (-yc * cp * fz - ys * fx) * speed;
+    const ty = sp * fz * speed * 0.8 + (upK ? 3 : 0) - (downK ? 3 : 0);
+    const k = Math.min(1, 2.2 * dt);
+    player.vel.x += (tx - player.vel.x) * k; player.vel.z += (tz - player.vel.z) * k; player.vel.y += (ty - player.vel.y) * k;
+    player.pos.addScaledVector(player.vel, dt);
+    const floor = heightAt(player.pos.x, player.pos.z) + 0.5;
+    player.pos.y = Math.max(floor, Math.min(player.pos.y, lvl + 0.35 + Math.sin(elapsed * 1.4) * 0.06));
+    eyeH = 0;
+    const hsF = Math.hypot(player.vel.x, player.vel.z);
+    sound.wind(Math.min(1, 0.3 + hsF / 20));
+    player.stroke += dt * hsF * 0.25;
+    if (player.stroke > 1) { player.stroke = 0; if (player.pos.y > lvl - 0.5) spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); else sound.bubbles(); }
+    if (jump && elapsed - lastRing > 1.2 && player.pos.y > lvl - 1.5) { lastRing = elapsed; addRing(player.pos.x - ys * 7, player.pos.z - yc * 7, 1.0 + (run ? 0.5 : 0)); }
+    // arrivato a riva, l'onda si scioglie e torni corpo
+    if (lvl - heightAt(player.pos.x, player.pos.z) < 0.6) {
+      player.mode = 'walk'; player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), lvl - 0.5); player.vel.set(0, 0, 0);
+      addRing(player.pos.x, player.pos.z - 3, 0.6); showMsg('L\'onda si scioglie sulla sabbia. Torni corpo.', 3.5);
     }
   } else if (M === 'boat') {
     const B = craft.boat;
@@ -547,7 +640,10 @@ function frame() {
       showMsg('Atterrato.', 2);
     }
   } else if (M === 'bike') {
-    const r = rideBike(bike, dt, { fx, fz, run }, { ground: (x, z, y) => groundAt(x, z, y + 0.4), water: lvl });
+    const r = rideBike(bike, dt, { fx, fz, run }, { ground: (x, z, y) => groundAt(x, z, y + 0.4) - 0.07 * softSand(x, z), water: lvl, soft: softSand, time: elapsed });
+    const onS = softSand(bike.g.position.x, bike.g.position.z) > 0.2 || (lvl - heightAt(bike.g.position.x, bike.g.position.z) > -0.3 && lvl - heightAt(bike.g.position.x, bike.g.position.z) < 0.4);
+    tracks.update(dt, bike.g.position, bike.yaw, onS && Math.abs(bike.speed) > 0.3, Math.abs(bike.speed) * dt);
+    if (onS && fz > 0) spray.emit(bike.g.position, bike.yaw, Math.abs(bike.speed), 0.4 + bike.soft, dt);
     player.pos.set(bike.g.position.x, bike.g.position.y, bike.g.position.z);
     player.vel.set(-Math.sin(bike.yaw) * bike.speed, 0, -Math.cos(bike.yaw) * bike.speed);
     // lo sguardo torna lentamente davanti quando corri
@@ -605,6 +701,8 @@ function frame() {
   const fp = footprints.update(dt, player.pos, player.yaw, onSand && player.ground, hs > 0.6, hs * dt);
   if (fp) sound.step('sand', hs);
   footprints.tick(dt);
+  spray.update(dt);
+  if (player.mode !== 'bike') tracks.update(dt, player.pos, 0, false, 0);
   scatter.update(player.pos.x, player.pos.z);
   flora.update(player.pos.x, player.pos.z);
   const windK = updateWind(elapsed);
@@ -612,6 +710,13 @@ function frame() {
   sound.wind(windK);
   waterUniforms.uWindK.value = windK; waterUniforms.uWindDir.value.copy(wind.dir);
   updateSea(sea, dt, elapsed, { player: player.pos, water: lvl });
+  updateExplore(explore, dt, elapsed, {
+    player: player.pos, eye: camera.position, water: lvl, under, night,
+    inSea: ['swim', 'dive', 'boat', 'sup', 'flow'].includes(player.mode),
+    splash: (p) => { spawnRipple(W, p.x, p.z, night > 0.5); if (p.distanceTo(camera.position) < 80) sound.splash('stroke', 0.6); },
+    onMeteor: () => { if (!seenMeteor) { seenMeteor = true; onDiscover('stella'); } },
+    onDiscover,
+  });
   updateCraft(craft, dt, elapsed, { player: player.pos, camera: camera.position, water: lvl, fog: pal.fog * 2.2, hor: pal.hor });
   gulls.update(dt, elapsed, camera.position, (p, takeoff) => {
     const rel = tmp.copy(p).sub(camera.position);
@@ -718,12 +823,14 @@ function frame() {
   // mappa
   minimap.draw({
     player: player.pos, yaw: player.yaw, foce: FOCE,
+    molo: [{ x: MOLO.x, z: MOLO.z0 + MOLO.from }, { x: MOLO.x, z: MOLO.z0 + MOLO.from - MOLO.n * MOLO.seg }],
     pontile: [{ x: PONTILE.x, z: PONTILE.z0 + PONTILE.from }, { x: PONTILE.x, z: PONTILE.z0 + PONTILE.to }],
     scogliera: [{ x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.from }, { x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.to }],
     places: [
       { ...PERGOLA, name: 'Chiosco' }, { ...BARCA, name: 'Barca in secco' }, { ...TORRETTA, name: 'Stabilimento' },
       { ...BELVEDERE, name: 'Belvedere' }, { x: PLATFORM.x, z: PLATFORM.z, name: 'Piattaforma' },
       { x: FOCE.x, z: shoreZ(FOCE.x) + 20, name: 'Foce' }, { x: 15, z: shoreZ(15) + 2, name: 'Bandiera' },
+      { x: explore.shed.x, z: explore.shed.z, name: 'Capannone' }, { x: MOLO.x, z: MOLO.z0 - 130, name: 'Vecchio molo' },
     ],
     vehicles: [
       { x: bike.g.position.x, z: bike.g.position.z, name: 'Moto', color: '#e0623f' },
@@ -734,7 +841,7 @@ function frame() {
       ...craft.ships.map((S) => ({ x: S.g.position.x, z: S.g.position.z, name: S.name, color: '#d8e6f2' })),
     ],
     traces: places.traces.filter((t) => t.found).map((t) => ({ x: t.pos.x, z: t.pos.z, found: true })),
-    zone,
+    zone, discZone,
     figure: W.phantom.state === 'final' ? W.phantom.g.position : null,
   });
 
@@ -754,6 +861,7 @@ function frame() {
   P.uBlur.value = under && !hasGear ? 1 : 0;
   P.uMask.value = under && hasGear ? 1 : 0;
   P.uIllum.value = illum;
+  P.uFlow.value = player.mode === 'flow' ? 1 : 0;
   P.uUnderCol.value.copy(underCol);
   P.uBreath.value = player.mode === 'dive' ? THREE.MathUtils.smoothstep(0.4 - player.breath, 0, 0.4) : 0;
   fade += (fadeTarget - fade) * Math.min(1, dt * 1.5);
@@ -774,6 +882,7 @@ addEventListener('resize', () => {
 if (Q.has('autostart')) { started = running = true; overlay.classList.add('hidden'); }
 if (Q.get('mode') === 'sup') { sea.sup.g.position.set(player.pos.x, 0, player.pos.z); sea.sup.g.position.y = 0.06; mountSup(); }
 if (Q.get('mode') === 'swim') { player.mode = 'swim'; }
+if (Q.get('mode') === 'flow') { player.mode = 'flow'; player.pos.y = 0.2; }
 if (Q.get('mode') === 'glide') { craft.glider.g.position.set(player.pos.x, player.pos.y + 2.5, player.pos.z); player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, player.pos.z); player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }

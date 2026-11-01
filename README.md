@@ -54,6 +54,19 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - Il lungomare: muretto basso e palme mosse dal vento.
 - La passerella con la bandiera rossa mossa dal vento, la piattaforma offshore con le boe.
 
+**Esplorazione libera e scoperte**
+- **Il vecchio molo industriale**, oltre lo stabilimento: rampa, campate di cemento su piloni arrugginiti, binari, bitte, un nastro trasportatore in parte crollato, due campate cadute in mare (si scende in acqua e si risale con le scalette) e una gru a portale in fondo, su cui si sale.
+- **Il capannone**, con il tetto sfondato: la luce entra a fasce. Dentro c'è un registro.
+- **La piattaforma** in mare è esplorabile: scaletta dal mare, ponte inferiore e superiore, e una radio ancora accesa.
+- **Il relitto** di una barca da pesca sul fondo davanti al molo. Poi **delfini** che saltano al largo, una **tartaruga** che nuota accanto a te sott'acqua e **stelle cadenti** di notte.
+- **Scoperte**: si trovano vagando, senza ordine obbligato, e finiscono nel diario. Alcune portano ad altre: il registro porta alla radio, la radio al relitto (sulla mappa compare una zona azzurra).
+- **Fluire**: il relitto accende un pensiero, e da quel momento in acqua puoi **diventare il mare** (F, su telefono FLUISCI). Scorri veloce sopra e sotto la superficie, con Spazio sollevi un'onda che si allarga, e quando arrivi a riva l'onda si scioglie e torni corpo.
+
+**Materiali e superfici**
+- Sabbia con grana a più scale; la sabbia bagnata è lucida e specchia il cielo, con piccole pozze.
+- Moto con plastiche, metalli e gomme con micro-variazioni e un velo di polvere, sella con la sua trama. Sulla sabbia morbida affonda, rallenta e scoda; lascia solchi delle gomme (che il mare cancella) e alza spruzzi di sabbia.
+- Ruggine, cemento macchiato e mattoni per le strutture industriali.
+
 **Vento, mare e cielo**
 - Il vento gira piano e va a raffiche: chiazze increspate corrono sull'acqua, la sabbia scivola a terra, palme e macchia si piegano, il suono del vento segue le raffiche.
 - Risacca vera: le onde si gonfiano sul fondale basso, si rompono, diventano schiuma a merletto e risalgono la sabbia in una lama d'acqua sottile che poi si ritira.

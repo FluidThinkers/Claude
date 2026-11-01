@@ -2,12 +2,44 @@ import * as THREE from 'three';
 
 // Modelli dei mezzi: scafi a sezioni vere, linee pulite, materiali lucidi.
 
+// micro-variazioni e polvere: niente superfici di plastica perfetta
+let _dust = null, _rough = null;
+function dustTex() {
+  if (_dust) return _dust;
+  _dust = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) { const a = Math.random() * 0.12; c.fillStyle = `rgba(150,120,85,${a})`; const r = Math.random() * 2.2; c.fillRect(Math.random() * w, Math.random() * h, r, r); }
+    const g = c.createLinearGradient(0, h, 0, h * 0.4); g.addColorStop(0, 'rgba(165,130,90,0.35)'); g.addColorStop(1, 'rgba(165,130,90,0)');
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+  });
+  return _dust;
+}
+function roughTex() {
+  if (_rough) return _rough;
+  _rough = canvasTex(256, 256, (c, w, h) => {
+    const img = c.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) { const v = 150 + Math.random() * 60; img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255; }
+    c.putImageData(img, 0, 0);
+    for (let i = 0; i < 300; i++) { c.strokeStyle = `rgba(255,255,255,${Math.random() * 0.25})`; c.beginPath(); const x = Math.random() * w, y = Math.random() * h; c.moveTo(x, y); c.lineTo(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 6); c.stroke(); }
+  });
+  _rough.colorSpace = THREE.NoColorSpace;
+  return _rough;
+}
+export function seatTex() {
+  return canvasTex(128, 128, (c, w, h) => {
+    c.fillStyle = '#1b1b1b'; c.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 8) for (let x = (y / 8) % 2 * 4; x < w; x += 8) { c.fillStyle = '#262626'; c.fillRect(x, y, 4, 4); }
+    c.strokeStyle = '#3a3a3a'; c.setLineDash([3, 3]); c.lineWidth = 1.5; c.strokeRect(6, 6, w - 12, h - 12);
+  });
+}
+
 export const mat = {
+  dusty: (c, r = 0.35, m = 0.05) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, map: dustTex(), roughnessMap: roughTex() }),
   gelcoat: (c = 0xf4f2ec) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.22, metalness: 0.0, vertexColors: true }),
   paint: (c, r = 0.3) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 0.05 }),
   steel: () => new THREE.MeshStandardMaterial({ color: 0xdfe2e4, roughness: 0.18, metalness: 0.95 }),
   dark: (r = 0.45) => new THREE.MeshStandardMaterial({ color: 0x1e2022, roughness: r, metalness: 0.3 }),
-  rubber: () => new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.92 }),
+  rubber: () => new THREE.MeshStandardMaterial({ color: 0x1a1918, roughness: 0.95, map: dustTex(), roughnessMap: roughTex() }),
 };
 
 function canvasTex(w, h, draw) {
