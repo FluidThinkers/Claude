@@ -569,7 +569,9 @@ export function makePost(renderer) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: matchMedia('(pointer: coarse)').matches ? 2 : 4 });
   const q = () => new THREE.WebGLRenderTarget(Math.max(1, size.x >> 2), Math.max(1, size.y >> 2), { type: THREE.HalfFloatType });
-  const rtBright = q(), rtTmp = q(), rtBloom = q(), rtRays = q();
+  // profondità della scena: serve per sfumare in silhouette morbide le cose lontane
+  rt.depthTexture = new THREE.DepthTexture(size.x, size.y); rt.depthTexture.type = THREE.UnsignedIntType;
+  const rtBright = q(), rtTmp = q(), rtBloom = q(), rtRays = q(), rtFar = q();
 
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
   quad.frustumCulled = false;
@@ -620,7 +622,7 @@ export function makePost(renderer) {
     }`);
 
   const compMat = mk({
-    tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture },
+    tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture }, tDepth: { value: rt.depthTexture }, tFar: { value: rtFar.texture }, uNear: { value: 0.1 }, uFar: { value: 9000 }, uFarBlur: { value: 1 },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
     uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
     uUnder: { value: 0 }, uFlow: { value: 0 }, uForm: { value: new THREE.Vector4(1, 1, 1, 0) }, uDrops: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uDepth: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
@@ -628,6 +630,7 @@ export function makePost(renderer) {
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
     uniform vec4 uForm; uniform float uDrops;
     uniform float uUnder, uFlow, uIllum, uMask, uBlur, uBreath, uHaze, uDepth; uniform vec3 uUnderCol;
+    uniform sampler2D tDepth, tFar; uniform float uNear, uFar, uFarBlur;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
     float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -666,6 +669,15 @@ export function makePost(renderer) {
         vec3 acc = col;
         for (int i = 0; i < 8; i++) { float a = float(i) * 0.785; acc += texture2D(tScene, uv + vec2(cos(a), sin(a)) * 0.007 * uBlur).rgb; }
         col = acc / 9.0;
+      }
+      // lontano: le forme si sciolgono in silhouette morbide; da vicino tornano nitide
+      if (uFarBlur > 0.0) {
+        float dz = texture2D(tDepth, uv).x;
+        if (dz < 0.99999) {
+          float vz = uNear * uFar / (uFar - dz * (uFar - uNear));
+          float k = smoothstep(90.0, 520.0, vz) * 0.8 * uFarBlur;
+          col = mix(col, texture2D(tFar, uv).rgb, k);
+        }
       }
       col *= uExposure;
       col += vec3(dropHL) * 0.25;
@@ -751,7 +763,7 @@ export function makePost(renderer) {
     rt, uniforms: compMat.uniforms,
     resize(w, h) {
       rt.setSize(w, h);
-      for (const r of [rtBright, rtTmp, rtBloom, rtRays]) r.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2));
+      for (const r of [rtBright, rtTmp, rtBloom, rtRays, rtFar]) r.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2));
       compMat.uniforms.uRes.value.set(w, h);
     },
     render() {
@@ -761,6 +773,9 @@ export function makePost(renderer) {
       blurMat.uniforms.tIn.value = rtTmp.texture; blurMat.uniforms.uDir.value.set(0, texel.y * 1.5); pass(blurMat, rtBloom);
       blurMat.uniforms.tIn.value = rtBloom.texture; blurMat.uniforms.uDir.value.set(texel.x * 3.5, 0); pass(blurMat, rtTmp);
       blurMat.uniforms.tIn.value = rtTmp.texture; blurMat.uniforms.uDir.value.set(0, texel.y * 3.5); pass(blurMat, rtBloom);
+      // la scena sfocata a un quarto di risoluzione, per le distanze
+      blurMat.uniforms.tIn.value = rt.texture; blurMat.uniforms.uDir.value.set(texel.x * 1.2, 0); pass(blurMat, rtTmp);
+      blurMat.uniforms.tIn.value = rtTmp.texture; blurMat.uniforms.uDir.value.set(0, texel.y * 1.2); pass(blurMat, rtFar);
       if (shared.uSunVis.value > 0.001) pass(raysMat, rtRays);
       else { renderer.setRenderTarget(rtRays); renderer.clear(); }
       pass(compMat, null);

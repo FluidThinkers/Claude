@@ -14,6 +14,7 @@ export const FORM_TEXT = {
   rain: { name: 'Pioggia', unlock: 'Diventi pesante, e cadi.', enter: 'Diventi pioggia.' },
   cat: { name: 'Gatto', unlock: 'Un gatto ti guarda dal muretto, senza fretta.', enter: 'Sei un gatto.' },
   light: { name: 'Luce', enter: '' },
+  ant: { name: 'Formica', enter: 'Sei una formica. Ogni granello è una pietra.' },
   petal: { name: 'Petalo', unlock: 'Un petalo si stacca, e tu con lui.', enter: 'Sei un petalo. Il vento sa dove andare.' },
   wind: { name: 'Vento', unlock: 'Il petalo si posa. Tu continui.', enter: 'Sei vento. Nessuno ti vede, tutti ti sentono.' },
 };
@@ -173,6 +174,15 @@ export function moveForm(form, P, ctx) {
     P.pos.x += -ys * 1.5 * dt; P.pos.z += -yc * 1.5 * dt;
     P.pos.y += (lvl + 30 - P.pos.y) * Math.min(1, dt * 0.05);
     out.speed = 2;
+  } else if (form === 'ant') {
+    // formica: rasoterra, il mondo diventa enorme; A e D girano, W avanza; l'acqua è un muro
+    const sp = fz > 0 ? (run ? 4.2 : 2.4) : fz < 0 ? -1 : 0;
+    P.yaw -= fx * 2.0 * dt;
+    const nx = P.pos.x - ys * sp * dt, nz = P.pos.z - yc * sp * dt;
+    if (heightAt(nx, nz) > lvl + 0.03) { P.pos.x = nx; P.pos.z = nz; }
+    P.pos.y = heightAt(P.pos.x, P.pos.z) + 0.05 + Math.abs(Math.sin(ctx.time * 18)) * 0.004 * Math.abs(sp);
+    roll = Math.sin(ctx.time * 9) * 0.01 * Math.abs(sp);
+    out.speed = Math.abs(sp);
   } else if (form === 'petal') {
     // petalo: leggero, portato dal vento, ondeggia; puoi solo inclinarti un poco
     const w = 3 + ctx.wind * 6;

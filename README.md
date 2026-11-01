@@ -108,21 +108,24 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - Il percorso usa tutti i modi di muoversi: a piedi, sul pontile, sott'acqua con la maschera, in barchino o SUP fino alla barca a vela, in moto sulle colline, in deltaplano per scendere. Quando serve, un pensiero suggerisce come arrivarci.
 - Il diario (J) conserva ogni ricordo con il suo pensiero. Alla fine, alla bandiera, c'è qualcuno che ti aspetta.
 
-**Ogni ricordo ti cambia forma, e ogni forma ha la sua tappa**
-Trovi un ricordo, diventi (lentamente, con un annuncio e una voce che racconta) la forma giusta per il viaggio successivo; sulla mappa compare il prossimo ricordo; ci arrivi con quella forma, e basta passarci sopra perché si apra. In alto a sinistra è sempre scritto cosa sei. V accende o spegne la voce.
+**Ogni ricordo ti cambia forma, e ogni forma fa nascere il ricordo successivo**
+Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la forma giusta per il viaggio successivo. Sulla mappa compare il luogo. Ci arrivi con quella forma e fai ciò che solo quella forma sa fare: da lì nasce il ricordo. In alto a sinistra è sempre scritto cosa sei. V accende o spegne la voce.
 
-| # | Ricordo | Dove | Ci arrivi come | Cosa succede | Poi diventi |
+| # | Ricordo | Dove | Forma | Cosa fai | Poi diventi |
 |---|---|---|---|---|---|
 | 1 | Candela | sul cumulo di sabbia | umano | la raccogli | gabbiano |
-| 2 | Cappello di paglia | in cima alla gru del vecchio molo | gabbiano | voli sulla cima | pesce (ti lasci cadere in mare) |
-| 3 | Orologio | nel relitto sul fondo | pesce | scendi sul relitto | onda |
-| 4 | Bottiglia | sulla riva della torretta | onda | ti rompi sulla riva e la lasci lì | umano |
-| 5 | Sandali | in fondo al pontile | umano | ci arrivi a piedi | gatto |
-| 6 | Libro | sotto la pergola del chiosco | gatto | arrivi al tavolo | sabbia |
-| 7 | Lettera | nella barca in secco | sabbia | il vento ti porta dentro la barca | nuvola |
-| 8 | Binocolo | al belvedere | nuvola | passi sopra il cipresso (o piovi, Q) | deltaplano |
-| 9 | Lanterna | in punta agli scogli | in volo, poi a piedi | atterri e la raggiungi | l'incontro alla bandiera, poi luce |
+| 2 | Cappello | in cima alla gru del vecchio molo | gabbiano | ti posi sulla cima | pesce |
+| 3 | Orologio | nel relitto | pesce | trovi il banco e nuoti con loro (non scappano: sei uno di loro) | onda |
+| 4 | Bottiglia | sulla riva della torretta | onda | cresci, ti unisci alle onde, e arrivi a riva grande | vento |
+| 5 | Lettera e chiave | nella cabina della rovina al largo | vento, poi umano | spazzi via le nuvole (C); la luce scende, torni umano e apri la cassetta | nuvola |
+| 6 | Binocolo | al belvedere | nuvola | piovi sul cipresso assetato (Q) | gatto |
+| 7 | Libro | sulla barca in secco | gatto | trovi il sole e ti appisoli | formica |
+| 8 | Sandali | al formicaio, all'inizio del pontile | formica | porti a casa la briciola | umano |
+| 9 | Lanterna | in punta agli scogli | umano | la apri con la chiave della rovina | l'incontro alla bandiera, poi luce |
 
+- **La rovina al largo**: un vecchio pontile di carico in mezzo al mare, due silos arrugginiti, un nastro spezzato, una cabina; si risale dalla scaletta.
+- **Formica**: rasoterra, il mondo diventa enorme; il formicaio ha le sue formiche che vanno e vengono.
+- **Lontano, silhouette**: le cose lontane si sciolgono in forme morbide e diventano nitide solo avvicinandosi.
 - Se torni umano a metà strada (B), Q ti ridà la forma che quella tappa chiede, nel punto in cui sei.
 - Ogni forma vede il mondo a modo suo: il gabbiano ha lo sguardo largo e limpido, il gatto basso e grandangolare, il pesce verde-azzurro, la sabbia calda e dorata, la nuvola velata.
 - Sulla mappa c'è solo il prossimo ricordo, verde e pulsante, con una freccia che lo indica; quelli già trovati spariscono. Nel mondo una colonna di luce verde lo segnala da lontano.

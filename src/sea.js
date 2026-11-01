@@ -214,8 +214,12 @@ export function updateSea(S, dt, time, ctx) {
       if (!sc.placed) { continue; }
       sc.dir += Math.sin(sc.t * 0.3) * dt * 0.6;
       // si allontanano se ti avvicini
-      const away = sc.c.distanceTo(ctx.player) < 4 ? 2.2 : 0.5;
-      if (away > 1) sc.dir = Math.atan2(sc.c.x - ctx.player.x, sc.c.z - ctx.player.z);
+      // se sei un pesce non scappano: ti vengono incontro e nuotano con te
+      const dpl = sc.c.distanceTo(ctx.player);
+      const away = ctx.friend ? (dpl > 3 ? 2.6 : 0.9) : dpl < 4 ? 2.2 : 0.5;
+      if (ctx.friend && dpl > 3) sc.dir = Math.atan2(ctx.player.x - sc.c.x, ctx.player.z - sc.c.z);
+      else if (!ctx.friend && away > 1) sc.dir = Math.atan2(sc.c.x - ctx.player.x, sc.c.z - ctx.player.z);
+      if (ctx.friend) sc.c.y += (ctx.player.y - sc.c.y) * Math.min(1, dt * 0.8);
       sc.c.x += Math.sin(sc.dir) * away * dt; sc.c.z += Math.cos(sc.dir) * away * dt;
       const floor = heightAt(sc.c.x, sc.c.z);
       sc.c.y = Math.min(Math.max(sc.c.y, floor + 0.4), -0.6);

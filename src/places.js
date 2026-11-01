@@ -134,6 +134,7 @@ export const SCOGLIERA = { x: -172, z0: shoreZ(-172), half: 3.4, from: 2, to: -4
 export const PERGOLA = at(34, 8.5);
 export const BARCA = at(-96, 5.5);
 export const TORRETTA = at(108, 7);
+export const COLONY = { x: -38.5, z: shoreZ(-38.5) + 17 };
 export const LUNGO = { d: 62, wall: 0.5 };
 export const BELVEDERE = at(48, 300);
 
@@ -528,10 +529,10 @@ export function buildPlaces(scene, glowTex, platform) {
       ['hat', new THREE.Vector3(tor.x, heightAt(tor.x, tor.z) + 0.01, tor.z)],
       ['watch', (() => { const x = PONTILE.x + 7, z = PONTILE.z0 - 122; return new THREE.Vector3(x, heightAt(x, z) + 0.03, z); })()],
       ['bottle', new THREE.Vector3(shoreB.x, heightAt(shoreB.x, shoreB.z) + 0.04, shoreB.z)],
-      ['sandals', pontileEnd],
-      ['book', P.bookAt],
       ['letter', P.letterAt],
       ['binoculars', P.belvedereSpot],
+      ['book', P.letterAt.clone()],
+      ['sandals', new THREE.Vector3(COLONY.x + 0.8, heightAt(COLONY.x + 0.8, COLONY.z + 0.6) + 0.01, COLONY.z + 0.6)],
       ['lantern', new THREE.Vector3(rockEnd.x, rockTop(0.4, SCOGLIERA.to + 7) + 0.0, rockEnd.z)],
     ];
     list.forEach(([kind, pos], i) => {
@@ -594,12 +595,12 @@ export function updatePlaces(P, dt, time, ctx) {
         t.g.rotation.x += dt * 1.7 * k; t.g.rotation.z += dt * 1.1 * k;
       }
     }
-    const shown = (t.found && (t.leaveT || 0) < 6) || active;
+    const shown = (t.found && (t.leaveT || 0) < 6) || (active && !t.hidden);
     t.appear = Math.max(0, Math.min(1, (t.appear || 0) + (shown ? dt * 1.5 : -dt)));
     t.g.visible = t.appear > 0.01;
     t.g.scale.setScalar((t.kind === 'watch' ? 2.2 : 1) * Math.max(0.01, t.appear) * (t.found ? Math.max(0.01, 1 - Math.max(0, (t.leaveT || 0) - 3) / 3) : 1));
     const d = tmp.copy(t.pos).sub(ctx.eye).length();
-    if (active && !t.found) {
+    if (active && !t.found && !t.hidden) {
       // un riflesso intermittente, come il sole su un vetro
       const tw = Math.pow(Math.max(0, Math.sin(time * 1.3 + t.ph) * Math.sin(time * 0.37 + t.ph * 2)), 3);
       const vis = Math.min(1, d / 6) * t.appear;

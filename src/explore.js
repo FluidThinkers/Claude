@@ -290,6 +290,56 @@ export function buildExplore(scene, platform, glowTex) {
     line.frustumCulled = false; scene.add(line);
     E.meteor = { line, t: -1, next: 25, a: new THREE.Vector3(), b: new THREE.Vector3() };
   }
+  // ---- Rovina industriale al largo: un vecchio pontile di carico, due silos, un nastro crollato, una cabina
+  {
+    const x = -330, z = shoreZ(-330) - 470, Y = 4.2;
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = 0.35;
+    const rot = 0.35, c = Math.cos(rot), sn = Math.sin(rot);
+    const w = (lx, lz) => ({ x: x + lx * c + lz * sn, z: z - lx * sn + lz * c });
+    const rust = std({ map: rustTex(), color: 0xb08a72, roughness: 0.92, metalness: 0.25 });
+    const conc = std({ map: concreteTex(), color: 0xc8c2b6, roughness: 0.95 });
+    // piloni
+    for (let ix = -2; ix <= 2; ix++) for (const iz of [-1, 1]) {
+      const p = mesh(new THREE.CylinderGeometry(0.35, 0.42, 16, 10), rust); p.position.set(ix * 4.2, Y - 8, iz * 5); g.add(p);
+      if (ix < 2) { const br = mesh(new THREE.BoxGeometry(4.4, 0.25, 0.25), rust); br.position.set(ix * 4.2 + 2.1, Y - 2.2, iz * 5); br.rotation.z = (ix % 2 ? 1 : -1) * 0.5; g.add(br); }
+    }
+    // soletta: un angolo crollato in mare
+    const slab = mesh(new THREE.BoxGeometry(17, 0.6, 11), conc); slab.position.set(-1.5, Y - 0.3, 0); g.add(slab);
+    const fallen = mesh(new THREE.BoxGeometry(5, 0.6, 6), conc); fallen.position.set(9.2, Y - 2.6, 2.5); fallen.rotation.set(0.25, 0.1, -0.55); g.add(fallen);
+    // silos, uno spezzato in cima
+    for (const [lx, lz, h, broken] of [[-6, -2.4, 9, false], [-1.5, -2.6, 7, true]]) {
+      const sg = mesh(new THREE.CylinderGeometry(2.3, 2.3, h, 20, 1, broken), rust); sg.position.set(lx, Y + h / 2, lz); g.add(sg);
+      const cone = mesh(new THREE.ConeGeometry(2.3, 1.6, 20, 1, true), rust); cone.position.set(lx, Y + h + 0.8, lz); if (!broken) g.add(cone);
+      for (let r = 1; r < h; r += 2.2) { const ring = mesh(new THREE.TorusGeometry(2.33, 0.06, 6, 24), rust); ring.rotation.x = Math.PI / 2; ring.position.set(lx, Y + r, lz); g.add(ring); }
+      const wp = w(lx, lz); E.blocks.push({ x: wp.x, z: wp.z, hx: 2.2, hz: 2.2, top: Y + h, rot });
+    }
+    // nastro trasportatore: traliccio spezzato che punta verso riva
+    const truss = new THREE.Group(); truss.position.set(2, Y + 5.5, 4); truss.rotation.set(0, 0, -0.18); g.add(truss);
+    for (const sy of [-0.6, 0.6]) for (const sz of [-0.6, 0.6]) { const l = mesh(new THREE.BoxGeometry(14, 0.14, 0.14), rust); l.position.set(-7, sy, sz); truss.add(l); }
+    for (let k = 0; k < 10; k++) { const d = mesh(new THREE.BoxGeometry(0.1, 1.6, 0.1), rust); d.position.set(-k * 1.4, 0, (k % 2 ? 0.6 : -0.6)); d.rotation.x = 0.7; truss.add(d); }
+    // cabina di controllo, porta aperta
+    const cab = new THREE.Group(); cab.position.set(4.5, Y, -2.5); g.add(cab);
+    const wallM = std({ map: rustTex(), color: 0x8a9a94, roughness: 0.9, metalness: 0.2 });
+    const wl = (wx, wz, sx, sz) => { const m = mesh(new THREE.BoxGeometry(sx, 2.6, sz), wallM); m.position.set(wx, 1.3, wz); cab.add(m); };
+    wl(0, -1.4, 3.2, 0.1); wl(-1.6, 0, 0.1, 2.8); wl(1.6, 0, 0.1, 2.8); wl(-1.0, 1.4, 1.2, 0.1); wl(1.0, 1.4, 1.2, 0.1);
+    const roof = mesh(new THREE.BoxGeometry(3.5, 0.12, 3.1), wallM); roof.position.y = 2.65; roof.rotation.z = 0.05; cab.add(roof);
+    // la cassetta di ferro
+    const box = mesh(new THREE.BoxGeometry(0.6, 0.35, 0.4), std({ color: 0x4b4f50, roughness: 0.6, metalness: 0.6 })); box.position.set(-0.8, 0.18, -0.9); cab.add(box);
+    const cw = w(4.5, -2.5);
+    for (const [bx, bz, hx, hz] of [[0, -1.4, 1.6, 0.1], [-1.6, 0, 0.1, 1.4], [1.6, 0, 0.1, 1.4]]) { const q = w(4.5 + bx, -2.5 + bz); E.blocks.push({ x: q.x, z: q.z, hx, hz, top: Y + 2.6, rot }); }
+    // bitte, catene, una scala dal mare
+    for (const lx of [-8, -3, 2]) { const b = mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.5, 10), rust); b.position.set(lx, Y + 0.25, 5.1); g.add(b); }
+    const lad = new THREE.Group(); lad.position.set(-9.8, 0, 5.4); g.add(lad);
+    for (const s2 of [-0.3, 0.3]) { const r = mesh(new THREE.BoxGeometry(0.06, Y + 1.5, 0.06), rust); r.position.set(s2, (Y + 1.5) / 2 - 0.8, 0); lad.add(r); }
+    for (let yy = -0.6; yy < Y + 0.6; yy += 0.35) { const st = mesh(new THREE.BoxGeometry(0.6, 0.04, 0.04), rust); st.position.set(0, yy, 0); lad.add(st); }
+    shadowAll(g); scene.add(g);
+    const dc = w(-1.5, 0); E.rects.push({ x: dc.x, z: dc.z, hx: 8.5, hz: 5.5, y: Y, rot });
+    const lw = w(-9.8, 5.9); E.ladders.push({ x: lw.x, z: lw.z, top: Y, name: 'risali sulla rovina' });
+    const bw = w(4.5 - 0.8, -2.5 - 0.9);
+    E.ruin = { x, z, y: Y, deck: dc, box: { x: bw.x, z: bw.z, y: Y + 0.38 }, cabin: cw };
+    E.discover.push({ id: 'rovina', pos: new THREE.Vector3(dc.x, Y + 1, dc.z), r: 9 });
+  }
+
   return E;
 }
 
