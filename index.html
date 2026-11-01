@@ -8,7 +8,7 @@
   html, body { margin: 0; height: 100%; overflow: hidden; background: #000; touch-action: none; -webkit-user-select: none; user-select: none; }
   body { font-family: "Cormorant Garamond", "EB Garamond", Georgia, "Times New Roman", serif; color: #fff; }
   #app canvas { display: block; }
-  #start { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  #start { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: linear-gradient(to bottom, rgba(40,28,40,.55), rgba(240,160,140,.25) 70%, rgba(20,20,30,.5)); cursor: pointer; transition: opacity 1.2s; }
   #start.hidden { opacity: 0; pointer-events: none; }
   #start h1 { font-weight: 300; font-size: clamp(48px, 11vw, 120px); letter-spacing: .5em; margin: 0 0 0 .5em; text-shadow: 0 0 40px rgba(255,200,170,.5); }

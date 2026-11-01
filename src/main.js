@@ -24,6 +24,10 @@ import { FOCE } from './terrain.js';
 
 const Q = new URLSearchParams(location.search);
 const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
+let stepDist = 0;
+// lo stesso rumore dello shader, per far suonare la risacca a tempo
+const h21 = (x, y) => { let a = (x * 0.1031) % 1, b = (y * 0.1031) % 1, c = (x * 0.1031) % 1; if (a < 0) a += 1; if (b < 0) b += 1; if (c < 0) c += 1; const d = a * (b + 33.33) + b * (c + 33.33) + c * (a + 33.33); a += d; b += d; c += d; const r = ((a + b) * c) % 1; return r < 0 ? r + 1 : r; };
+const vn2 = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy); const a = h21(ix, iy), b = h21(ix + 1, iy), c = h21(ix, iy + 1), d = h21(ix + 1, iy + 1); return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v; };
 let discZone = null, flowUnlocked = Q.has('flow'), lastRing = -9, ringI = 0, seenMeteor = false, trailT = 0, trailI = 0;
 
 // ---------- renderer / scena
@@ -188,7 +192,7 @@ function action() {
     let best = null, bd = 1e9;
     for (const r of explore.rects) { if (Math.abs(r.y - lad.top) > 0.3) continue; const d = Math.hypot(r.x - lad.x, r.z - lad.z); if (d < bd) { bd = d; best = r; } }
     const tx = best ? lad.x + (best.x - lad.x) / bd * 1.6 : lad.x, tz = best ? lad.z + (best.z - lad.z) / bd * 1.6 : lad.z;
-    if (player.mode === 'boat') { craft.boat.on = false; sound.engine(false, 0, 0); }
+    if (player.mode === 'boat') { craft.boat.on = false; sound.boatEngine(false, 0, 0); }
     if (player.mode === 'sup') { sea.sup.onBoard = false; sea.fpPaddle.visible = false; }
     player.mode = 'walk'; player.pos.set(tx, lad.top, tz); player.vel.set(0, 0, 0); player.ground = true;
     fade = 0.5; post.uniforms.uFadeCol.value.setRGB(0.1, 0.1, 0.1);
@@ -197,7 +201,7 @@ function action() {
   }
   if (a === 'sali a bordo') {
     const b = boardable(craft, player.pos.x, player.pos.z);
-    if (player.mode === 'boat') { craft.boat.on = false; sound.engine(false, 0, 0); }
+    if (player.mode === 'boat') { craft.boat.on = false; sound.boatEngine(false, 0, 0); }
     if (player.mode === 'sup') { sea.sup.onBoard = false; sea.fpPaddle.visible = false; }
     player.mode = 'walk'; player.pos.set(b.x, b.y, b.z); player.vel.set(0, 0, 0); player.ground = true;
     sound.splash('stroke', 0.8); showMsg(b.S.name, 3);
@@ -209,7 +213,7 @@ function action() {
     return;
   }
   if (a === 'scendi dal barchino') {
-    const B = craft.boat; B.on = false; sound.engine(false, 0, 0);
+    const B = craft.boat; B.on = false; sound.boatEngine(false, 0, 0);
     const px = B.g.position.x + Math.cos(B.yaw) * 1.6, pz = B.g.position.z - Math.sin(B.yaw) * 1.6;
     const lvl = waterUniforms.uLevel.value;
     const ph = placeHeight(px, pz, 99);
@@ -664,7 +668,7 @@ function frame() {
     player.yaw += dy * Math.min(1, dt * (Math.abs(B.speed) > 1 ? 2 : 0.2));
     eyeH = 1.45;
     player.boatRoll = B.g.rotation.x;
-    sound.engine(true, B.speed * 1.6, Math.max(0, fz));
+    sound.boatEngine(true, B.speed, Math.max(0, fz));
     if (Math.abs(B.speed) > 3 && Math.random() < dt * 4) spawnRipple(W, B.g.position.x, B.g.position.z, night > 0.5);
   } else if (M === 'glide') {
     const G = craft.glider;
@@ -733,7 +737,8 @@ function frame() {
   if (player.mode === 'boat') roll = (player.boatRoll || 0) * 0.8 + Math.sin(elapsed * 1.1) * 0.012;
   if (player.mode === 'glide') roll = craft.glider.bank * 0.85;
   if (player.mode === 'bike') roll = (player.bikeLean || 0) * 0.7 + Math.sin(elapsed * 23) * 0.0015 * Math.min(Math.abs(bike.speed), 10);
-  if (player.mode !== 'bike' && player.mode !== 'boat') sound.engine(false, 0, 0);
+  if (player.mode !== 'bike') sound.engine(false, 0, 0);
+  if (player.mode !== 'boat') sound.boatEngine(false, 0, 0);
   const bob = Math.sin(player.bob * 2) * bobAmp;
   camDip *= Math.pow(0.02, dt);
   camera.position.set(player.pos.x, player.pos.y + (sitting ? 1.12 : eyeH) + bob - camDip, player.pos.z);
@@ -746,7 +751,23 @@ function frame() {
   }
 
   const fp = footprints.update(dt, player.pos, player.yaw, onSand && player.ground, hs > 0.6, hs * dt);
-  if (fp) sound.step('sand', hs);
+  // passi: il suono dipende da cosa c'è sotto i piedi
+  if (player.mode === 'walk' && player.ground && hs > 0.6 && !sitting) {
+    stepDist += hs * dt;
+    if (stepDist > (hs > 6 ? 1.0 : 0.72)) {
+      stepDist = 0;
+      const px = player.pos.x, pz = player.pos.z, th = heightAt(px, pz), dS = pz - shoreZ(px);
+      let kind = 'sand';
+      if (wadeDepth > 0.08) kind = 'water';
+      else if (player.pos.y > th + 0.15) {
+        const onPontile = Math.abs(px - PONTILE.x) < PONTILE.half + 0.2 && player.pos.y < PONTILE.deck + 0.3;
+        const onSail = deckHeight(craft, px, pz, player.pos.y + 0.1) > -Infinity && craft.ships[0].g.position.distanceTo(player.pos) < 10;
+        kind = onPontile || onSail ? 'wood' : (Math.abs(px - SCOGLIERA.x) < SCOGLIERA.half + 1 && dS < 5 ? 'rock' : 'concrete');
+      } else if (dS < 3.5) kind = 'wet';
+      else if (dS > 74) kind = 'grass';
+      sound.step(kind, hs);
+    }
+  }
   footprints.tick(dt);
   spray.update(dt);
   if (player.mode !== 'bike') tracks.update(dt, player.pos, 0, false, 0);
@@ -905,7 +926,25 @@ function frame() {
   updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
-  sound.update(elapsed, player.pos.z - shoreZ(player.pos.x), player.mode !== 'walk', hs, night);
+  {
+    // la risacca suona a tempo con le onde che vedi (stessa fase dello shader)
+    const px = player.pos.x;
+    const jit = vn2(px * 0.018, 3.0) * 2.2 + vn2(px * 0.005, 7.0) * 3.5;
+    const om = Math.PI * 2 / 7.5;
+    const surfU = (((om * elapsed + jit) / (Math.PI * 2)) % 1 + 1) % 1;
+    const surfSet = (0.55 + 0.45 * Math.sin(elapsed * 0.11 + px * 0.0025) * Math.sin(elapsed * 0.047 + 1)) * (0.75 + 0.5 * wind.strength.value);
+    const dS = player.pos.z - shoreZ(px);
+    const shorePan = Math.sign(-dS) * -Math.sin(player.yaw);
+    let trees = 0; for (const c of flora.colliders) if (Math.abs(c.x - px) < 25 && Math.abs(c.z - player.pos.z) < 25) trees++;
+    const inShed = Math.hypot(px - explore.shed.x, player.pos.z - explore.shed.z) < 13;
+    const underMolo = Math.abs(px - MOLO.x) < MOLO.half && dS < MOLO.from && dS > MOLO.from - MOLO.n * MOLO.seg && camera.position.y < MOLO.deck - 1;
+    sound.update({
+      time: elapsed, shoreDist: dS, shorePan, surfU, surfSet: Math.min(1, surfSet), onWater: player.mode !== 'walk',
+      speed: Math.max(hs, player.mode === 'glide' ? craft.glider.speed : 0), night, under,
+      trees: Math.min(1, trees / 6), reverb: inShed ? 0.55 : underMolo ? 0.4 : 0.04,
+      exposure: (player.pos.y > 25 || dS < -60) ? 1.4 : 1,
+    });
+  }
 
   // HUD
   if (pal.label !== lastLabel) { lastLabel = pal.label; phaseEl.textContent = pal.label; phaseEl.classList.add('on'); phaseTimer = 4; }
@@ -985,4 +1024,4 @@ if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, pla
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
