@@ -196,6 +196,12 @@ function contextAction() {
   if (player.mode === 'walk' && nearBench(player.pos.x, player.pos.z)) return 'siediti';
   return null;
 }
+function launchGlider() {
+  const G = craft.glider;
+  player.mode = 'glide'; G.yaw = player.yaw; G.speed = 9; G.vy = 0; G.bank = 0;
+  G.g.position.set(player.pos.x, player.pos.y + 1.9 + 0.6, player.pos.z);
+  if (!seenGlideHint) { seenGlideHint = true; showMsg(isTouch ? 'Avanti per scendere veloce · indietro per rallentare · lati per virare' : 'W picchia · S cabra · A e D virano. Le colline e il vento ti sollevano.', 5); }
+}
 function action() {
   const a = contextAction();
   const lad = nearLadder(explore, player.pos, player.mode);
@@ -236,13 +242,7 @@ function action() {
     player.vel.set(0, 0, 0);
     return;
   }
-  if (a === 'prendi il deltaplano') {
-    const G = craft.glider;
-    player.mode = 'glide'; G.yaw = player.yaw; G.speed = 9; G.vy = 0; G.bank = 0;
-    G.g.position.set(player.pos.x, player.pos.y + 1.9 + 0.6, player.pos.z);
-    if (!seenGlideHint) { seenGlideHint = true; showMsg(isTouch ? 'Avanti per scendere veloce · indietro per rallentare · lati per virare' : 'W picchia · S cabra · A e D virano. Le colline e il vento ti sollevano.', 5); }
-    return;
-  }
+  if (a === 'prendi il deltaplano') { launchGlider(); return; }
   if (a === 'sali sulla moto') {
     player.mode = 'bike'; bike.on = true; bike.yaw = bike.g.rotation.y; bike.speed = 0; bike.fp.visible = true;
     player.yaw = bike.yaw; player.pitch = -0.05;
@@ -651,9 +651,14 @@ function storyForm(form, text) {
   player.cat = false; wings.visible = false; body = null;
   fade = 0.6; post.uniforms.uFadeCol.value.setRGB(1, 0.96, 0.9);
   sound.chord(); illum = Math.max(illum, 0.7);
-  if (form === 'sand') { player.mode = 'sand'; player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.4; player.pitch = -0.06; }
+  if (form === 'sand') { flowUnlocked = true; player.mode = 'sand'; player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.4; player.pitch = -0.06; }
   else if (form === 'cat') { player.mode = 'walk'; player.cat = true; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 1); }
-  else if (form === 'fish') { player.mode = 'fish'; player.pos.set(PONTILE.x + 2.6, lvl - 1.2, player.pos.z); player.pitch = -0.35; player.yaw = 0; drops = 0; }
+  else if (form === 'fish') {
+    // resti dove sei: se sotto c'è acqua ci scivoli dentro, altrimenti scendi fin dove l'acqua è profonda
+    let x = player.pos.x, z = player.pos.z;
+    for (let i = 0; i < 80 && lvl - heightAt(x, z) < 1.4; i++) z -= 1;
+    player.mode = 'fish'; player.pos.set(x, lvl - 1.0, z); player.pitch = -0.35; player.yaw = 0; drops = 0; sound.splash('dive', 0.8);
+  }
   else if (form === 'wave') { player.mode = 'wave'; player.questWave = true; player.ws = 4; player.pos.y = lvl + 0.6; player.yaw = Math.PI; player.pitch = -0.1; }
   else if (form === 'gull') { player.mode = 'gull'; player.gs = 11; player.bank = 0; player.pos.y = Math.max(player.pos.y, heightAt(player.pos.x, player.pos.z)) + 8; player.pitch = -0.1; wings.visible = true; }
   else if (form === 'body') { player.mode = 'walk'; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 2); }
@@ -661,8 +666,8 @@ function storyForm(form, text) {
   else if (form === 'glide') {
     player.mode = 'walk';
     const G = craft.glider; G.g.position.set(player.pos.x, player.pos.y + 2.5, player.pos.z);
-    G.yaw = Math.atan2(-(18 - player.pos.x), -(shoreZ(18) - player.pos.z)); player.yaw = G.yaw;
-    action();
+    player.yaw = Math.atan2(-(18 - player.pos.x), -(shoreZ(18) - player.pos.z)); sitting = null;
+    player.pos.y += 1.5; launchGlider(); G.speed = 12;
   }
   if (text) setTimeout(() => showMsg(text, 5), 600);
 }
@@ -822,7 +827,7 @@ function frame() {
   } else if (FORMS.includes(M)) {
     const qt = places.traces[active];
     const r = moveForm(M, player, { dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
-      target: (M === 'sand' || (M === 'wave' && player.questWave)) && qt ? qt.pos : null });
+      target: (M === 'sand' || M === 'cloud' || (M === 'wave' && player.questWave)) && qt ? qt.pos : null });
     eyeH = 0;
     player.formRoll = r.roll;
     if (r.timeScale && !todAnim && running) tod += dt * r.timeScale / CYCLE;
@@ -1151,7 +1156,8 @@ function frame() {
   });
   updateWisp(dt);
   illum = Math.max(0, illum - dt * 0.25);
-  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind });
+  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind,
+    reach: ['gull', 'cloud', 'rain', 'wave'].includes(player.mode) ? 7 : FORMS.includes(player.mode) || player.mode === 'flow' ? 4 : 2.7 });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
   {
@@ -1159,7 +1165,8 @@ function frame() {
     const px = player.pos.x;
     const jit = vn2(px * 0.018, 3.0) * 2.2 + vn2(px * 0.005, 7.0) * 3.5;
     const om = Math.PI * 2 / 7.5;
-    const surfU = (((om * elapsed + jit) / (Math.PI * 2)) % 1 + 1) % 1;
+    const lobe = vn2(px * 0.075, 1.3) * 1.1 + vn2(px * 0.21, 4.1) * 0.35;
+    const surfU = (((om * elapsed + jit + lobe) / (Math.PI * 2)) % 1 + 1) % 1;
     const surfSet = (0.55 + 0.45 * Math.sin(elapsed * 0.11 + px * 0.0025) * Math.sin(elapsed * 0.047 + 1)) * (0.75 + 0.5 * wind.strength.value);
     const dS = player.pos.z - shoreZ(px);
     const shorePan = Math.sign(-dS) * -Math.sin(player.yaw);
@@ -1209,7 +1216,7 @@ function frame() {
       ...(hasGear ? [] : [{ x: GEAR.x, z: GEAR.z, name: 'Maschera e pinne', color: '#9fe0a0' }]),
       ...craft.ships.map((S) => ({ x: S.g.position.x, z: S.g.position.z, name: S.name, color: '#d8e6f2' })),
     ],
-    traces: places.traces.filter((t) => t.found).map((t) => ({ x: t.pos.x, z: t.pos.z, found: true })),
+    traces: places.traces.filter((t) => t.found || t.i === active).map((t) => ({ x: t.pos.x, z: t.pos.z, found: t.found })),
     zone, discZone,
     figure: W.phantom.state === 'final' ? W.phantom.g.position : null,
   });

@@ -127,6 +127,7 @@ export function moveForm(form, P, ctx) {
     P.pos.x += (ctx.windDir.x * w + (-ys * fz + yc * fx) * 14) * dt;
     P.pos.z += (ctx.windDir.y * w + (-yc * fz - ys * fx) * 14) * dt;
     P.pos.y += ((P.cloudY || 320) - P.pos.y) * Math.min(1, dt * 0.4);
+    if (ctx.target) { const tx = ctx.target.x - P.pos.x, tz = ctx.target.z - P.pos.z, tl = Math.hypot(tx, tz); if (tl > 20) { P.pos.x += tx / tl * 6 * dt; P.pos.z += tz / tl * 6 * dt; } }
     roll = Math.sin(ctx.time * 0.3) * 0.01;
     out.speed = w;
   }

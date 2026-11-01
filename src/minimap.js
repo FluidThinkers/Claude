@@ -74,8 +74,8 @@ export class Minimap {
       const zr = Math.max(10, S.zone.r * scale);
       const t = performance.now() / 1000;
       c.beginPath(); c.arc(Math.max(zr * 0.3, Math.min(W - zr * 0.3, zx)), Math.max(zr * 0.3, Math.min(H - zr * 0.3, zy)), zr * (0.92 + 0.08 * Math.sin(t * 2)), 0, 7);
-      c.fillStyle = 'rgba(255,214,150,0.18)'; c.fill();
-      c.setLineDash([3, 3]); c.strokeStyle = 'rgba(255,224,170,0.85)'; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
+      c.fillStyle = 'rgba(110,220,130,0.14)'; c.fill();
+      c.setLineDash([3, 3]); c.strokeStyle = 'rgba(150,240,160,0.85)'; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
     }
     if (S.discZone) {
       const [zx, zy] = toS(S.discZone.x, S.discZone.z);
@@ -86,7 +86,12 @@ export class Minimap {
     }
     for (const p of S.places) { dot(p.x, p.z, 2.5, 'rgba(255,255,255,0.75)'); label(p.x, p.z, p.name); }
     for (const v of S.vehicles) { dot(v.x, v.z, 4, v.color, 'rgba(0,0,0,0.5)'); label(v.x, v.z, v.name, v.color); }
-    for (const t of S.traces) dot(t.x, t.z, 3, t.found ? 'rgba(255,214,150,1)' : null, t.found ? null : 'rgba(255,214,150,0.9)');
+    // ricordi della storia: verdi. Pieni quelli trovati, il prossimo pulsa
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
+    for (const t of S.traces) {
+      if (t.found) dot(t.x, t.z, 3.2, 'rgba(110,220,130,1)', 'rgba(0,0,0,0.45)');
+      else { const [sx, sy] = dot(t.x, t.z, 4.5, `rgba(110,220,130,${0.35 + 0.5 * pulse})`, 'rgba(160,255,170,1)'); c.beginPath(); c.arc(sx, sy, 6 + 5 * pulse, 0, 7); c.strokeStyle = `rgba(140,240,150,${0.7 * (1 - pulse)})`; c.lineWidth = 1.5; c.stroke(); }
+    }
     if (S.figure) dot(S.figure.x, S.figure.z, 3.5, 'rgba(240,235,225,1)', 'rgba(0,0,0,0.6)');
 
     // frecce verso il prossimo passo della storia e verso la scoperta
@@ -106,7 +111,7 @@ export class Minimap {
       c.font = '9px system-ui, sans-serif'; c.fillStyle = col; c.textAlign = 'center';
       c.fillText(dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.round(dist) + ' m', cx + Math.cos(a) * (lim - 16), cy + Math.sin(a) * (lim - 16) + 3);
     };
-    arrow(S.zone, 'rgba(255,214,150,1)');
+    arrow(S.zone, 'rgba(130,235,145,1)');
     arrow(S.discZone, 'rgba(170,230,240,1)');
     // tu
     c.save(); c.translate(cx, cy); c.rotate(-S.yaw);

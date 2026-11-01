@@ -53,6 +53,23 @@ export const SURF_GLSL = /* glsl */`
 // ---- risacca: onde che si gonfiano, si rompono e risalgono la sabbia
 const float SURF_OM = 6.2831853 / 7.5;
 float surfJit(float x){ return vn(vec2(x * 0.018, 3.0)) * 2.2 + vn(vec2(x * 0.005, 7.0)) * 3.5; }
+// la lama di risacca: a lobi, ogni onda diversa dall'altra, che sale veloce, rallenta, si ferma e si ritira.
+// u: fase (0 arrivo); R: fin dove arriva quest'onda qui; adv: 1 mentre avanza
+float swash(float x, float t, float windK, out float u, out float R, out float adv){
+  float setMod = (0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0)) * (0.75 + 0.5 * windK);
+  float lobe = vn(vec2(x * 0.075, 1.3)) * 1.1 + vn(vec2(x * 0.21, 4.1)) * 0.35;  // i tratti di riva arrivano in tempi diversi
+  float ph = (SURF_OM * t + surfJit(x) + lobe) / 6.2831853;
+  float n = floor(ph); u = fract(ph);
+  // ogni onda ha la sua forza, e cambia lungo la riva
+  float k = 0.45 + 0.8 * vn(vec2(x * 0.035 + n * 3.7, n * 1.9));
+  R = (0.9 + 4.2 * setMod) * k;
+  // orlo frastagliato: lingue d'acqua più lunghe dove la sabbia è più liscia
+  R += (vn(vec2(x * 0.55, n * 2.3)) - 0.5) * 0.9 * k + (vn(vec2(x * 1.7, n)) - 0.5) * 0.25;
+  float up = 0.34;
+  adv = 1.0 - smoothstep(up * 0.8, up, u);
+  float f = u < up ? R * (1.0 - pow(1.0 - u / up, 2.2)) : R - (R + 1.2) * pow(smoothstep(up, 1.0, u), 1.4);
+  return f;
+}
 // h: quota dell'acqua; s: fase (0 = cresta); brk: frangimento; bore: schiuma; film: lama sulla sabbia; front: fin dove risale
 float surfY(float x, float d, float t, float lvl, float windK, out float s, out float brk, out float bore, out float film, out float front){
   float depth = -baseH(d);
@@ -66,14 +83,15 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
   brk = smoothstep(2.0, 1.25, depth) * smoothstep(0.25, 0.8, depth) * setMod;
   bore = smoothstep(1.4, 0.5, depth) * smoothstep(-0.2, 0.3, depth) * setMod;
   float seaY = lvl + A * (prof - 0.32);
-  // risalita: ogni cresta che arriva a riva spinge una lama d'acqua sulla sabbia
-  float u = fract((SURF_OM * t + jit) / 6.2831853);
-  float R = 1.2 + 3.6 * setMod;
-  front = u < 0.3 ? R * sin(u / 0.3 * 1.5708) : R * (1.0 - smoothstep(0.3, 0.97, u)) - 0.6 * smoothstep(0.7, 1.0, u);
+  // risalita: la lama d'acqua sulla sabbia (vedi swash). La mesh copre tutta la fascia
+  // che la risacca può raggiungere; il bordo vero lo disegna il frammento, pixel per pixel.
+  float u, R, adv;
+  front = swash(x, t, windK, u, R, adv);
   film = 0.0;
   if (d < -1.5) return seaY;
-  if (d > front) return min(lvl, baseH(d) - 0.25);
-  film = 0.025 + 0.07 * smoothstep(front, front - 2.5, d);
+  float Rmax = 1.0 + 6.0 * setMod;
+  if (d > Rmax) return min(lvl, baseH(d) - 0.25);
+  film = 0.02 + 0.06 * smoothstep(front, front - 2.5, d);
   return max(seaY, baseH(d) + film);
 }
 `;
@@ -279,7 +297,7 @@ export function makeWater() {
         vW = w.xyz; vSurf = vec4(s, brk, bore, film); vFront = front - d;
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
-    fragmentShader: SKY_GLSL + SHORE_GLSL + /* glsl */`
+    fragmentShader: SKY_GLSL + SHORE_GLSL + SURF_GLSL + /* glsl */`
       uniform vec3 uCam, uLightDir, uLightCol, uAmb, uDeep, uShallow, uMirror;
       uniform vec4 uLamp;
       uniform vec3 uUnderCol;
@@ -361,9 +379,22 @@ export function makeWater() {
         float lip = brk * smoothstep(0.86, 0.985, sP) * (0.55 + 0.45 * brkUp);
         float white = bore * (smoothstep(0.5, 0.0, sP) + smoothstep(0.88, 1.0, sP)) * (0.5 + 0.5 * brkUp);
         float residual = max(brk, bore) * lace * 0.55;
-        float edgeF = (film > 0.0) ? smoothstep(1.6, 0.0, vFront) * (0.45 + 0.55 * lace) : 0.0;
-        float filmLace = (film > 0.0) ? lace * 0.6 : 0.0;
-        foam = max(foam * 0.0, max(max(lip, white), max(residual, max(edgeF, filmLace))));
+        // risacca pixel per pixel: bordo morbido e a lobi, schiuma di bolle sul fronte che avanza,
+        // che si apre in chiazze mentre l'acqua si ritira
+        float swU, swR, swA;
+        float swF = swash(vW.x, uTime, uWindK, swU, swR, swA);
+        float dd = swF - d;
+        float bub = vn(p * 7.0 + vec2(0.0, uTime * 0.6)) * 0.55 + vn(p * 17.0 - uTime * 0.4) * 0.45;
+        float edgeF = 0.0, filmLace = 0.0, swCut = 1.0;
+        if (film > 0.0) {
+          swCut = mix(1.0, smoothstep(-0.04, 0.22 + 0.25 * swA, dd), smoothstep(-0.9, -0.1, d));
+          float band = exp(-max(dd, 0.0) / (0.25 + 0.5 * swA));
+          edgeF = band * mix(0.35, 1.0, swA) * smoothstep(0.25, 0.6, bub + 0.25 * swA);
+          // chiazze di schiuma che restano sulla lama e si sfaldano
+          float patches = smoothstep(0.5, 0.8, vn(p * 2.2 + vec2(swU * 1.5, 0.0)) * 0.6 + bub * 0.4 + 0.25 * (1.0 - swU));
+          filmLace = patches * (1.0 - swU) * 0.7 * smoothstep(0.0, 1.5, dd);
+        }
+        foam = max(max(lip, white), max(residual, max(edgeF, filmLace)));
         foam = max(foam, smoothstep(0.55, 0.95, vRing) * (0.5 + 0.5 * brkUp));
         // schiuma della scia, sfilacciata
         float tl = 1.0 - smoothstep(0.0, 0.12, abs(vn(vW.xz * 2.2 + uTime * 0.3) - 0.5));
@@ -373,7 +404,7 @@ export function makeWater() {
         float rise = brk * smoothstep(0.7, 0.97, sP);
         col = mix(col, uShallow * uAmb * 1.35 + uLightCol * 0.06, rise * 0.45 * (1.0 - foam));
         // la lama d'acqua sulla sabbia: sottile, trasparente, specchiante
-        if (film > 0.0) alpha = min(alpha, 0.35 + F * 0.6);
+        if (film > 0.0) alpha = min(alpha, (0.22 + 0.5 * smoothstep(0.0, 2.5, dd) + F * 0.6));
         vec3 foamCol = uAmb * 1.2 + uLightCol * 0.1;
         col = mix(col, foamCol, foam * 0.85);
         alpha = max(alpha, foam * 0.9);
@@ -381,6 +412,8 @@ export function makeWater() {
         float f = 1.0 - exp(-pow(dist * fg, 2.0));
         col = mix(col, uSea, f);
         alpha = mix(alpha, 1.0, f);
+        alpha *= swCut;
+        if (alpha < 0.003) discard;
         gl_FragColor = vec4(col, alpha);
       }`,
   });
@@ -396,12 +429,26 @@ export function enhanceSand(material) {
   material.onBeforeCompile = (shader) => {
     for (const k of ['uTime', 'uCamPos', 'uCloud', 'uCirrus', 'uMist', 'uSunDir', 'uSunVis', 'uSunCol']) shader.uniforms[k] = skyUniforms[k];
     shader.uniforms.uCaustic = causticUniforms.uCaustic;
+    shader.uniforms.uWindK = waterUniforms.uWindK;
     shader.vertexShader = 'varying vec3 vWPos;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>',
       '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
     );
-    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis;\nuniform vec3 uSunDir, uSunCol;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + shader.fragmentShader
+    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis, uWindK;\nuniform vec3 uSunDir, uSunCol;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + SURF_GLSL + shader.fragmentShader
       .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+      // la sabbia bagnata segue la risacca: dove l'onda è appena arrivata è scura e lucida, poi asciuga
+      float swWet = 0.0;
+      {
+        float dS0 = vWPos.z - shoreZ(vWPos.x);
+        if (dS0 > -1.0 && dS0 < 8.0) {
+          float sU, sR, sA;
+          float sF = swash(vWPos.x, uTime, uWindK, sU, sR, sA);
+          float reached = smoothstep(sR + 0.5, sR - 0.3, dS0);
+          swWet = max(smoothstep(sF + 0.3, sF - 0.2, dS0), reached * (1.0 - 0.55 * smoothstep(0.35, 1.0, sU)));
+          swWet *= 1.0 - smoothstep(4.5, 7.5, dS0);
+          diffuseColor.rgb *= mix(1.0, 0.74, swWet * smoothstep(0.4, 2.2, dS0));
+        }
+      }
       {
         // colline: erba secca e macchia invece della sabbia
         float dIn = vWPos.z - shoreZ(vWPos.x);
@@ -436,6 +483,7 @@ export function enhanceSand(material) {
         float dW = vWPos.z - shoreZ(vWPos.x);
         float wet = smoothstep(3.2, 0.3, dW) * smoothstep(-1.5, -0.2, vWPos.y);
         float puddle = smoothstep(0.55, 0.75, vn(vWPos.xz * 0.35)) * wet;
+        wet = max(wet * 0.75, swWet);
         roughnessFactor = mix(roughnessFactor, 0.16, wet * 0.8);
         roughnessFactor = mix(roughnessFactor, 0.05, puddle * 0.7);
       }`)
