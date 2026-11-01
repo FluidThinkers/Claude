@@ -148,8 +148,10 @@ export function moveForm(form, P, ctx) {
     const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
     const speed = fz > 0 ? (run ? 10 : 5.5) : fz < 0 ? -2 : 0;
     P.fv = (P.fv || 0) + (speed - (P.fv || 0)) * Math.min(1, dt * 2.5);
-    P.pos.x += (-ys * cp * P.fv + Math.cos(P.yaw) * fx * 2.5) * dt;
-    P.pos.z += (-yc * cp * P.fv - Math.sin(P.yaw) * fx * 2.5) * dt;
+    { // il pesce resta nel suo elemento: l'acqua bassa lo ferma
+      const nx = P.pos.x + (-ys * cp * P.fv + Math.cos(P.yaw) * fx * 2.5) * dt, nz = P.pos.z + (-yc * cp * P.fv - Math.sin(P.yaw) * fx * 2.5) * dt;
+      if (lvl - heightAt(nx, nz) > 0.8) { P.pos.x = nx; P.pos.z = nz; } else { P.fv *= 0.5; out.blocked = true; }
+    }
     const floor = heightAt(P.pos.x, P.pos.z) + 0.3;
     // salto: veloce, vicino alla superficie, Spazio → fuori dall'acqua per un attimo
     if (!P.leap && ctx.jump && P.pos.y > lvl - 1.6 && P.fv > 3) { P.leap = true; P.vy = 4.5 + P.fv * 0.25; out.leapStart = true; }
@@ -210,7 +212,10 @@ export function moveForm(form, P, ctx) {
     // la cresta corre verso riva; tu sei la cresta
     P.ws = fz < 0 ? Math.max(2, (P.ws || 4) - dt * 3) : Math.min(9, (P.ws || 4) + dt * 1.2);
     const d = P.pos.z - shoreZ(P.pos.x);
-    P.pos.z += P.ws * dt * (d < 0 ? 1 : 0);
+    const dz = P.ws * dt * (d < 0 ? 1 : 0);
+    // un'onda troppo piccola si spegne prima della riva: resta sul mare finché non cresce
+    if (ctx.waveMin && (P.wsize || 1) < ctx.waveMin && lvl - heightAt(P.pos.x, P.pos.z + dz) < 1.4) { out.tooSmall = true; P.ws = Math.max(2, P.ws - dt * 4); }
+    else P.pos.z += dz;
     P.pos.x += fx * 8 * dt;
     if (ctx.target) P.pos.x += Math.sign(ctx.target.x - P.pos.x) * Math.min(Math.abs(ctx.target.x - P.pos.x), 7 * dt);
     const depth = lvl - heightAt(P.pos.x, P.pos.z);

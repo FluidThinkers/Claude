@@ -117,12 +117,13 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 | 2 | Cappello | in cima alla gru del vecchio molo | gabbiano | ti posi sulla cima | pesce |
 | 3 | Orologio | nel relitto | pesce | trovi il banco e nuoti con loro (non scappano: sei uno di loro) | onda |
 | 4 | Bottiglia | sulla riva della torretta | onda | cresci, ti unisci alle onde, e arrivi a riva grande | vento |
-| 5 | Lettera e chiave | nella cabina della rovina al largo | vento, poi umano | spazzi via le nuvole (C); la luce scende, torni umano e apri la cassetta | nuvola |
+| 5 | Lettera e chiave | nella cabina della rovina al largo | vento | spazzi via le nuvole (C): la luce scende e il tuo soffio spalanca la cabina e la cassetta | nuvola |
 | 6 | Binocolo | al belvedere | nuvola | piovi sul cipresso assetato (Q) | gatto |
 | 7 | Libro | sulla barca in secco | gatto | trovi il sole e ti appisoli | formica |
 | 8 | Sandali | al formicaio, all'inizio del pontile | formica | porti a casa la briciola | umano |
 | 9 | Lanterna | in punta agli scogli | umano | la apri con la chiave della rovina | l'incontro alla bandiera, poi luce |
 
+- **Regole della storia**: si cambia forma solo quando si prende un ricordo, sempre con una ragione detta dalla voce. Ogni forma resta nel suo elemento: il pesce non esce dall'acqua (l'acqua bassa lo ferma), l'onda troppo piccola non arriva a riva finché non cresce, la pioggia cade solo sopra il bersaglio e, se si posa altrove, resta una pozza che evapora (Q) e torna nuvola. L'isola si apre solo a storia finita.
 - **La rovina al largo**: un vecchio pontile di carico in mezzo al mare, due silos arrugginiti, un nastro spezzato, una cabina; si risale dalla scaletta.
 - **Formica**: rasoterra, il mondo diventa enorme; il formicaio ha le sue formiche che vanno e vengono.
 - **Lontano, silhouette**: le cose lontane si sciolgono in forme morbide e diventano nitide solo avvicinandosi.

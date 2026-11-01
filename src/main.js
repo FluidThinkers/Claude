@@ -599,14 +599,8 @@ function checkAct(jump, downK, night, dt) {
   else if (act === 'clear') {
     const R = explore.ruin; const dr = Math.hypot(R.deck.x - eye.x, R.deck.z - eye.z);
     near = M === 'wind' && dr < 110;
-    if (near && cloudBias < -0.32) {
-      preDone = true; actPrompt = false; promptEl.classList.remove('on');
-      showMsg('Le nuvole si aprono: la luce scende sulla rovina.', 4); illum = 1;
-      if (window.speechSynthesis) speechSynthesis.cancel(); say('Le nuvole si aprono. La luce scende sulla rovina. Torni umano, sul ferro caldo, per aprire la cassetta.');
-      fadeTarget = 0.8; post.uniforms.uFadeCol.value.setRGB(1, 0.97, 0.9);
-      setTimeout(() => { player.mode = 'walk'; player.cat = false; player.pos.set(R.deck.x, R.y, R.deck.z); player.vel.set(0, 0, 0); fadeTarget = 0; showMsg('Torni umano, sul ferro caldo della rovina. La cassetta è nella cabina.', 6); }, 3200);
-      return;
-    }
+    ok = near && cloudBias < -0.32;
+    if (ok) { illum = 1; showMsg('Le nuvole si aprono: la luce scende sulla rovina.', 4); }
   }
   else if (act === 'rain') { near = (M === 'cloud' || M === 'rain') && dh < 80; ok = M === 'rain' && dh < 36; }
   else if (act === 'nap') {
@@ -749,7 +743,11 @@ function nearestGull(maxD) {
 }
 // i cambi di forma li decide la storia: qui resta solo ciò che la storia chiede di fare con le tue mani
 function formOptions() {
-  if (player.mode === 'cloud') return 'rain';
+  if (player.mode === 'rain') return player.rainLanded ? 'cloud' : null;
+  if (player.mode === 'cloud') {
+    if (stepNeed() !== 'cloud') return 'rain';
+    const tg = stepTarget(); return tg && Math.hypot(tg.x - player.pos.x, tg.z - player.pos.z) < 70 ? 'rain' : null;
+  }
   // se sei tornato umano a metà strada, Q ti ridà la forma che questa tappa chiede
   const need = stepNeed();
   if (!need || curForm() === need || (need === 'cloud' && player.mode === 'rain')) return null;
@@ -761,6 +759,7 @@ function formOptions() {
 }
 function enterForm(f) {
   if (!f) { showMsg('Qui non c\'è niente in cui entrare.', 2.5); return; }
+  if (f === 'cloud' && player.mode === 'rain') { player.rainLanded = false; player.mode = 'cloud'; player.cloudY = 150; showMsg('Il sole ti scalda: evapori, e torni nuvola.', 3); return; }
   if (f !== 'rain') { storyForm(f, null, null); return; }
   if (['walk', 'swim', 'dive'].includes(player.mode) && !body) body = { pos: player.pos.clone(), yaw: player.yaw, mode: player.mode };
   if (f === 'flow') { if (player.mode === 'gull') { player.pos.y = waterUniforms.uLevel.value + 0.2; } player.mode = 'swim'; toggleFlow(); return; }
@@ -775,7 +774,7 @@ function enterForm(f) {
   if (f === 'cloud') { player.cloudY = 170; player.pitch = -0.6; }
   if (f === 'petal') { player.pitch = -0.1; }
   if (f === 'wind') { player.vs = 14; player.pitch = -0.08; }
-  if (f === 'rain') { player.pitch = -0.9; }
+  if (f === 'rain') { player.pitch = -0.9; player.rainLanded = false; }
   wings.visible = f === 'gull';
   if (FORM_TEXT[f].enter) showMsg(FORM_TEXT[f].enter, 3);
 }
@@ -1024,7 +1023,7 @@ function frame() {
     }
   } else if (FORMS.includes(M)) {
     const qt = places.traces[active];
-    const r = moveForm(M, player, { dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
+    const r = moveForm(M, player, { waveMin: FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave' ? 1.9 : 0, dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
       target: M === 'petal' ? craft.ships[0].g.position : M === 'cloud' && isleQ === 1 ? ISLAND : (M === 'sand' || M === 'cloud' || (M === 'wave' && player.questWave)) && qt ? qt.pos : null });
     if (M === 'wind' && player.pos.y < lvl + 10) { const T = waterUniforms.uTrail.value; if (Math.random() < dt * 8) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, 0.5); }
     eyeH = 0;
@@ -1066,13 +1065,12 @@ function frame() {
         sound.splash('dive', 1.3); camDip = 0.2; actOnce('merge', 'Ti unisci a un\'onda più grande: ora sei più alta, e più forte.');
       }
     }
-    if (M === 'fish' && r.shallow) { player.mode = 'walk'; player.pos.y = heightAt(player.pos.x, player.pos.z); showMsg('Il fondo sale, e torni sulla riva.', 3); }
+    if (M === 'fish' && r.blocked && !acts.has('shallow')) actOnce('shallow', 'Più in là l\'acqua è troppo bassa: un pesce resta nel mare.', 4);
+    if (M === 'wave' && r.tooSmall && !player.smallTold) { player.smallTold = true; showMsg('Sei troppo piccola per arrivare a riva: cresci (avanti).', 4); }
     if (M === 'rain' && r.landed) {
-      const deep = lvl - heightAt(player.pos.x, player.pos.z) > 1.3;
-      if (deep) { player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; addRing(player.pos.x, player.pos.z, 0.5); }
-      else { player.mode = 'walk'; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y); camDip = 0.25; }
-      showMsg(deep ? 'Cadi nel mare. Torni corpo, qui.' : 'Tocchi terra. Torni corpo.', 3);
-      fade = 0.4; post.uniforms.uFadeCol.value.setRGB(0.7, 0.75, 0.8);
+      // la pioggia resta pioggia: si posa, e se non era il posto giusto evapora (Q) e torna nuvola
+      player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), lvl) + 1.2;
+      if (!player.rainLanded) { player.rainLanded = true; addRing(player.pos.x, player.pos.z, 0.3); if (stepNeed() !== 'cloud' || places.traces[active].found) {} else showMsg('Ti sei posata qui, lontano dal cipresso. Evapora (Q) e torna nuvola.', 5); }
     }
     if (M === 'sand' && r.inWater) { addRing(player.pos.x, player.pos.z, 0.4); player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; toggleFlow(); showMsg('La sabbia scivola in acqua, e tu con lei.', 3); }
     if (M === 'wave') {
@@ -1197,7 +1195,7 @@ function frame() {
   }
   // il viaggio dell'acqua: nuvola → pioggia sull'isola → fioritura → petalo → vento → vele
   {
-    if (player.mode === 'cloud' && isleQ === 0 && !(FRAGMENTS[active] && FRAGMENTS[active].act === 'rain')) {
+    if (player.mode === 'cloud' && isleQ === 0 && active >= places.traces.length) {
       isleQ = 1;
       setTimeout(() => { msgEl.classList.add('thought'); showMsg('Lontano, al largo, c\'è un\'isola secca che aspetta la pioggia. Portaci la nuvola, poi piovi (Q).', 7); setTimeout(() => msgEl.classList.remove('thought'), 7000); discZone = { x: ISLAND.x, z: ISLAND.z, r: 110 }; }, 5000);
     }
