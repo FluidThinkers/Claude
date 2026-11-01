@@ -17,6 +17,7 @@ export const skyUniforms = {
   uCloud: { value: 0.35 },
   uCirrus: { value: 0.5 },
   uMist: { value: 0 },
+  uAlto: { value: 0 },
 };
 
 // rumore + nuvole ancorate al mondo (così le ombre a terra coincidono con quelle in cielo)
@@ -28,7 +29,7 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
 
 export const CLOUD_GLSL = /* glsl */`
 uniform vec3 uCamPos;
-uniform float uCloud, uCirrus, uMist;
+uniform float uCloud, uCirrus, uMist, uAlto;
 const float CLOUD_H = 900.0;
 float cloudFbm(vec2 p, int oct){
   float s = 0.0, a = 0.5;
@@ -39,7 +40,7 @@ float cloudAt(vec2 xz, int oct){
   vec2 p = xz / CLOUD_H * 1.1 + vec2(uTime * 0.006, uTime * 0.0025);
   float n = cloudFbm(p, oct);
   float lo = 0.7 - uCloud * 0.3;
-  return smoothstep(lo, lo + 0.32, n) * 0.85;
+  return smoothstep(lo, lo + 0.26, n);
 }
 float cloudShadow(vec3 wp, vec3 L){
   if (L.y < 0.04) return 1.0;
@@ -77,7 +78,9 @@ vec4 skyClouds(vec3 d, vec3 c, int oct){
   if (oct > 3) shade = 1.0 - 0.7 * cloudAt(xz + uSunDir.xz * 80.0, 3);
   vec3 amb = mix(uHor, uZen, 0.35) * 0.95 + uMid * 0.1;
   vec3 lit = uSunCol * uSunVis * (0.45 + 0.75 * shade) * (1.0 + pow(sd, 6.0) * 1.8);
-  vec3 cc = amb * (0.8 + 0.2 * shade) + lit * (1.0 - uNight) * 0.55;
+  // cumuli: base scura e grigia, sommità luminose
+  float thick = smoothstep(0.35, 1.0, dens);
+  vec3 cc = amb * (0.62 + 0.38 * shade) * (1.0 - thick * 0.35) + lit * (1.0 - uNight) * 0.55 * (0.55 + 0.45 * shade);
   cc = mix(cc, vec3(0.06, 0.07, 0.1) + amb * 0.6, uNight * 0.8);
   float edgeGlow = (1.0 - dens) * dens * 4.0 * pow(sd, 10.0) * uSunVis;
   cc += uSunCol * edgeGlow * 1.5;
@@ -86,8 +89,19 @@ vec4 skyClouds(vec3 d, vec3 c, int oct){
   vec2 cp = xz / CLOUD_H * vec2(0.5, 3.2) + vec2(uTime * 0.004, 0.0);
   float cir = smoothstep(0.55, 0.85, vn(cp) * 0.6 + vn(cp * 2.3 + 4.0) * 0.4) * uCirrus * 0.28 * fade;
   c = mix(c, amb * 1.05 + uSunCol * uSunVis * 0.35 * (1.0 - uNight), cir * (1.0 - a));
-  c = mix(c, cc, a);
-  return vec4(c, max(a, cir * 0.5));
+  c = mix(c, cc, a * 0.95);
+  // cielo a pecorelle: altocumuli fitti che velano il cielo nei giorni coperti
+  float alto = 0.0;
+  if (uAlto > 0.01) {
+    vec2 ap = xz / CLOUD_H * 5.5 + vec2(uTime * 0.01, uTime * 0.004);
+    float cell = vn(ap) * 0.6 + vn(ap * 2.6 + 3.0) * 0.4;
+    float sheet = vn(xz / CLOUD_H * 0.8 + 9.0);
+    alto = smoothstep(0.42, 0.7, cell + (sheet - 0.5) * 0.5) * uAlto * fade;
+    vec3 ac = mix(amb * 0.78, amb * 1.12 + uSunCol * uSunVis * 0.25 * (1.0 - uNight), smoothstep(0.55, 0.9, cell));
+    c = mix(c, mix(uZen, uHor, 0.55) * 0.85, uAlto * 0.45 * fade);
+    c = mix(c, ac, alto * 0.9);
+  }
+  return vec4(c, max(max(a, cir * 0.5), alto));
 }
 float hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 `;
@@ -134,13 +148,15 @@ export const waterUniforms = {
   uLightDir: { value: new THREE.Vector3(0, 1, 0) },
   uLightCol: { value: new THREE.Color() },
   uAmb: { value: new THREE.Color(1, 1, 1) },
-  uDeep: { value: new THREE.Color(0x1b467a) },
-  uShallow: { value: new THREE.Color(0x63bdb0) },
+  uDeep: { value: new THREE.Color(0x16506a) },
+  uShallow: { value: new THREE.Color(0x4fb0a6) },
   uFog: { value: 0.001 },
   uLevel: { value: 0 },
   uMirror: { value: new THREE.Vector3(0, 0, 0) },
   uLamp: { value: new THREE.Vector4(0, 0, 0, 0) },
   uUnderCol: { value: new THREE.Color(0x0e4a58) },
+  uWindK: { value: 0.4 },
+  uWindDir: { value: new THREE.Vector2(0.6, -0.8) },
   uUnderFog: { value: 0.06 },
 };
 
@@ -160,7 +176,8 @@ export function makeWater() {
       uniform vec3 uCam, uLightDir, uLightCol, uAmb, uDeep, uShallow, uMirror;
       uniform vec4 uLamp;
       uniform vec3 uUnderCol;
-      uniform float uFog, uUnderFog;
+      uniform float uFog, uUnderFog, uWindK;
+      uniform vec2 uWindDir;
       varying vec3 vW;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
       void main(){
@@ -189,8 +206,20 @@ export function makeWater() {
         vec2 q = p * 2.2 + vec2(uTime * 0.35, uTime * 0.2);
         float e = 0.05;
         g += vec2(vn(q + vec2(e,0)) - vn(q - vec2(e,0)), vn(q + vec2(0,e)) - vn(q - vec2(0,e))) / (2.0*e) * 0.03;
-        vec2 q2 = p * 7.0 + vec2(-uTime * 0.6, uTime * 0.45);
-        g += vec2(vn(q2 + vec2(e,0)) - vn(q2 - vec2(e,0)), vn(q2 + vec2(0,e)) - vn(q2 - vec2(0,e))) / (2.0*e) * 0.008;
+        // onde lunghe che arrivano a riva e si rompono
+        float dW = vW.z - shoreZ(vW.x);
+        float depthW = vW.y - baseH(dW);
+        float zone = smoothstep(3.2, 1.4, depthW) * smoothstep(0.02, 0.35, depthW);
+        float wph = dW * 0.62 + uTime * 1.25 + vn(vec2(vW.x * 0.03, uTime * 0.05)) * 3.0;
+        float wset = 0.55 + 0.45 * sin(uTime * 0.21 + vW.x * 0.004);
+        float crest = pow(0.5 + 0.5 * sin(wph), 7.0) * zone * wset;
+        float swell = (0.5 + 0.5 * sin(wph));
+        g += vec2(0.0, 1.0) * cos(wph) * 0.18 * smoothstep(5.0, 1.5, depthW) * smoothstep(0.0, 0.4, depthW) * (0.6 + uWindK * 0.6);
+        // raffiche: chiazze increspate più scure che corrono sull'acqua
+        vec2 gp = p * 0.018 - uWindDir * uTime * 0.09;
+        float gust = smoothstep(0.45, 0.8, vn(gp) * 0.7 + vn(gp * 2.3 + 7.0) * 0.3) * uWindK;
+        vec2 q2 = p * 7.0 + uWindDir * uTime * 1.6;
+        g += vec2(vn(q2 + vec2(e,0)) - vn(q2 - vec2(e,0)), vn(q2 + vec2(0,e)) - vn(q2 - vec2(0,e))) / (2.0*e) * (0.008 + gust * 0.05);
         // lo Specchio: acqua perfettamente immobile
         float mir = 0.0;
         if (uMirror.z > 0.0) mir = 1.0 - smoothstep(uMirror.z * 0.75, uMirror.z, length(p - uMirror.xy));
@@ -205,7 +234,7 @@ export function makeWater() {
         float depth = vW.y - baseH(d);
         float sh = exp(-max(depth, 0.0) * 0.38);
         float cs = mix(1.0, cloudShadow(vW, uLightDir), uSunVis);
-        vec3 body = mix(uDeep, uShallow, sh) * uAmb * (0.75 + 0.25 * cs);
+        vec3 body = mix(uDeep, uShallow, sh) * uAmb * (0.75 + 0.25 * cs) * (1.0 - gust * 0.25);
         float alpha = mix(0.97, 0.32, sh);
         vec3 col = body * (1.0 - F) + refl * F;
         alpha = clamp(alpha + F, 0.0, 1.0);
@@ -224,8 +253,18 @@ export function makeWater() {
         float edge = 0.12 + 0.08 * sin(uTime * 0.7 + vW.x * 0.03);
         float fn = vn(vW.xz * vec2(0.9, 2.2) + vec2(uTime * 0.25, 0.0));
         float foam = (1.0 - smoothstep(edge * 0.2, edge * 0.7, depth)) * (0.5 + 0.5 * fn) * step(-0.3, depth);
-        col = mix(col, uAmb * 1.15 + uLightCol * 0.08, foam * 0.6);
-        alpha = max(alpha, foam * 0.6);
+        // schiuma della cresta e scia di schiuma che resta dietro l'onda rotta
+        float fd = vn(vW.xz * vec2(1.4, 3.0) + vec2(uTime * 0.3, -uTime * 0.6));
+        float fd2 = vn(vW.xz * vec2(5.0, 9.0) + vec2(-uTime * 0.2, uTime));
+        float crestFoam = smoothstep(0.25, 0.6, crest * (0.55 + 0.45 * fd)) ;
+        float trail = pow(0.5 + 0.5 * sin(wph - 0.9), 3.0) * zone * wset * smoothstep(0.45, 0.75, fd * 0.6 + fd2 * 0.4) * 0.8;
+        float swash = smoothstep(0.32, 0.06, depthW) * smoothstep(-0.05, 0.05, depthW) * smoothstep(0.35, 0.7, fd2 * 0.5 + fd * 0.5) * (0.4 + 0.6 * swell);
+        foam = max(foam * 0.7, max(crestFoam, max(trail, swash)));
+        // verde-azzurro traslucido sotto la cresta
+        col += uShallow * uAmb * 0.25 * crest * (1.0 - crestFoam);
+        vec3 foamCol = uAmb * 1.2 + uLightCol * 0.1;
+        col = mix(col, foamCol, foam * 0.85);
+        alpha = max(alpha, foam * 0.9);
         float fg = uFog * (1.0 + uMist * 1.6);
         float f = 1.0 - exp(-pow(dist * fg, 2.0));
         col = mix(col, uSea, f);
@@ -249,18 +288,29 @@ export function enhanceSand(material) {
       '#include <begin_vertex>',
       '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
     );
-    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis;\nuniform vec3 uSunDir;\n' + NOISE_GLSL + CLOUD_GLSL + shader.fragmentShader
+    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis;\nuniform vec3 uSunDir;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + shader.fragmentShader
+      .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
+      {
+        // colline: erba secca e macchia invece della sabbia
+        float dIn = vWPos.z - shoreZ(vWPos.x);
+        float kIn = smoothstep(72.0, 88.0, dIn);
+        if (kIn > 0.0) {
+          float gn = vn(vWPos.xz * 1.9) * 0.4 + vn(vWPos.xz * 0.45) * 0.35 + vn(vWPos.xz * 0.08) * 0.25;
+          vec3 base = vColor.rgb * vec3(0.8, 0.68, 0.42) * (0.6 + 0.6 * gn);
+          diffuseColor.rgb = mix(diffuseColor.rgb, base, kIn * 0.9);
+        }
+      }`)
       .replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
       {
         float dcam = length(vWPos - cameraPosition);
-        float fadeR = 1.0 - smoothstep(6.0, 28.0, dcam) * (1.0 - smoothstep(-0.6, -1.4, vWPos.y)) - smoothstep(30.0, 70.0, dcam) * smoothstep(-0.6, -1.4, vWPos.y);
+        float fadeR = 1.0 - smoothstep(4.0, 16.0, dcam) * (1.0 - smoothstep(-0.6, -1.4, vWPos.y)) - smoothstep(30.0, 70.0, dcam) * smoothstep(-0.6, -1.4, vWPos.y);
         if (fadeR > 0.0) {
           vec2 p = vWPos.xz;
           float under = smoothstep(-0.2, -1.2, vWPos.y);
           float w = vn(p * 0.07) * 9.0 + vn(p * 0.23) * 2.6;
           vec2 dir = normalize(mix(vec2(0.45, 1.0), vec2(0.08, 1.0), under));
           float fr = mix(9.0, 1.7, under);
-          float amp = mix(0.012, 0.26, under) * (0.55 + 0.45 * vn(p * 0.45 + 3.0));
+          float amp = mix(0.006, 0.26, under) * (0.55 + 0.45 * vn(p * 0.45 + 3.0));
           float ph = dot(p, dir) * fr + w;
           float sp = sin(ph);
           vec2 gr = dir * fr * amp * cos(ph) * (1.0 + 0.6 * sp);
@@ -350,10 +400,10 @@ export function makePost(renderer) {
     tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
     uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
-    uUnder: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
+    uUnder: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
   }, /* glsl */`
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
-    uniform float uUnder, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
+    uniform float uUnder, uMask, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
     float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -412,6 +462,16 @@ export function makePost(renderer) {
       col *= 1.0 - 0.28 * smoothstep(0.25, 0.9, length(c * vec2(1.0, 0.85)) * 1.25);
       col += (hash(uv * uRes + fract(uTime * 7.0) * 517.0) - 0.5) * 0.035;
       col *= 1.0 - uBreath * smoothstep(0.15, 0.75, length(c)) * 1.2;
+      if (uMask > 0.0) {
+        // il bordo della maschera ai lati dello sguardo
+        vec2 mc = c * vec2(uRes.x / uRes.y, 1.0);
+        vec2 qa = vec2(abs(mc.x), mc.y + 0.02);
+        float dm = length(max(abs(qa - vec2(0.0, 0.0)) - vec2(0.68, 0.38), 0.0)) - 0.12;
+        float nose = 1.0 - smoothstep(0.08, 0.13, length((mc - vec2(0.0, -0.52)) * vec2(1.0, 1.4)));
+        float frame = max(smoothstep(-0.01, 0.04, dm), nose);
+        col = mix(col, vec3(0.015, 0.02, 0.025), frame * uMask);
+        col += vec3(0.6, 0.8, 0.9) * 0.04 * smoothstep(-0.06, -0.0, dm) * (1.0 - frame) * uMask;
+      }
       col = mix(col, uFadeCol, uFade);
       gl_FragColor = vec4(col, 1.0);
     }`);

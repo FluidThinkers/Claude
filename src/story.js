@@ -6,6 +6,7 @@
 export const INTRO = [
   'Fine settembre.',
   'Gli ultimi giorni, prima che chiudano tutto.',
+  'Il vento ha già cancellato quasi tutto. Quasi.',
 ];
 
 // hour: frazione del giorno in cui l'oggetto si lascia vedere (null = sempre)
@@ -25,7 +26,9 @@ export const FRAGMENTS = [
   { hour: 0.8125, label: '19:30', place: 'Una lanterna, sugli scogli',
     text: 'Quando il buio arriva presto accendo la lanterna. Non per farmi vedere: per riconoscere la riva da lontano, dall\'acqua.' },
   { hour: null, label: '—', place: 'Una bottiglia, al largo',
-    text: 'Dentro c\'è solo un elenco: candela, libro, sandali, orologio, cappello, lettera, lanterna. Chi lo trova saprà che non erano cose perse. Erano un sentiero.' },
+    text: 'Dentro c\'è solo un elenco: candela, libro, sandali, orologio, cappello, lettera, lanterna. E un\'ultima riga: il binocolo è rimasto lassù, al belvedere.' },
+  { hour: 0.77, label: '18:30', place: 'Un binocolo, al belvedere sulle colline',
+    text: 'Da quassù la riva è una linea sola, e tutti i giorni sembrano lo stesso giorno. Forse è così che si ricorda: da lontano. Adesso scendi. Alla bandiera.' },
 ];
 
 export const ENDING = [

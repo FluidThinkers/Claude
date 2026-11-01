@@ -41,14 +41,45 @@ function ridgeH(x, d) {
   return 2.3 * seg * Math.exp(-w * w) * jag;
 }
 
+function ridged(x, y, o) {
+  let s = 0, a = 0.5, f = 1;
+  for (let i = 0; i < o; i++) { const n = 1 - Math.abs(vnoise(x * f, y * f)); s += a * n * n; f *= 2.05; a *= 0.5; }
+  return s;
+}
+
+// colline e montagne dietro la spiaggia (raggiungibili)
+export function mountainH(x, z, d) {
+  if (d < 74) return 0;
+  const k = smooth(74, 150, d);
+  const foot = Math.min((d - 74) * 0.09, 14);
+  const big = 300 * Math.pow(smooth(120, 900, d), 1.2) * (0.35 + 0.75 * ridged(x * 0.0022 + 3.1, z * 0.0022, 4));
+  const mid = 28 * fbm(x * 0.012, z * 0.012, 3) * smooth(100, 220, d);
+  return k * (foot + big + mid);
+}
+
+// la foce: un canale che dal retroterra taglia la spiaggia fino al mare
+export const FOCE = { x: -128 };
+export function foceK(x, d) {
+  if (d < -8 || d > 60) return 0;
+  const cx = FOCE.x + 7 * Math.sin(d * 0.06) + 2 * Math.sin(d * 0.17 + 1);
+  const w = 3.2 + 2.5 * smooth(12, -4, d) + 3 * smooth(46, 56, d);
+  const k = 1 - smooth(w, w + 2.2, Math.abs(x - cx));
+  return k * smooth(-8, -2, d) * (1 - smooth(55, 60, d));
+}
+
 export function heightAt(x, z) {
   const d = z - shoreZ(x);
   let h = baseH(d);
+  if (d > 74) h += mountainH(x, z, d);
   if (d > 5 && d < 35) h += ridgeH(x, d);
   const land = smooth(-1.5, 1.5, d);
   h += fbm(x * 0.06, z * 0.06, 3) * 0.18 * land;
   h += vnoise(x * 0.6, z * 0.6) * 0.02 * land;
   h += fbm(x * 0.12 + 50, z * 0.12, 2) * 0.35 * (1 - smooth(-6, -1, d));
+  if (x > FOCE.x - 30 && x < FOCE.x + 30) {
+    const k = foceK(x, d);
+    if (k > 0) h = h * (1 - k) + (-0.32 + 0.06 * vnoise(x * 0.5, z * 0.5)) * k;
+  }
   return h;
 }
 
@@ -62,12 +93,32 @@ function colorAt(x, z, out, i) {
   const pk = peb * 0.65;
   r = r * (1 - pk) + 0.62 * pk; g = g * (1 - pk) + 0.62 * pk; b = b * (1 - pk) + 0.64 * pk;
   // sabbia bagnata
-  const wet = smooth(4, 0.3, d);
+  const fk = (x > FOCE.x - 30 && x < FOCE.x + 30) ? foceK(x, d) : 0;
+  const wet = Math.max(smooth(4, 0.3, d), smooth(0.05, 0.6, fk));
   const dk = 1 - 0.3 * wet;
   r *= dk; g *= dk; b *= dk;
   // fondale: verdognolo
   const uw = smooth(0, -3, d);
   r = r * (1 - uw) + 0.7 * uw; g = g * (1 - uw) + 0.78 * uw; b = b * (1 - uw) + 0.72 * uw;
+  // entroterra: erba secca, macchia, roccia sui pendii ripidi
+  out[i] = r; out[i + 1] = g; out[i + 2] = b;
+}
+
+// colore dell'entroterra, calcolato dopo le normali (pendenza = 1 - normal.y)
+function inlandColor(x, z, ny, out, i) {
+  const d = z - shoreZ(x);
+  let r = out[i], g = out[i + 1], b = out[i + 2];
+  {
+    const sl = Math.sqrt(Math.max(0, 1 - ny * ny)) / Math.max(ny, 0.2);
+    const land = smooth(70, 84, d);
+    const n = vnoise(x * 0.04 + 3, z * 0.04);
+    let cr = 0.7 + 0.1 * n, cg = 0.67 + 0.06 * n, cb = 0.4;           // erba secca
+    const mac = smooth(-0.1, 0.4, vnoise(x * 0.02 + 7, z * 0.02 + 1)) * smooth(90, 130, d);
+    cr = cr * (1 - mac) + 0.3 * mac; cg = cg * (1 - mac) + 0.44 * mac; cb = cb * (1 - mac) + 0.24 * mac; // macchia
+    const rock = smooth(0.5, 0.95, sl);
+    cr = cr * (1 - rock) + 0.82 * rock; cg = cg * (1 - rock) + 0.8 * rock; cb = cb * (1 - rock) + 0.82 * rock;
+    r = r * (1 - land) + cr * land; g = g * (1 - land) + cg * land; b = b * (1 - land) + cb * land;
+  }
   out[i] = r; out[i + 1] = g; out[i + 2] = b;
 }
 
@@ -122,9 +173,14 @@ export class Terrain {
 
   _finish(geo) {
     geo.attributes.position.needsUpdate = true;
-    geo.attributes.color.needsUpdate = true;
     geo.attributes.uv.needsUpdate = true;
     geo.computeVertexNormals();
+    const p = geo.attributes.position.array, nr = geo.attributes.normal.array, c = geo.attributes.color.array;
+    for (let k = 0; k < p.length; k += 3) {
+      const x = p[k], z = p[k + 2];
+      if (z - shoreZ(x) > 70) inlandColor(x, z, nr[k + 1], c, k);
+    }
+    geo.attributes.color.needsUpdate = true;
   }
 
   update(px, pz, force = false) {
@@ -138,7 +194,7 @@ export class Terrain {
     }
     if (!this.job && (cx !== this.cx || cz !== this.cz)) this.job = { cx, cz, row: 0 };
     if (this.job) {
-      const j1 = Math.min(this.job.row + 50, this.N + 1);
+      const j1 = Math.min(this.job.row + 22, this.N + 1);
       this._rows(this.back, this.job.cx, this.job.cz, this.job.row, j1);
       this.job.row = j1;
       if (j1 >= this.N + 1) {
@@ -156,3 +212,23 @@ export const SHORE_GLSL = /* glsl */`
 float shoreZ(float x){ return 6.0*sin(x*0.004) + 3.0*sin(x*0.011 + 1.3); }
 float baseH(float d){ return d > 0.0 ? 2.2*(1.0 - exp(-d/40.0)) : -8.0*(1.0 - exp(d/80.0)); }
 `;
+
+// normali morbide per geometrie non indicizzate (icosaedri deformati): niente facce piatte
+export function smoothNormals(geo) {
+  const p = geo.attributes.position, n = new Float32Array(p.count * 3);
+  geo.computeVertexNormals();
+  const fn = geo.attributes.normal;
+  const acc = new Map();
+  const key = (i) => `${p.getX(i).toFixed(4)},${p.getY(i).toFixed(4)},${p.getZ(i).toFixed(4)}`;
+  for (let i = 0; i < p.count; i++) {
+    const k = key(i);
+    let a = acc.get(k); if (!a) { a = [0, 0, 0]; acc.set(k, a); }
+    a[0] += fn.getX(i); a[1] += fn.getY(i); a[2] += fn.getZ(i);
+  }
+  for (let i = 0; i < p.count; i++) {
+    const a = acc.get(key(i)); const l = Math.hypot(a[0], a[1], a[2]) || 1;
+    n[i * 3] = a[0] / l; n[i * 3 + 1] = a[1] / l; n[i * 3 + 2] = a[2] / l;
+  }
+  geo.setAttribute('normal', new THREE.BufferAttribute(n, 3));
+  return geo;
+}

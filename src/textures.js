@@ -16,7 +16,7 @@ export function sandTextures() {
   for (let i = 0; i < S * S; i++) {
     const n = r();
     const v = 0.86 + n * 0.2;
-    img.data[i * 4] = 205 * v; img.data[i * 4 + 1] = 176 * v; img.data[i * 4 + 2] = 136 * v; img.data[i * 4 + 3] = 255;
+    img.data[i * 4] = 194 * v; img.data[i * 4 + 1] = 166 * v; img.data[i * 4 + 2] = 132 * v; img.data[i * 4 + 3] = 255;
     const bv = 110 + n * 60;
     bimg.data[i * 4] = bimg.data[i * 4 + 1] = bimg.data[i * 4 + 2] = bv; bimg.data[i * 4 + 3] = 255;
   }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { heightAt, shoreZ, vnoise } from './terrain.js';
+import { smoothNormals } from './terrain.js';
 import { PERGOLA } from './places.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -135,7 +136,7 @@ function pebbleGeometry() {
     v.multiplyScalar(n);
     p.setXYZ(i, v.x, v.y * 0.55, v.z);
   }
-  g.computeVertexNormals();
+  smoothNormals(g);
   return g;
 }
 
@@ -288,25 +289,7 @@ export function buildSkyline(scene) {
   // isola appena visibile sull'orizzonte del mare
   g.add(ridgeLayer(4200, -160 * D, -128 * D, 300, (a) => sm(-160 * D, -150 * D, a) * sm(-128 * D, -136 * D, a) * (40 + 50 * ridged(a * 30, 5.5)), 0.82));
 
-  // porto, gru e ciminiera: sagome sottili nella stessa foschia
   const mNear = new THREE.MeshBasicMaterial({ fog: false });
-  const at = (a, r) => [Math.cos(a) * r, Math.sin(a) * r];
-  for (let i = 0; i < 6; i++) {
-    const [x, z] = at((-12 + i * 1.6) * D, 1400);
-    const v = new THREE.Mesh(new THREE.BoxGeometry(3, 60 + (i % 3) * 8, 3), mNear); v.position.set(x, 30, z); g.add(v);
-    const h = new THREE.Mesh(new THREE.BoxGeometry(60, 2.5, 2.5), mNear); h.position.set(x - 8, 62 + (i % 3) * 8, z);
-    h.rotation.z = i % 2 ? 0 : 0.55; g.add(h);
-  }
-  for (let i = 0; i < 40; i++) {
-    const [x, z] = at((4 + i * 1.35) * D, 1250 + Math.sin(i * 2.7) * 60);
-    const hgt = 10 + Math.abs(Math.sin(i * 7.3)) * 34;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(22, hgt, 18), mNear);
-    b.position.set(x, hgt / 2 - 6, z); b.rotation.y = Math.random(); g.add(b);
-  }
-  {
-    const [x, z] = at(30 * D, 1500);
-    const ch = new THREE.Mesh(new THREE.CylinderGeometry(5, 8, 240, 24), mNear); ch.position.set(x, 115, z); g.add(ch);
-  }
   scene.add(g);
   return { g, mNear };
 }

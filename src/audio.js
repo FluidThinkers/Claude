@@ -44,8 +44,8 @@ export class Sound {
     const near = Math.exp(-Math.abs(shoreDist) / 25);
     this.waveG.gain.setTargetAtTime((0.05 + 0.3 * near) * (0.4 + 0.6 * swell), t, 0.3);
     this.waveF.frequency.setTargetAtTime(300 + 900 * swell * near, t, 0.3);
-    this.windG.gain.setTargetAtTime(0.05 + 0.04 * Math.sin(time * 0.13) + speed * 0.006 + (onWater ? 0.03 : 0), t, 0.5);
-    this.windF.frequency.setTargetAtTime(500 + 400 * Math.sin(time * 0.09), t, 0.5);
+    this.windG.gain.setTargetAtTime((0.04 + 0.11 * (this.windBoost || 0)) + speed * 0.004 + (onWater ? 0.02 : 0), t, 0.4);
+    this.windF.frequency.setTargetAtTime(450 + 500 * (this.windBoost || 0) + 150 * Math.sin(time * 0.9), t, 0.3);
     this.droneG.gain.setTargetAtTime(0.025 * night, t, 1.0);
   }
 
@@ -175,6 +175,36 @@ export class Sound {
       o.connect(f); f.connect(f2); f2.connect(g); g.connect(p);
       o.start(t); vib.start(t); o.stop(t + 0.3); vib.stop(t + 0.3);
     }
+  }
+
+  // motore a scoppio: due dente di sega leggermente stonati, filtrati
+  engine(on, speed, throttle) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    if (!this.eng && on) {
+      const g = ctx.createGain(); g.gain.value = 0;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600; f.Q.value = 2;
+      const o1 = ctx.createOscillator(); o1.type = 'sawtooth';
+      const o2 = ctx.createOscillator(); o2.type = 'square';
+      const am = ctx.createOscillator(); am.type = 'square'; const amg = ctx.createGain(); amg.gain.value = 0.35;
+      am.connect(amg); amg.connect(g.gain);
+      o1.connect(f); o2.connect(f); f.connect(g); g.connect(this.master);
+      o1.start(); o2.start(); am.start();
+      this.eng = { g, f, o1, o2, am };
+    }
+    if (!this.eng) return;
+    const rpm = 0.25 + Math.min(Math.abs(speed) / 26, 1) * 0.75 + throttle * 0.12;
+    this.eng.o1.frequency.setTargetAtTime(38 + rpm * 95, t, 0.08);
+    this.eng.o2.frequency.setTargetAtTime(38.6 + rpm * 95, t, 0.08);
+    this.eng.am.frequency.setTargetAtTime(19 + rpm * 47, t, 0.08);
+    this.eng.f.frequency.setTargetAtTime(350 + rpm * 1400 + throttle * 300, t, 0.08);
+    this.eng.g.gain.setTargetAtTime(on ? 0.05 + throttle * 0.04 : 0, t, on ? 0.2 : 0.6);
+  }
+
+  // il vento: segue le raffiche
+  wind(k) {
+    if (!this.ctx) return;
+    this.windBoost = k;
   }
 
   toggle() {

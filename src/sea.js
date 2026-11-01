@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { heightAt, shoreZ, vnoise } from './terrain.js';
+import { smoothNormals } from './terrain.js';
 
 // Il mare come spazio da esplorare: SUP, maschera e pinne, fondale vivo.
 
@@ -116,7 +117,7 @@ export function buildSea(scene, skyUniforms) {
     const geo = new THREE.IcosahedronGeometry(1, 3);
     const p = geo.attributes.position, v = new THREE.Vector3();
     for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); v.multiplyScalar(1 + 0.22 * vnoise(v.x * 1.5, v.y * 1.5 + v.z)); p.setXYZ(i, v.x, v.y * 0.6, v.z); }
-    geo.computeVertexNormals();
+    smoothNormals(geo);
     const rocks = new THREE.InstancedMesh(geo, std(0x6c6a5e, 0.9), 60);
     const urch = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.07, 1), std(0x1b1420, 0.9), 120);
     const c = new THREE.Color();

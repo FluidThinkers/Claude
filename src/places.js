@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { heightAt, shoreZ, vnoise } from './terrain.js';
+import { smoothNormals } from './terrain.js';
 import { FRAGMENTS } from './story.js';
 
 // Una spiaggia fuori stagione: tutto ciò che c'è è reale, solo un po' dimenticato.
@@ -8,6 +9,21 @@ const std = (color, rough = 0.8, metal = 0, extra = {}) => new THREE.MeshStandar
 const sh = (o) => { o.traverse?.((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } }); if (o.isMesh) { o.castShadow = o.receiveShadow = true; } return o; };
 const mesh = (geo, mat) => sh(new THREE.Mesh(geo, mat));
 const boxM = (w, h, d, mat) => mesh(new THREE.BoxGeometry(w, h, d), mat);
+// scatola con spigoli smussati: niente bordi taglienti da poligono
+function roundedBox(w, h, d, r, seg = 3) {
+  const g = new THREE.BoxGeometry(w, h, d, seg * 2, seg * 2, seg * 2);
+  const p = g.attributes.position, v = new THREE.Vector3(), inner = new THREE.Vector3(w / 2 - r, h / 2 - r, d / 2 - r);
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const c = new THREE.Vector3(Math.max(-inner.x, Math.min(inner.x, v.x)), Math.max(-inner.y, Math.min(inner.y, v.y)), Math.max(-inner.z, Math.min(inner.z, v.z)));
+    const off = v.clone().sub(c);
+    if (off.lengthSq() > 1e-9) v.copy(c).add(off.normalize().multiplyScalar(r));
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+const rboxM = (w, h, d, r, mat) => mesh(roundedBox(w, h, d, r), mat);
 const lathe = (pts, seg = 32) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
 const at = (x, d) => ({ x, z: shoreZ(x) + d });
 
@@ -65,7 +81,8 @@ export const SCOGLIERA = { x: -172, z0: shoreZ(-172), half: 3.4, from: 2, to: -4
 export const PERGOLA = at(34, 8.5);
 export const BARCA = at(-96, 5.5);
 export const TORRETTA = at(108, 7);
-export const LUNGO = { d: 62, wall: 0.95 };
+export const LUNGO = { d: 62, wall: 0.5 };
+export const BELVEDERE = at(48, 300);
 
 // panchine dove sedersi a guardare il tempo che passa
 export const BENCHES = [];
@@ -118,8 +135,8 @@ export function placeHeight(x, z, feetY) {
 
 function bench(g, x, y, z, rot, wood) {
   const b = new THREE.Group();
-  const seat = boxM(1.6, 0.06, 0.42, wood); seat.position.y = 0.45; b.add(seat);
-  const back = boxM(1.6, 0.36, 0.05, wood); back.position.set(0, 0.72, -0.2); back.rotation.x = -0.12; b.add(back);
+  const seat = rboxM(1.6, 0.06, 0.42, 0.025, wood); seat.position.y = 0.45; b.add(seat);
+  const back = rboxM(1.6, 0.36, 0.05, 0.02, wood); back.position.set(0, 0.72, -0.2); back.rotation.x = -0.12; b.add(back);
   const iron = std(0x2a2b2d, 0.5, 0.6);
   for (const sx of [-0.7, 0.7]) { const l = boxM(0.05, 0.45, 0.4, iron); l.position.set(sx, 0.22, 0); b.add(l); }
   b.position.set(x, y, z); b.rotation.y = rot;
@@ -173,6 +190,13 @@ function traceModel(kind) {
     const hand = mesh(new THREE.BoxGeometry(0.002, 0.001, 0.016), std(0x111111, 0.5)); hand.position.set(0, 0.0118, -0.006); g.add(hand);
     for (const s of [-1, 1]) { const st = mesh(new THREE.BoxGeometry(0.018, 0.003, 0.07), leather); st.position.set(0, 0.003, s * 0.05); st.rotation.x = s * 0.15; g.add(st); }
     g.scale.setScalar(2.2);
+  } else if (kind === 'binoculars') {
+    const body = std(0x2a2a2a, 0.5, 0.3), glass = std(0x7fa0b0, 0.05, 0.6);
+    for (const s of [-1, 1]) {
+      const t = mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.13, 16), body); t.rotation.x = Math.PI / 2; t.position.set(s * 0.04, 0.035, 0); g.add(t);
+      const l = mesh(new THREE.CircleGeometry(0.028, 16), glass); l.position.set(s * 0.04, 0.035, -0.066); l.rotation.y = Math.PI; g.add(l);
+    }
+    const br = mesh(new THREE.BoxGeometry(0.05, 0.02, 0.05), body); br.position.y = 0.04; g.add(br);
   } else if (kind === 'bottle') {
     const b = mesh(lathe([[0, 0], [0.045, 0], [0.05, 0.02], [0.05, 0.17], [0.03, 0.22], [0.016, 0.25], [0.016, 0.3], [0, 0.3]], 20),
       std(0x4f7d5a, 0.1, 0, { transparent: true, opacity: 0.6 }));
@@ -246,7 +270,7 @@ export function buildPlaces(scene, glowTex, platform) {
       v.multiplyScalar(1 + 0.16 * vnoise(v.x * 1.4 + 1, v.y * 1.4 + v.z) + 0.06 * vnoise(v.x * 4 + 7, v.z * 4));
       pp.setXYZ(i, v.x, v.y * 0.72, v.z);
     }
-    geo.computeVertexNormals();
+    smoothNormals(geo);
     const count = 140;
     const im = new THREE.InstancedMesh(geo, std(0xffffff, 0.75), count);
     im.castShadow = im.receiveShadow = true;
@@ -277,7 +301,7 @@ export function buildPlaces(scene, glowTex, platform) {
     for (let x = -W / 2; x <= W / 2 + 0.01; x += 0.5) { const s = boxM(0.07, 0.12, D + 0.6, darkWood); s.position.set(x, H + 0.17, 0); g.add(s); }
     const br = boxM(0.12, 2.0, 0.12, darkWood); br.position.set(-W / 2 + 0.6, H - 0.6, -D / 2); br.rotation.z = -0.75; g.add(br);
     // chiosco con serrande abbassate
-    const kiosk = boxM(3.2, 2.5, 2.2, whiteWood); kiosk.position.set(2, 1.25, 1.2); g.add(kiosk);
+    const kiosk = rboxM(3.2, 2.5, 2.2, 0.08, whiteWood); kiosk.position.set(2, 1.25, 1.2); g.add(kiosk);
     const shutter = mesh(new THREE.BoxGeometry(2.6, 1.6, 0.04), std(0xa8afa9, 0.5, 0.4)); shutter.position.set(2, 1.35, 0.08); g.add(shutter);
     for (let i = 0; i < 12; i++) { const l = boxM(2.6, 0.012, 0.05, std(0x8d948f, 0.5, 0.4)); l.position.set(2, 0.6 + i * 0.13, 0.07); g.add(l); }
     // tavolino e panchina
@@ -308,7 +332,7 @@ export function buildPlaces(scene, glowTex, platform) {
       const y0 = heightAt(c.x, c.z);
       const g = new THREE.Group();
       const m = std(0xffffff, 0.8, 0, { map: cabinTex(cols[i]) });
-      const body = boxM(1.9, 2.2, 1.8, m); body.position.y = 1.1; g.add(body);
+      const body = rboxM(1.9, 2.2, 1.8, 0.05, m); body.position.y = 1.1; g.add(body);
       const roof = mesh(new THREE.CylinderGeometry(0.01, 1.4, 0.5, 4, 1), whiteWood); roof.position.y = 2.45; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.95); g.add(roof);
       const door = boxM(0.8, 1.7, 0.03, std(0xd8d2c6, 0.8)); door.position.set(0, 0.9, -0.91); g.add(door);
       g.position.set(c.x, y0 - 0.05, c.z);
@@ -331,7 +355,7 @@ export function buildPlaces(scene, glowTex, platform) {
       const c = at(122 + s * 2.4, 28);
       const y0 = heightAt(c.x, c.z);
       for (let i = 0; i < 6; i++) {
-        const l = boxM(0.7, 0.05, 1.9, std(0xf0ece4, 0.6)); l.position.set(c.x, y0 + 0.25 + i * 0.09, c.z); l.rotation.y = 0.05 * Math.sin(i * 3); scene.add(l);
+        const l = rboxM(0.7, 0.06, 1.9, 0.025, std(0xf0ece4, 0.5)); l.position.set(c.x, y0 + 0.25 + i * 0.09, c.z); l.rotation.y = 0.05 * Math.sin(i * 3); scene.add(l);
       }
       addCollider(c.x, c.z, 0.4, 1.0, y0 + 0.8);
     }
@@ -369,15 +393,15 @@ export function buildPlaces(scene, glowTex, platform) {
     P.letterAt = new THREE.Vector3(BARCA.x, y0 + 0.42, BARCA.z);
   }
 
-  // ---- Lungomare: muretto, passeggiata, lampioni, palme, case basse (ripetuti attorno a te)
+  // ---- Lungomare: muretto basso, passeggiata, lampioni, palme (ripetuti attorno a te)
   {
     const wallM = std(0xd9d1c3, 0.9), paveM = std(0xc7beb0, 0.9);
     const SEG = 24, NS = 13;
     P.walls = [];
     for (let i = 0; i < NS; i++) {
       const g = new THREE.Group();
-      const wall = boxM(SEG + 0.1, 1.3, 0.4, wallM); wall.position.set(0, LUNGO.wall - 0.65, 0); g.add(wall);
-      const cap = boxM(SEG + 0.1, 0.08, 0.5, std(0xe8e2d6, 0.8)); cap.position.set(0, LUNGO.wall + 0.04, 0); g.add(cap);
+      const wall = boxM(SEG + 0.1, 1.0, 0.4, wallM); wall.position.set(0, LUNGO.wall - 0.5, 0); g.add(wall);
+      const cap = rboxM(SEG + 0.1, 0.09, 0.5, 0.03, std(0xe8e2d6, 0.8)); cap.position.set(0, LUNGO.wall + 0.04, 0); g.add(cap);
       const pave = boxM(SEG + 0.1, 0.4, 9, paveM); pave.position.set(0, LUNGO.wall - 0.2, 4.6); pave.castShadow = false; g.add(pave);
       // lampione
       const lamp = new THREE.Group();
@@ -401,25 +425,14 @@ export function buildPlaces(scene, glowTex, platform) {
         for (let k = 0; k < fp.count; k++) { const y = fp.getY(k); fp.setZ(k, 0.16 * y * y); fp.setX(k, fp.getX(k) * Math.sin(Math.min(1, y / 3.3) * Math.PI) ); }
         frondG.computeVertexNormals();
         const frondM = std(0x5d7448, 0.8, 0, { side: THREE.DoubleSide });
+        const crown = new THREE.Group(); crown.position.set(1.44, 6, 0); palm.add(crown);
+        palm.userData.crown = crown;
         for (let k = 0; k < 14; k++) {
-          const f = mesh(frondG, frondM); f.position.set(1.44, 6, 0);
+          const f = mesh(frondG, frondM);
           f.rotation.set(0, (k / 14) * Math.PI * 2 + k * 0.3, 0); f.rotateX(0.55 + (k % 3) * 0.25);
-          palm.add(f);
+          crown.add(f);
         }
-        palm.position.set(SEG / 2, LUNGO.wall, 6.5); g.add(palm);
-      }
-      // case basse e rade, lontane oltre la passeggiata
-      if (i % 3 !== 1) {
-        const floors = 2 + ((i * 5) % 3);
-        const hgt = floors * 3.1;
-        const w = 9 + ((i * 7) % 4) * 2;
-        const facade = facadeTex(); facade.repeat.set(w / 12, floors * 3.1 / 9);
-        const winTex = windowLightTex(i); winTex.repeat.copy(facade.repeat);
-        const houseM = std(0xf1e8da, 0.95, 0, { map: facade, emissiveMap: winTex, emissive: new THREE.Color(1, 0.72, 0.42), emissiveIntensity: 0 });
-        const house = boxM(w, hgt, 8, houseM);
-        house.position.set(((i * 3) % 5) - 2, LUNGO.wall + hgt / 2, 26 + (i % 2) * 6); house.castShadow = false; g.add(house);
-        const roofB = boxM(w + 0.3, 0.25, 8.3, std(0xb5866a, 0.9)); roofB.position.set(house.position.x, LUNGO.wall + hgt + 0.12, house.position.z); g.add(roofB);
-        g.userData.houseM = houseM;
+        palm.position.set(SEG / 2, LUNGO.wall, 6.5); g.add(palm); g.userData.palm = palm;
       }
       scene.add(g);
       P.walls.push({ g, glow, bulbM, i });
@@ -427,6 +440,42 @@ export function buildPlaces(scene, glowTex, platform) {
     P.lampLights = [new THREE.PointLight(0xffb878, 0, 22, 1.5), new THREE.PointLight(0xffb878, 0, 22, 1.5)];
     for (const l of P.lampLights) scene.add(l);
     P.SEG = SEG; P.NS = NS;
+  }
+
+  // ---- Il belvedere sulle colline: un muretto a secco, una panchina, un vecchio cipresso
+  {
+    const B = BELVEDERE;
+    const y0 = heightAt(B.x, B.z);
+    const g = new THREE.Group();
+    const stone = std(0xb9ad98, 0.95);
+    const geo = new THREE.IcosahedronGeometry(1, 2);
+    const sp = geo.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < sp.count; i++) { v.fromBufferAttribute(sp, i); v.multiplyScalar(1 + 0.15 * vnoise(v.x * 2, v.y * 2 + v.z)); sp.setXYZ(i, v.x, v.y * 0.6, v.z); }
+    smoothNormals(geo);
+    for (let k = 0; k < 46; k++) {
+      const a = -Math.PI * 0.85 + (k / 45) * Math.PI * 0.7;
+      const r = 4.2;
+      const x = Math.sin(a) * r, z = -Math.cos(a) * r * 0.6 - 1.5;
+      const row = k % 2;
+      const st = mesh(geo, stone);
+      st.scale.set(0.32 + rnd() * 0.12, 0.22, 0.26);
+      st.position.set(x + (rnd() - 0.5) * 0.1, heightAt(B.x + x, B.z + z) - y0 + 0.2 + row * 0.3, z);
+      st.rotation.y = rnd() * 3; g.add(st);
+      const st2 = mesh(geo, stone); st2.scale.copy(st.scale).multiplyScalar(0.9);
+      st2.position.copy(st.position).add(new THREE.Vector3(0.15, 0.3 - row * 0.6 + 0.3, 0)); g.add(st2);
+    }
+    const b = bench(g, 0, 0, 0.6, 0, woodM);
+    const cyp = mesh(new THREE.IcosahedronGeometry(1, 3), std(0x2f4229, 0.9)); cyp.scale.set(0.9, 5.5, 0.9); cyp.position.set(3.2, 5.2, 2.5); g.add(cyp);
+    const ctr = mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.2, 8), std(0x4a3a2c, 0.95)); ctr.position.set(3.2, 0.3, 2.5); g.add(ctr);
+    g.position.set(B.x, y0, B.z);
+    scene.add(g);
+    g.updateMatrixWorld(true);
+    const wp = new THREE.Vector3(); b.getWorldPosition(wp);
+    BENCHES.push({ x: wp.x, z: wp.z, y: wp.y + 0.45, yaw: 0 });
+    const spot = new THREE.Vector3(B.x - 1.2, 0, B.z - 2.2); spot.y = heightAt(spot.x, spot.z) + 0.55;
+    P.belvedereSpot = spot;
+    // un sasso piatto su cui è appoggiato il binocolo
+    const rest = mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.5, 14), stone); rest.position.set(spot.x, spot.y - 0.27, spot.z); scene.add(rest);
   }
 
   // ---- Le tracce: oggetti reali, un riflesso di luce li tradisce da lontano
@@ -445,6 +494,7 @@ export function buildPlaces(scene, glowTex, platform) {
       ['letter', P.letterAt],
       ['lantern', new THREE.Vector3(rockEnd.x, rockTop(0.4, SCOGLIERA.to + 7) + 0.0, rockEnd.z)],
       ['bottle', new THREE.Vector3(platform.x + 26, 0.02, platform.z + 34)],
+      ['binoculars', P.belvedereSpot],
     ];
     list.forEach(([kind, pos], i) => {
       const g = traceModel(kind);
@@ -486,7 +536,8 @@ export function updatePlaces(P, dt, time, ctx) {
       w.g.position.set(x, heightAt(x, z), z);
       w.g.rotation.y = -Math.atan2(shoreZ(x + 1) - shoreZ(x - 1), 2);
       w.glow.material.opacity = on;
-      if (w.g.userData.houseM) w.g.userData.houseM.emissiveIntensity = on * 1.6;
+      const pc = w.g.userData.palm?.userData.crown;
+      if (pc) { const ws = ctx.wind || 0.4; pc.rotation.set(Math.sin(time * 1.1 + w.i) * 0.05 * ws, 0, 0.08 * ws + Math.sin(time * 1.7 + w.i * 2) * 0.06 * ws); }
       w.bulbM.color.setRGB(0.3 + on * 4, 0.28 + on * 3, 0.25 + on * 1.8);
       lamps.push({ x, z, y: w.g.position.y + LUNGO.wall + 3.5, d: Math.abs(x - ctx.player.x) + Math.abs(z - ctx.player.z) });
     }
