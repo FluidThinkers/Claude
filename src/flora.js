@@ -89,7 +89,7 @@ function cardCluster(n, spread, size) {
 }
 
 function crossedCards(w, h) {
-  const g1 = new THREE.PlaneGeometry(w, h); g1.translate(0, h / 2, 0);
+  const g1 = new THREE.PlaneGeometry(w, h, 1, 5); g1.translate(0, h / 2, 0);
   const g2 = g1.clone(); g2.rotateY(Math.PI / 3); const g3 = g1.clone(); g3.rotateY(-Math.PI / 3);
   const pos = [], nor = [], uv = [], idx = [];
   let off = 0;
@@ -110,12 +110,23 @@ function crossedCards(w, h) {
 function windMat(opts, wind, amp, translucent = 0.25) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.85, side: THREE.DoubleSide, alphaTest: 0.45, ...opts });
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = wind.time; sh.uniforms.uWind = wind.strength;
-    sh.vertexShader = 'uniform float uTime; uniform float uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    sh.uniforms.uTime = wind.time; sh.uniforms.uWind = wind.strength; sh.uniforms.uWDir = { value: wind.dir };
+    sh.vertexShader = 'uniform float uTime; uniform float uWind; uniform vec2 uWDir;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vec4 ipw = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-      float sway = (sin(uTime * 1.4 + ipw.x * 0.21 + ipw.z * 0.13) + 0.5 * sin(uTime * 3.3 + ipw.z * 0.7 + position.x * 2.0)) * (0.35 + uWind);
-      transformed.x += sway * ${amp.toFixed(3)} * max(position.y + 0.5, 0.0);
-      transformed.z += sway * ${(amp * 0.6).toFixed(3)} * max(position.y + 0.5, 0.0);`);
+      vec2 wd = normalize(uWDir + vec2(1e-4));
+      // raffiche che corrono sul prato nella direzione del vento
+      float along = dot(ipw.xz, wd);
+      float gust = smoothstep(0.2, 1.0, sin(along * 0.11 - uTime * 1.7) * 0.5 + 0.5) * smoothstep(-0.3, 0.8, sin(along * 0.031 - uTime * 0.43 + ipw.x * 0.01));
+      float lean = (0.25 + 0.75 * uWind) * (0.35 + 0.65 * gust);
+      // ogni filo trema un po' per conto suo
+      float flut = sin(uTime * (5.0 + fract(ipw.x * 3.1) * 3.0) + ipw.z * 1.7 + position.x * 4.0) * (0.15 + 0.35 * gust) * uWind;
+      float hk = max(position.y + 0.5, 0.0);
+      float bend = (lean + flut * 0.4) * ${amp.toFixed(3)} * hk * hk * 1.6;
+      // il vento in spazio locale dell'istanza
+      vec3 wl = normalize((inverse(mat3(instanceMatrix)) * vec3(wd.x, 0.0, wd.y)) + vec3(1e-4));
+      transformed.x += wl.x * bend + flut * ${(amp * 0.25).toFixed(3)} * hk;
+      transformed.z += wl.z * bend;
+      transformed.y -= bend * bend * 0.35;`);
     // un po' di luce che attraversa le foglie
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       totalEmissiveRadiance += diffuseColor.rgb * ${translucent.toFixed(2)} * 0.35;`);

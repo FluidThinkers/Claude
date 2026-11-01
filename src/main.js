@@ -589,11 +589,15 @@ function checkAct(jump, downK, night, dt) {
     ok = friendT > 3;
   }
   else if (act === 'bigwave') {
-    near = M === 'wave' && dh < 90;
-    if (near && (player.wsize || 1) >= 1.9) prompt = 'Ora sei grande: rompiti sulla riva, qui davanti';
-    if (lastBreak && elapsed - lastBreak.t < 1.5 && Math.hypot(lastBreak.x - t.pos.x, lastBreak.z - t.pos.z) < 48) {
-      if (lastBreak.size >= 1.9) ok = true;
-      else if (!lastBreak.told) { lastBreak.told = true; showMsg('L\'onda era troppo piccola e si scioglie sulla sabbia. Rientra in acqua e torna onda (Q), poi cresci.', 6); }
+    near = M === 'wave';
+    const pct = Math.min(100, Math.round(((player.wsize || 1) - 0.4) / (1.9 - 0.4) * 100));
+    prompt = pct < 100 ? 'Onda ' + pct + '% · cresci (avanti), unisciti alle onde più grandi' : 'Ora sei grande: corri a riva';
+    if (lastBreak && elapsed - lastBreak.t < 2 && lastBreak.size >= 1.9 && !lastBreak.used) {
+      // la bottiglia arriva con l'onda, dove l'onda si stende
+      lastBreak.used = true;
+      const bx = lastBreak.x, bz = shoreZ(lastBreak.x) + 1.4;
+      t.pos.set(bx, heightAt(bx, bz) + 0.04, bz); t.base = t.pos.y; t.g.position.copy(t.pos);
+      ok = true;
     }
   }
   else if (act === 'clear') {
@@ -839,7 +843,7 @@ function applyForm(form) {
   const lvl = waterUniforms.uLevel.value;
   if (FORMS.includes(player.mode) || player.mode === 'flow') { body = null; }
   if (['bike', 'boat', 'sup', 'glide'].includes(player.mode)) { player.mode = 'walk'; bike.fp.visible = false; bike.on = false; sea.fpPaddle.visible = false; craft.boat.on = false; }
-  player.cat = false; wings.visible = false; body = null;
+  player.cat = false; wings.visible = false; body = null; player.waveRest = false;
   illum = Math.max(illum, 0.7);
   if (form === 'sand') { flowUnlocked = true; player.mode = 'sand'; player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.4; player.pitch = -0.06; }
   else if (form === 'cat') { player.mode = 'walk'; player.cat = true; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 1); }
@@ -849,7 +853,7 @@ function applyForm(form) {
     for (let i = 0; i < 80 && lvl - heightAt(x, z) < 1.4; i++) z -= 1;
     player.mode = 'fish'; player.pos.set(x, lvl - 1.0, z); player.pitch = -0.35; player.yaw = 0; drops = 0; sound.splash('dive', 0.8);
   }
-  else if (form === 'wave') { player.mode = 'wave'; player.questWave = true; player.ws = 4; player.pos.y = lvl + 0.6; player.yaw = Math.PI; player.pitch = -0.1; }
+  else if (form === 'wave') { player.mode = 'wave'; player.questWave = true; player.waveRest = false; player.wsize = 0.6; player.ws = 4; player.pos.y = lvl + 0.6; player.yaw = Math.PI; player.pitch = -0.1; }
   else if (form === 'gull') { player.mode = 'gull'; player.gs = 11; player.bank = 0; player.pos.y = Math.max(player.pos.y, heightAt(player.pos.x, player.pos.z)) + 8; player.pitch = -0.1; wings.visible = true; }
   else if (form === 'body') { player.mode = 'walk'; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 2); }
   else if (form === 'cloud') { player.mode = 'cloud'; player.cloudY = 150; player.pitch = -0.5; }
@@ -1077,7 +1081,12 @@ function frame() {
       const T = waterUniforms.uTrail.value; if (Math.random() < dt * 6) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, r.size || 1);
       if (!player.waveHint) { player.waveHint = true; setTimeout(() => showMsg(isTouch ? 'Avanti per crescere e correre, indietro per rallentare e farti piccola, ai lati per piegare.' : 'W cresci e corri · S rallenti e ti fai piccola · A e D pieghi.', 5), 6500); }
       if (r.broke) lastBreak = { x: player.pos.x, z: player.pos.z, t: elapsed, size: player.wsize || 1 };
-      if (r.broke && player.questWave) {
+      if (r.broke && player.questWave && FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave') {
+        // l'onda grande si rompe: resti onda, schiuma che si stende sulla sabbia, finché la storia non ti trasforma
+        player.questWave = false; player.waveRest = true;
+        addRing(player.pos.x, player.pos.z - 2, 0.6 * (player.wsize || 1)); sound.splash('dive', 1.6); camDip = 0.3;
+        waterSpray.burst(new THREE.Vector3(player.pos.x, lvl + 0.3, player.pos.z), 160, 3.5);
+      } else if (r.broke && player.questWave) {
         player.questWave = false;
         addRing(player.pos.x, player.pos.z - 2, 0.6 * (player.wsize || 1)); sound.splash('dive', 1.4);
         player.mode = 'walk'; player.pos.z += 2; player.pos.y = groundAt(player.pos.x, player.pos.z, 3);

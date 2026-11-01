@@ -172,12 +172,34 @@ export function makeSky() {
         vec3 lights = uSunCol * smoothstep(0.99955, 0.9997, sd) * 40.0 * uSunVis * above;
         lights += vec3(0.85, 0.88, 1.0) * smoothstep(0.99975, 0.9999, md) * 2.5 * uNight;
         c += vec3(0.25, 0.3, 0.45) * pow(max(md, 0.0), 120.0) * 0.4 * uNight;
-        if (d.y > 0.0) {
-          vec3 p = d * 420.0; vec3 id = floor(p); float h = hash13(id);
-          vec3 f = fract(p) - 0.5;
-          float s = step(0.9984, h) * smoothstep(0.38, 0.0, length(f));
-          float tw = 0.55 + 0.45 * sin(uTime * 2.0 + h * 300.0);
-          lights += vec3(s * tw * 3.0) * uNight * smoothstep(0.0, 0.25, d.y);
+        if (d.y > -0.02 && uNight > 0.01) {
+          // stelle: tre strati di celle, ogni stella in un punto a caso della sua cella,
+          // luminosità con molte deboli e poche forti, colore dalla temperatura, scintillio vicino all'orizzonte
+          vec3 st = vec3(0.0);
+          float ext = smoothstep(-0.02, 0.35, d.y);
+          for (int L = 0; L < 3; L++) {
+            float sc = L == 0 ? 160.0 : L == 1 ? 340.0 : 720.0;
+            vec3 p = d * sc; vec3 id = floor(p); float h = hash13(id + float(L) * 17.0);
+            float pr = L == 0 ? 0.02 : L == 1 ? 0.06 : 0.12;
+            if (h < pr) {
+              vec3 o = vec3(hash13(id + 3.1), hash13(id + 5.7), hash13(id + 9.3)) * 0.6 + 0.2;
+              float dd = length(fract(p) - o);
+              float mag = (0.15 + pow(hash13(id + 11.0), L == 0 ? 2.0 : 3.0)) * (L == 0 ? 2.6 : L == 1 ? 1.1 : 0.45);
+              float core = exp(-dd * dd * (L == 0 ? 60.0 : L == 1 ? 22.0 : 9.0));
+              float t = hash13(id + 21.0);
+              vec3 tc = t < 0.15 ? vec3(1.0, 0.72, 0.5) : t < 0.35 ? vec3(1.0, 0.9, 0.75) : t < 0.8 ? vec3(0.95, 0.97, 1.0) : vec3(0.75, 0.85, 1.0);
+              float tw = 1.0 - (1.0 - ext) * 0.6 * (0.5 + 0.5 * sin(uTime * (7.0 + t * 9.0) + h * 400.0));
+              st += tc * core * mag * tw;
+            }
+          }
+          // la Via Lattea: una fascia di polvere chiara inclinata, con corsie scure
+          vec3 gp = normalize(vec3(0.42, 0.55, -0.72));
+          float band = exp(-pow(dot(d, gp) / 0.17, 2.0));
+          float dust = vn(d.xz * 9.0 + d.y * 5.0) * 0.6 + vn(d.xz * 23.0 - d.y * 7.0) * 0.4;
+          float lanes = smoothstep(0.35, 0.65, vn(d.xz * 14.0 + 3.0));
+          vec3 mw = vec3(0.55, 0.58, 0.68) * band * (0.35 + 0.65 * dust) * (1.0 - 0.55 * lanes * band) * 0.09;
+          float moonK = 1.0 - 0.6 * smoothstep(0.0, 0.6, uMoonDir.y);
+          lights += (st + mw) * uNight * ext * moonK;
         }
         vec4 cl = skyClouds(d, c, 5);
         c = cl.rgb + lights * (1.0 - cl.a * 0.92);
@@ -675,7 +697,7 @@ export function makePost(renderer) {
         float dz = texture2D(tDepth, uv).x;
         if (dz < 0.99999) {
           float vz = uNear * uFar / (uFar - dz * (uFar - uNear));
-          float k = smoothstep(90.0, 520.0, vz) * 0.8 * uFarBlur;
+          float k = smoothstep(55.0, 380.0, vz) * 0.9 * uFarBlur;
           col = mix(col, texture2D(tFar, uv).rgb, k);
         }
       }

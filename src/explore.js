@@ -63,7 +63,7 @@ export function buildExplore(scene, platform, glowTex) {
       const gap = M.gaps.includes(i);
       // piloni e controventi in acciaio arrugginito
       for (const sx of [-1, 1]) {
-        const p = mesh(new THREE.CylinderGeometry(0.28, 0.32, 14, 10), rust); p.position.set(sx * (M.half - 0.6), M.deck - 7.4, d0); g.add(p);
+        const p = mesh(new THREE.CylinderGeometry(0.28, 0.32, 14, 20), rust); p.position.set(sx * (M.half - 0.6), M.deck - 7.4, d0); g.add(p);
       }
       const cross = mesh(new THREE.BoxGeometry(M.half * 2 - 1, 0.35, 0.35), rust); cross.position.set(0, M.deck - 1.2, d0); g.add(cross);
       if (i % 2 === 0) for (const s of [-1, 1]) { const br = mesh(new THREE.BoxGeometry(0.22, 7.5, 0.22), rustDark); br.position.set(0, M.deck - 4.5, d0 - 0.2 * s); br.rotation.z = s * 0.72; g.add(br); }
@@ -75,8 +75,8 @@ export function buildExplore(scene, platform, glowTex) {
         E.ladders.push({ x: M.x - M.half + 0.3, z: M.z0 + d0 - M.seg + 0.5, top: M.deck, name: 'risali la scaletta' });
         for (const zz of [d0 - 0.3, d0 - M.seg + 0.3]) {
           const lad = new THREE.Group();
-          for (const sx of [-0.22, 0.22]) { const r2 = mesh(new THREE.CylinderGeometry(0.025, 0.025, 6, 6), rustDark); r2.position.set(sx, M.deck - 3, 0); lad.add(r2); }
-          for (let k = 0; k < 14; k++) { const st = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.44, 6), rustDark); st.rotation.z = Math.PI / 2; st.position.set(0, M.deck - 5.8 + k * 0.42, 0); lad.add(st); }
+          for (const sx of [-0.22, 0.22]) { const r2 = mesh(new THREE.CylinderGeometry(0.025, 0.025, 6, 16), rustDark); r2.position.set(sx, M.deck - 3, 0); lad.add(r2); }
+          for (let k = 0; k < 14; k++) { const st = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.44, 16), rustDark); st.rotation.z = Math.PI / 2; st.position.set(0, M.deck - 5.8 + k * 0.42, 0); lad.add(st); }
           lad.position.set(zz === d0 - 0.3 ? M.half - 0.3 : -M.half + 0.3, 0, zz); g.add(lad);
         }
         continue;
@@ -85,7 +85,7 @@ export function buildExplore(scene, platform, glowTex) {
       E.rects.push({ x: M.x, z: M.z0 + dc, hx: M.half, hz: M.seg / 2, y: M.deck, rot: 0 });
       // binari, bitte
       for (const sx of [-1.1, 1.1]) { const r1 = mesh(new THREE.BoxGeometry(0.08, 0.1, M.seg), rustDark); r1.position.set(sx, M.deck + 0.05, dc); g.add(r1); }
-      if (i % 3 === 1) for (const sx of [-1, 1]) { const b = mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.5, 14), rust); b.position.set(sx * (M.half - 0.35), M.deck + 0.25, dc); g.add(b); }
+      if (i % 3 === 1) for (const sx of [-1, 1]) { const b = mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.5, 28), rust); b.position.set(sx * (M.half - 0.35), M.deck + 0.25, dc); g.add(b); }
     }
     // rampa da terra
     {
@@ -117,7 +117,7 @@ export function buildExplore(scene, platform, glowTex) {
       const top = mesh(new THREE.BoxGeometry(7, 1.0, 6), rust); top.position.y = M.deck + 13.2; cr.add(top);
       const cab = mesh(rbox(3.2, 2.4, 3.2, 0.2), std({ color: 0x6f7f84, roughness: 0.8, metalness: 0.3 })); cab.position.set(0, M.deck + 14.9, 0); cr.add(cab);
       const boom = mesh(new THREE.BoxGeometry(1.0, 1.0, 30), rust); boom.position.set(0, M.deck + 15.5, -13); boom.rotation.x = 0.28; cr.add(boom);
-      const cable = mesh(new THREE.CylinderGeometry(0.03, 0.03, 12, 5), rustDark); cable.position.set(0, M.deck + 13.6, -24); cr.add(cable);
+      const cable = mesh(new THREE.CylinderGeometry(0.03, 0.03, 12, 16), rustDark); cable.position.set(0, M.deck + 13.6, -24); cr.add(cable);
       const hook = mesh(new THREE.TorusGeometry(0.35, 0.08, 8, 16, 4.5), rustDark); hook.position.set(0, M.deck + 7.4, -24); cr.add(hook);
       cr.position.set(0, 0, dEnd); g.add(cr);
       E.rects.push({ x: M.x, z: M.z0 + dEnd, hx: 3.2, hz: 2.8, y: M.deck + 13.7, rot: 0, top: true });
@@ -174,15 +174,15 @@ export function buildExplore(scene, platform, glowTex) {
     const b3 = w(-1, 0); E.blocks.push({ x: b3.x, z: b3.z, hx: 1.5, hz: 1.5, top: 13.5, rot });
     // scaletta dal mare
     const lad = new THREE.Group();
-    for (const sx of [-0.22, 0.22]) { const r2 = mesh(new THREE.CylinderGeometry(0.025, 0.025, 9, 6), rustDark); r2.position.set(sx, 3, 0); lad.add(r2); }
-    for (let k = 0; k < 20; k++) { const st = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.44, 6), rustDark); st.rotation.z = Math.PI / 2; st.position.set(0, -1.2 + k * 0.42, 0); lad.add(st); }
+    for (const sx of [-0.22, 0.22]) { const r2 = mesh(new THREE.CylinderGeometry(0.025, 0.025, 9, 16), rustDark); r2.position.set(sx, 3, 0); lad.add(r2); }
+    for (let k = 0; k < 20; k++) { const st = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.44, 16), rustDark); st.rotation.z = Math.PI / 2; st.position.set(0, -1.2 + k * 0.42, 0); lad.add(st); }
     lad.position.set(l1.x, 0, l1.z); lad.rotation.y = rot; scene.add(lad);
     // la radio, ancora accesa
     const rp = w(3.2, 2.6);
     const radio = new THREE.Group();
     const box = mesh(rbox(0.5, 0.32, 0.3, 0.03), std({ color: 0x55605a, roughness: 0.6, metalness: 0.3 })); radio.add(box);
     const dial = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.1), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.4, 1.6, 0.6) })); dial.position.set(0, 0.04, 0.151); radio.add(dial);
-    const ant = mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.7, 4), std({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.3 })); ant.position.set(0.2, 0.5, 0); ant.rotation.z = 0.3; radio.add(ant);
+    const ant = mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.7, 16), std({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.3 })); ant.position.set(0.2, 0.5, 0); ant.rotation.z = 0.3; radio.add(ant);
     const crate = mesh(rbox(0.7, 0.6, 0.6, 0.03), std({ color: 0x7c6a52, roughness: 0.9 })); crate.position.y = -0.46; radio.add(crate);
     radio.position.set(rp.x, 11.25 + 0.76, rp.z); radio.rotation.y = rot + 2.5; scene.add(radio);
     E.radio = { g: radio, dial };
@@ -197,7 +197,7 @@ export function buildExplore(scene, platform, glowTex) {
     const hg = hullGeometry({ len: 11, beam: 3.6, depth: 1.9, sheer: 0.45, bowFine: 1.6, transom: 0.7, deadrise: 0.3, waterline: -0.3, topColor: 0x5c6f63, bottomColor: 0x3b4436, stripeY: 0.4, stripeColor: 0x7b3a2a });
     const hull = new THREE.Mesh(hg, std({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide })); g.add(hull);
     const wh = mesh(rbox(2.2, 1.6, 2.0, 0.1), std({ color: 0x6e7a6a, roughness: 0.95 })); wh.position.set(1.5, 1.6, 0); wh.rotation.z = 0.15; g.add(wh);
-    const mast = mesh(new THREE.CylinderGeometry(0.08, 0.1, 6, 8), std({ color: 0x5a5245, roughness: 0.95 })); mast.position.set(-1.5, 2.5, 0); mast.rotation.z = 0.5; g.add(mast);
+    const mast = mesh(new THREE.CylinderGeometry(0.08, 0.1, 6, 18), std({ color: 0x5a5245, roughness: 0.95 })); mast.position.set(-1.5, 2.5, 0); mast.rotation.z = 0.5; g.add(mast);
     g.position.set(x, y + 0.6, z); g.rotation.set(0.05, 0.6, 1.0);
     shadowAll(g); scene.add(g);
     E.discover.push({ id: 'relitto', pos: new THREE.Vector3(x, y + 1, z), r: 7, under: true });
@@ -234,7 +234,7 @@ export function buildExplore(scene, platform, glowTex) {
     const shell = new THREE.SphereGeometry(0.45, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2); shell.scale(1, 0.45, 1.25);
     g.add(mesh(shell, std({ map: shellTex, roughness: 0.6 })));
     const skin = std({ color: 0x6c6a4c, roughness: 0.8 });
-    const head = mesh(new THREE.SphereGeometry(0.14, 12, 10), skin); head.scale.set(1, 0.8, 1.3); head.position.set(0, 0.02, -0.68); g.add(head);
+    const head = mesh(new THREE.SphereGeometry(0.14, 20, 14), skin); head.scale.set(1, 0.8, 1.3); head.position.set(0, 0.02, -0.68); g.add(head);
     const flip = [];
     for (const [sx, sz, l] of [[-1, -0.25, 0.55], [1, -0.25, 0.55], [-1, 0.4, 0.3], [1, 0.4, 0.3]]) {
       const f = new THREE.Group(); const fm = mesh(new THREE.BoxGeometry(l, 0.04, 0.2), skin); fm.position.x = sx * l / 2; f.add(fm);
@@ -250,10 +250,10 @@ export function buildExplore(scene, platform, glowTex) {
     const g = new THREE.Group();
     const wood = std({ color: 0x8a6c4c, roughness: 0.9 });
     for (let i = 0; i < 9; i++) { const pl = mesh(rbox(0.38, 0.08, 4, 0.03), wood); pl.position.set(-1.6 + i * 0.4, 0.5, 0); g.add(pl); }
-    for (const sx of [-1.4, 1.4]) for (const sz of [-1.5, 1.5]) { const dr = mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.9, 16), std({ color: 0x2e4a66, roughness: 0.5 })); dr.rotation.z = Math.PI / 2; dr.position.set(sx * 0.6, 0.05, sz); g.add(dr); }
+    for (const sx of [-1.4, 1.4]) for (const sz of [-1.5, 1.5]) { const dr = mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.9, 32), std({ color: 0x2e4a66, roughness: 0.5 })); dr.rotation.z = Math.PI / 2; dr.position.set(sx * 0.6, 0.05, sz); g.add(dr); }
     const lad = new THREE.Group();
-    for (const sx of [-0.2, 0.2]) { const r2 = mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 6), std({ color: 0xcfd2d4, metalness: 0.9, roughness: 0.25 })); r2.position.set(sx, 0.1, 0); lad.add(r2); }
-    for (let k = 0; k < 3; k++) { const st = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 6), std({ color: 0xcfd2d4, metalness: 0.9, roughness: 0.25 })); st.rotation.z = Math.PI / 2; st.position.y = -0.4 + k * 0.4; lad.add(st); }
+    for (const sx of [-0.2, 0.2]) { const r2 = mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 16), std({ color: 0xcfd2d4, metalness: 0.9, roughness: 0.25 })); r2.position.set(sx, 0.1, 0); lad.add(r2); }
+    for (let k = 0; k < 3; k++) { const st = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 16), std({ color: 0xcfd2d4, metalness: 0.9, roughness: 0.25 })); st.rotation.z = Math.PI / 2; st.position.y = -0.4 + k * 0.4; lad.add(st); }
     lad.position.set(1.85, 0, 0); g.add(lad);
     g.position.set(x, 0, z); scene.add(g);
     E.raft = { g, x, z };
@@ -263,7 +263,7 @@ export function buildExplore(scene, platform, glowTex) {
     const by = new THREE.Group();
     const body = mesh(new THREE.CylinderGeometry(0.7, 0.9, 1.4, 20), std({ color: 0xd9b52a, roughness: 0.5 })); body.position.y = 0.4; by.add(body);
     const band = mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.5, 20), std({ color: 0x1b1b1b, roughness: 0.5 })); band.position.y = 0.6; by.add(band);
-    const mast = mesh(new THREE.CylinderGeometry(0.06, 0.08, 3, 8), std({ color: 0xd9b52a, roughness: 0.5 })); mast.position.y = 2.5; by.add(mast);
+    const mast = mesh(new THREE.CylinderGeometry(0.06, 0.08, 3, 18), std({ color: 0xd9b52a, roughness: 0.5 })); mast.position.y = 2.5; by.add(mast);
     for (const k of [0, 1]) { const cone = mesh(new THREE.ConeGeometry(0.35, 0.45, 12), std({ color: 0x1b1b1b, roughness: 0.5 })); cone.position.y = 3.6 + k * 0.5; by.add(cone); }
     const lamp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xfff0c0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
     lamp.position.y = 4.5; lamp.scale.setScalar(4); by.add(lamp);
@@ -273,10 +273,10 @@ export function buildExplore(scene, platform, glowTex) {
 
   // ---- Meduse: campane traslucide che pulsano a mezz'acqua
   {
-    const bell = new THREE.SphereGeometry(0.22, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    const bell = new THREE.SphereGeometry(0.22, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.55);
     const m = new THREE.MeshStandardMaterial({ color: 0xd8a8d8, roughness: 0.2, transparent: true, opacity: 0.45, emissive: 0x6a3a6a, emissiveIntensity: 0.4, side: THREE.DoubleSide, depthWrite: false });
     const im = new THREE.InstancedMesh(bell, m, 24); im.frustumCulled = false; im.count = 0;
-    const tent = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.01, 0.003, 0.6, 4), new THREE.MeshStandardMaterial({ color: 0xe8c0e0, transparent: true, opacity: 0.35, depthWrite: false }), 24 * 6);
+    const tent = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.01, 0.003, 0.6, 16), new THREE.MeshStandardMaterial({ color: 0xe8c0e0, transparent: true, opacity: 0.35, depthWrite: false }), 24 * 6);
     tent.frustumCulled = false; tent.count = 0;
     scene.add(im, tent);
     E.jelly = { im, tent, list: [] };
@@ -300,7 +300,7 @@ export function buildExplore(scene, platform, glowTex) {
     const conc = std({ map: concreteTex(), color: 0xc8c2b6, roughness: 0.95 });
     // piloni
     for (let ix = -2; ix <= 2; ix++) for (const iz of [-1, 1]) {
-      const p = mesh(new THREE.CylinderGeometry(0.35, 0.42, 16, 10), rust); p.position.set(ix * 4.2, Y - 8, iz * 5); g.add(p);
+      const p = mesh(new THREE.CylinderGeometry(0.35, 0.42, 16, 20), rust); p.position.set(ix * 4.2, Y - 8, iz * 5); g.add(p);
       if (ix < 2) { const br = mesh(new THREE.BoxGeometry(4.4, 0.25, 0.25), rust); br.position.set(ix * 4.2 + 2.1, Y - 2.2, iz * 5); br.rotation.z = (ix % 2 ? 1 : -1) * 0.5; g.add(br); }
     }
     // soletta: un angolo crollato in mare
@@ -328,7 +328,7 @@ export function buildExplore(scene, platform, glowTex) {
     const cw = w(4.5, -2.5);
     for (const [bx, bz, hx, hz] of [[0, -1.4, 1.6, 0.1], [-1.6, 0, 0.1, 1.4], [1.6, 0, 0.1, 1.4]]) { const q = w(4.5 + bx, -2.5 + bz); E.blocks.push({ x: q.x, z: q.z, hx, hz, top: Y + 2.6, rot }); }
     // bitte, catene, una scala dal mare
-    for (const lx of [-8, -3, 2]) { const b = mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.5, 10), rust); b.position.set(lx, Y + 0.25, 5.1); g.add(b); }
+    for (const lx of [-8, -3, 2]) { const b = mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.5, 20), rust); b.position.set(lx, Y + 0.25, 5.1); g.add(b); }
     const lad = new THREE.Group(); lad.position.set(-9.8, 0, 5.4); g.add(lad);
     for (const s2 of [-0.3, 0.3]) { const r = mesh(new THREE.BoxGeometry(0.06, Y + 1.5, 0.06), rust); r.position.set(s2, (Y + 1.5) / 2 - 0.8, 0); lad.add(r); }
     for (let yy = -0.6; yy < Y + 0.6; yy += 0.35) { const st = mesh(new THREE.BoxGeometry(0.6, 0.04, 0.04), rust); st.position.set(0, yy, 0); lad.add(st); }

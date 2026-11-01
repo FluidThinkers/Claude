@@ -208,6 +208,10 @@ export function moveForm(form, P, ctx) {
     out.speed = P.vs;
     // Spazio: raduni le nuvole; C: le spazzi via
     out.cloudDelta = (ctx.jump || ctx.up ? 1 : 0) - (ctx.down ? 1 : 0);
+  } else if (form === 'wave' && P.waveRest) {
+    // onda già rotta: schiuma ferma sulla riva
+    P.pos.y += (lvl + 0.35 - P.pos.y) * Math.min(1, dt * 2);
+    out.speed = 0;
   } else if (form === 'wave') {
     // la cresta corre verso riva; tu sei la cresta
     P.ws = fz < 0 ? Math.max(2, (P.ws || 4) - dt * 3) : Math.min(9, (P.ws || 4) + dt * 1.2);
@@ -220,7 +224,7 @@ export function moveForm(form, P, ctx) {
     if (ctx.target) P.pos.x += Math.sign(ctx.target.x - P.pos.x) * Math.min(Math.abs(ctx.target.x - P.pos.x), 7 * dt);
     const depth = lvl - heightAt(P.pos.x, P.pos.z);
     // avanti cresci, indietro ti fai piccola: un'onda grande è lenta e alta, una piccola corre bassa
-    P.wsize = Math.max(0.35, Math.min(3, (P.wsize || 1) + fz * dt * 0.7));
+    P.wsize = Math.max(0.35, Math.min(3, (P.wsize || 1) + fz * dt * 0.45));
     P.ws = Math.min(9 / Math.sqrt(P.wsize), P.ws);
     const lift = (0.45 + 0.8 * Math.max(0, 1 - Math.min(depth, 6) / 6)) * P.wsize + 0.2;
     P.pos.y = lvl + lift + Math.sin(ctx.time * 1.7) * 0.05 * P.wsize;

@@ -26,7 +26,7 @@ function wheel(r = 0.36) {
     const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, (r - 0.11) * 2, 4), mat.steel());
     sp.rotation.z = (i / 18) * Math.PI; sp.position.z = (i % 2 ? 0.012 : -0.012); g.add(sp);
   }
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.13, 16), mat.paint(0x9a9da0, 0.25)); hub.rotation.x = Math.PI / 2; g.add(hub);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.13, 32), mat.paint(0x9a9da0, 0.25)); hub.rotation.x = Math.PI / 2; g.add(hub);
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.006, 32), mat.steel()); disc.rotation.x = Math.PI / 2; disc.position.z = 0.06; g.add(disc);
   g.rotation.y = Math.PI / 2;
   return g;
@@ -45,7 +45,7 @@ export function buildBike(scene) {
   body.add(tube([new THREE.Vector3(0, 1.02, -0.52), new THREE.Vector3(0, 0.62, -0.38), new THREE.Vector3(0, 0.34, -0.15)], 0.024, fr, 16));
   // forcellone
   for (const sd of [-1, 1]) body.add(tube([new THREE.Vector3(sd * 0.09, 0.5, 0.15), new THREE.Vector3(sd * 0.09, 0.43, 0.45), new THREE.Vector3(sd * 0.08, 0.38, 0.7)], 0.02, mat.dusty(0x9a9da0, 0.3), 12));
-  const shock = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.34, 10), mat.dusty(0xe9b23a, 0.3)); shock.position.set(0, 0.68, 0.18); shock.rotation.x = -0.6; body.add(shock);
+  const shock = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.34, 20), mat.dusty(0xe9b23a, 0.3)); shock.position.set(0, 0.68, 0.18); shock.rotation.x = -0.6; body.add(shock);
   // motore
   const engine = new THREE.Mesh(rbox(0.24, 0.3, 0.34, 0.06), mat.dusty(0x3b3d40, 0.3, 0.6)); engine.position.set(0, 0.48, -0.1); body.add(engine);
   const cyl = new THREE.Mesh(rbox(0.18, 0.2, 0.16, 0.04), mat.dusty(0x6a6d70, 0.3)); cyl.position.set(0, 0.7, -0.2); cyl.rotation.x = -0.35; body.add(cyl);
@@ -60,15 +60,15 @@ export function buildBike(scene) {
   const fend = new THREE.Mesh(rbox(0.16, 0.03, 0.6, 0.015), orange); fend.position.set(0, 0.84, -0.78); fend.rotation.x = 0.12; body.add(fend);
   // scarico
   body.add(tube([new THREE.Vector3(0.05, 0.62, -0.28), new THREE.Vector3(0.15, 0.5, -0.05), new THREE.Vector3(0.17, 0.75, 0.35)], 0.025, chrome, 20));
-  const muf = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.42, 16), mat.dusty(0x8e9194, 0.25, 0.8)); muf.rotation.x = Math.PI / 2 - 0.35; muf.position.set(0.17, 0.85, 0.6); body.add(muf);
+  const muf = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.42, 32), mat.dusty(0x8e9194, 0.25, 0.8)); muf.rotation.x = Math.PI / 2 - 0.35; muf.position.set(0.17, 0.85, 0.6); body.add(muf);
   // forcella dorata, piastre, manubrio, tabella portanumero con faro
   const fork = new THREE.Group(); fork.position.set(0, 1.08, -0.56); body.add(fork);
   for (const s2 of [-1, 1]) {
-    const up = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.45, 12), gold); up.position.set(s2 * 0.085, -0.2, -0.06); up.rotation.x = 0.27; fork.add(up);
-    const lo = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 12), chrome); lo.position.set(s2 * 0.085, -0.6, -0.17); lo.rotation.x = 0.27; fork.add(lo);
+    const up = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.45, 24), gold); up.position.set(s2 * 0.085, -0.2, -0.06); up.rotation.x = 0.27; fork.add(up);
+    const lo = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 24), chrome); lo.position.set(s2 * 0.085, -0.6, -0.17); lo.rotation.x = 0.27; fork.add(lo);
   }
   const clamp = new THREE.Mesh(rbox(0.26, 0.04, 0.08, 0.015), mat.dusty(0xc9a046, 0.3)); clamp.position.y = 0.03; fork.add(clamp);
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.78, 10), mat.dusty(0x2b2d30, 0.35)); bar.rotation.z = Math.PI / 2; bar.position.y = 0.1; fork.add(bar);
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.78, 20), mat.dusty(0x2b2d30, 0.35)); bar.rotation.z = Math.PI / 2; bar.position.y = 0.1; fork.add(bar);
   const plate = new THREE.Mesh(rbox(0.26, 0.24, 0.04, 0.03), white); plate.position.set(0, -0.08, -0.14); plate.rotation.x = 0.27; fork.add(plate);
   const lamp = new THREE.Mesh(rbox(0.14, 0.06, 0.02, 0.01), dark); lamp.position.set(0, -0.06, -0.165); lamp.rotation.x = 0.27; fork.add(lamp);
   const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.045), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.4, 0.38, 0.3) })); lens.position.set(0, -0.06, -0.178); lens.rotation.set(0.27, Math.PI, 0); fork.add(lens);
@@ -83,7 +83,7 @@ export function buildBike(scene) {
   const fp = new THREE.Group();
   const fbar = tube([new THREE.Vector3(-0.38, 0.05, 0.02), new THREE.Vector3(-0.15, 0.0, 0), new THREE.Vector3(0.15, 0.0, 0), new THREE.Vector3(0.38, 0.05, 0.02)], 0.014, mat.paint(0x2b2d30, 0.35), 24); fp.add(fbar);
   for (const s2 of [-1, 1]) {
-    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 12), mat.rubber()); grip.rotation.z = Math.PI / 2; grip.position.set(s2 * 0.34, 0.045, 0.02); fp.add(grip);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 24), mat.rubber()); grip.rotation.z = Math.PI / 2; grip.position.set(s2 * 0.34, 0.045, 0.02); fp.add(grip);
     const guard = new THREE.Mesh(rbox(0.04, 0.09, 0.16, 0.03), orange); guard.position.set(s2 * 0.4, 0.05, -0.08); fp.add(guard);
   }
   const dashF = new THREE.Mesh(rbox(0.1, 0.03, 0.07, 0.012), dark); dashF.position.set(0, 0.03, -0.06); dashF.rotation.x = -0.4; fp.add(dashF);

@@ -116,7 +116,7 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 | 1 | Candela | sul cumulo di sabbia | umano | la raccogli | gabbiano |
 | 2 | Cappello | in cima alla gru del vecchio molo | gabbiano | ti posi sulla cima | pesce |
 | 3 | Orologio | nel relitto | pesce | trovi il banco e nuoti con loro (non scappano: sei uno di loro) | onda |
-| 4 | Bottiglia | sulla riva della torretta | onda | cresci, ti unisci alle onde, e arrivi a riva grande | vento |
+| 4 | Bottiglia | sulla riva della torretta | onda | parti piccola, cresci (avanti) e ti unisci alle onde: solo da grande arrivi a riva, e la bottiglia arriva con te | vento |
 | 5 | Lettera e chiave | nella cabina della rovina al largo | vento | spazzi via le nuvole (C): la luce scende e il tuo soffio spalanca la cabina e la cassetta | nuvola |
 | 6 | Binocolo | al belvedere | nuvola | piovi sul cipresso assetato (Q) | gatto |
 | 7 | Libro | sulla barca in secco | gatto | trovi il sole e ti appisoli | formica |
@@ -126,6 +126,9 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 - **Regole della storia**: si cambia forma solo quando si prende un ricordo, sempre con una ragione detta dalla voce. Ogni forma resta nel suo elemento: il pesce non esce dall'acqua (l'acqua bassa lo ferma), l'onda troppo piccola non arriva a riva finché non cresce, la pioggia cade solo sopra il bersaglio e, se si posa altrove, resta una pozza che evapora (Q) e torna nuvola. L'isola si apre solo a storia finita.
 - **La rovina al largo**: un vecchio pontile di carico in mezzo al mare, due silos arrugginiti, un nastro spezzato, una cabina; si risale dalla scaletta.
 - **Formica**: rasoterra, il mondo diventa enorme; il formicaio ha le sue formiche che vanno e vengono.
+- **Cielo di notte**: migliaia di stelle di luminosità e colore diversi (bianco-azzurre, gialle, arancio), che scintillano vicino all'orizzonte, e la Via Lattea con le sue corsie scure.
+- **Erba**: le raffiche corrono sul prato nella direzione del vento; ogni filo si piega curvo e trema per conto suo.
+- **Strutture**: piloni, pali, silos e tubi più tondi; da lontano tutto si scioglie in silhouette sfocate.
 - **Lontano, silhouette**: le cose lontane si sciolgono in forme morbide e diventano nitide solo avvicinandosi.
 - Se torni umano a metà strada (B), Q ti ridà la forma che quella tappa chiede, nel punto in cui sei.
 - Ogni forma vede il mondo a modo suo: il gabbiano ha lo sguardo largo e limpido, il gatto basso e grandangolare, il pesce verde-azzurro, la sabbia calda e dorata, la nuvola velata.

@@ -55,7 +55,7 @@ export function buildCraft(scene) {
       const pts = [];
       for (let i = 10; i < ol.length - 2; i += 6) {
         const p = ol[i];
-        const st = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.62, 6), steel); st.position.set(p.x, p.y + 0.25 + 0.31, p.z * sd * 0.94); g.add(st);
+        const st = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.62, 16), steel); st.position.set(p.x, p.y + 0.25 + 0.31, p.z * sd * 0.94); g.add(st);
         pts.push(new THREE.Vector3(p.x, p.y + 0.25 + 0.6, p.z * sd * 0.94));
       }
       g.add(tube(pts, 0.008, steel, 40));
@@ -71,8 +71,8 @@ export function buildCraft(scene) {
     const bulb = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 1.2, 6, 12), mat.paint(0x1b2e47, 0.4)); bulb.rotation.z = Math.PI / 2; bulb.position.set(-0.4, -2.2, 0); g.add(bulb);
     const rud = new THREE.Mesh(rbox(0.5, 1.1, 0.08, 0.04), mat.paint(0x1b2e47, 0.4)); rud.position.set(5.0, -0.8, 0); g.add(rud);
     // albero, boma, vele
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.085, 15, 12), mat.paint(0xd9dadb, 0.25)); mast.position.set(-1.8, 8.6, 0); g.add(mast);
-    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 5.2, 10), mat.paint(0xd9dadb, 0.25)); boom.rotation.z = Math.PI / 2; boom.position.set(0.8, 2.45, 0); g.add(boom);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.085, 15, 24), mat.paint(0xd9dadb, 0.25)); mast.position.set(-1.8, 8.6, 0); g.add(mast);
+    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 5.2, 20), mat.paint(0xd9dadb, 0.25)); boom.rotation.z = Math.PI / 2; boom.position.set(0.8, 2.45, 0); g.add(boom);
     const sailM = new THREE.MeshStandardMaterial({ color: 0xf7f4ec, roughness: 0.85, side: THREE.DoubleSide, transparent: true, opacity: 0.96 });
     const sailSurf = (ax, ay, bx, by, cx, cy, belly) => {
       const pts = [], idx = [], N = 10;
@@ -115,7 +115,7 @@ export function buildCraft(scene) {
     const funnel = new THREE.Mesh(rbox(7, 8, 4.5, 2), blue); funnel.position.set(-26, 28, 0); funnel.rotation.z = 0.12; g.add(funnel);
     const steel = mat.steel();
     for (const sd of [1, -1]) {
-      for (let x = 12; x < 70; x += 2.5) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 5), steel); st.position.set(x, 8.8, sd * 11.8); g.add(st); }
+      for (let x = 12; x < 70; x += 2.5) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 16), steel); st.position.set(x, 8.8, sd * 11.8); g.add(st); }
       g.add(tube([new THREE.Vector3(11, 9.35, sd * 11.8), new THREE.Vector3(40, 9.35, sd * 11.8), new THREE.Vector3(71, 9.35, sd * 11.8)], 0.05, steel, 20));
     }
     shadowAll(g); scene.add(g);
@@ -140,8 +140,8 @@ export function buildCraft(scene) {
     const cap = new THREE.Mesh(rbox(0.44, 0.1, 0.38, 0.05), mat.paint(0xd0d3d6, 0.3)); cap.position.y = 1.25; motor.add(cap);
     const leg = new THREE.Mesh(rbox(0.12, 0.95, 0.16, 0.05), mat.paint(0x2a2b2d, 0.3)); leg.position.y = 0.25; motor.add(leg);
     const tiller = tube([new THREE.Vector3(0, 0.95, 0), new THREE.Vector3(-0.35, 0.9, 0), new THREE.Vector3(-0.7, 0.86, 0)], 0.02, mat.paint(0x2a2b2d, 0.4), 10); motor.add(tiller);
-    const tgrip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.2, 10), mat.rubber()); tgrip.rotation.z = Math.PI / 2; tgrip.position.set(-0.75, 0.86, 0); motor.add(tgrip);
-    const prop = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 3), mat.steel()); prop.rotation.z = Math.PI / 2; prop.position.set(0.08, -0.15, 0); motor.add(prop);
+    const tgrip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.2, 20), mat.rubber()); tgrip.rotation.z = Math.PI / 2; tgrip.position.set(-0.75, 0.86, 0); motor.add(tgrip);
+    const prop = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 16), mat.steel()); prop.rotation.z = Math.PI / 2; prop.position.set(0.08, -0.15, 0); motor.add(prop);
     motor.position.set(2.5, 0, 0); g.add(motor);
     shadowAll(g);
     const x = PONTILE.x + 3.1, z = PONTILE.z0 + PONTILE.to + 8;
@@ -183,13 +183,13 @@ export function buildCraft(scene) {
     const sailM = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide });
     const s1 = new THREE.Mesh(sail, sailM); wing.add(s1);
     const tube = std(0x9a9da0, 0.35, 0.8);
-    const keel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 4, 6), tube); keel.rotation.x = Math.PI / 2; keel.position.set(0, -0.05, -0.2); wing.add(keel);
+    const keel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 4, 16), tube); keel.rotation.x = Math.PI / 2; keel.position.set(0, -0.05, -0.2); wing.add(keel);
     for (const s of [-1, 1]) {
-      const le = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 6.0, 6), tube);
+      const le = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 6.0, 16), tube);
       le.position.set(s * span / 2, 0.06, -0.3); le.rotation.set(Math.PI / 2, 0, 0); le.rotation.z = -s * Math.atan2(span, 3.9); wing.add(le);
-      const up = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.9, 6), tube); up.position.set(s * 0.45, -0.9, -0.38); up.rotation.set(-0.18, 0, s * 0.24); wing.add(up);
+      const up = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.9, 16), tube); up.position.set(s * 0.45, -0.9, -0.38); up.rotation.set(-0.18, 0, s * 0.24); wing.add(up);
     }
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.3, 8), tube); bar.rotation.z = Math.PI / 2; bar.position.set(0, -1.75, -0.55); wing.add(bar);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.3, 18), tube); bar.rotation.z = Math.PI / 2; bar.position.set(0, -1.75, -0.55); wing.add(bar);
     sh(g);
     const L = { x: BELVEDERE.x + 14, z: BELVEDERE.z + 4 };
     g.position.set(L.x, heightAt(L.x, L.z) + 1.9, L.z);

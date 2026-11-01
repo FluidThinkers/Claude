@@ -36,7 +36,7 @@ export function buildIsland(scene) {
 
   // macchia: cuscini verdi irregolari
   // cespuglio: grappolo di sfere morbide (normali lisce), non un sasso
-  const blob = (ox, oy, oz, r) => { const b = new THREE.SphereGeometry(r, 12, 9); b.translate(ox, oy, oz); return b; };
+  const blob = (ox, oy, oz, r) => { const b = new THREE.SphereGeometry(r, 20, 14); b.translate(ox, oy, oz); return b; };
   const parts = [blob(0, 0.35, 0, 0.62), blob(0.45, 0.25, 0.15, 0.45), blob(-0.4, 0.3, -0.1, 0.5), blob(0.05, 0.55, -0.35, 0.42), blob(-0.15, 0.2, 0.45, 0.4)];
   const shrubGeo = mergeGeos(parts);
   { const p = shrubGeo.attributes.position, n = shrubGeo.attributes.normal; for (let i = 0; i < p.count; i++) { const v = ps.fromBufferAttribute(p, i); const k = 1 + 0.08 * Math.sin(v.x * 13.1 + v.z * 9.3) * Math.sin(v.y * 11.2 + 1); p.setXYZ(i, v.x * k, v.y * k, v.z * k); } }
@@ -56,8 +56,8 @@ export function buildIsland(scene) {
   g.add(flowerM);
 
   // pini d'Aleppo: tronco inclinato e chioma a ombrello
-  const trunkG = new THREE.CylinderGeometry(0.22, 0.42, 1, 8); trunkG.translate(0, 0.5, 0);
-  const crownG = new THREE.SphereGeometry(1, 12, 8); crownG.scale(1, 0.38, 1);
+  const trunkG = new THREE.CylinderGeometry(0.22, 0.42, 1, 18); trunkG.translate(0, 0.5, 0);
+  const crownG = new THREE.SphereGeometry(1, 20, 14); crownG.scale(1, 0.38, 1);
   const pines = spots(36, 2.5, 30);
   const trunkM = new THREE.InstancedMesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x6a5240, roughness: 0.95 }), pines.length);
   const crownM = new THREE.InstancedMesh(crownG, new THREE.MeshStandardMaterial({ color: 0x41592f, roughness: 0.9 }), pines.length);

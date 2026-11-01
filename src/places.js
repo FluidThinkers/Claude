@@ -206,7 +206,7 @@ function traceModel(kind) {
     const glass = mesh(lathe([[0, 0], [0.07, 0], [0.075, 0.02], [0.075, 0.15], [0.06, 0.17], [0.06, 0.19], [0, 0.19]], 24),
       std(0xdfe8e4, 0.08, 0, { transparent: true, opacity: 0.35 }));
     g.add(glass);
-    const candle = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 16), std(0xf3ecdc, 0.6)); candle.position.y = 0.04; g.add(candle);
+    const candle = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 32), std(0xf3ecdc, 0.6)); candle.position.y = 0.04; g.add(candle);
     g.userData.flame = new THREE.Vector3(0, 0.1, 0);
   } else if (kind === 'book') {
     const cover = std(0x6d4a3a, 0.7), page = std(0xf1ebde, 0.9);
@@ -232,8 +232,8 @@ function traceModel(kind) {
     const b = mesh(new THREE.BoxGeometry(0.16, 0.003, 0.11), p); b.position.set(0, 0.03, -0.045); b.rotation.x = 0.5; g.add(b);
   } else if (kind === 'lantern') {
     const iron = std(0x2c2c2c, 0.5, 0.6);
-    const base = mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.03, 12), iron); g.add(base);
-    const glass = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 12), std(0xe8e0d0, 0.1, 0, { transparent: true, opacity: 0.3 })); glass.position.y = 0.1; g.add(glass);
+    const base = mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.03, 24), iron); g.add(base);
+    const glass = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 24), std(0xe8e0d0, 0.1, 0, { transparent: true, opacity: 0.3 })); glass.position.y = 0.1; g.add(glass);
     const top = mesh(new THREE.ConeGeometry(0.09, 0.07, 12), iron); top.position.y = 0.21; g.add(top);
     const ring = mesh(new THREE.TorusGeometry(0.03, 0.006, 6, 12), iron); ring.position.y = 0.27; g.add(ring);
     g.userData.flame = new THREE.Vector3(0, 0.1, 0);
@@ -247,7 +247,7 @@ function traceModel(kind) {
   } else if (kind === 'binoculars') {
     const body = std(0x2a2a2a, 0.5, 0.3), glass = std(0x7fa0b0, 0.05, 0.6);
     for (const s of [-1, 1]) {
-      const t = mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.13, 16), body); t.rotation.x = Math.PI / 2; t.position.set(s * 0.04, 0.035, 0); g.add(t);
+      const t = mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.13, 32), body); t.rotation.x = Math.PI / 2; t.position.set(s * 0.04, 0.035, 0); g.add(t);
       const l = mesh(new THREE.CircleGeometry(0.028, 16), glass); l.position.set(s * 0.04, 0.035, -0.066); l.rotation.y = Math.PI; g.add(l);
     }
     const br = mesh(new THREE.BoxGeometry(0.05, 0.02, 0.05), body); br.position.y = 0.04; g.add(br);
@@ -255,7 +255,7 @@ function traceModel(kind) {
     const b = mesh(lathe([[0, 0], [0.045, 0], [0.05, 0.02], [0.05, 0.17], [0.03, 0.22], [0.016, 0.25], [0.016, 0.3], [0, 0.3]], 20),
       std(0x4f7d5a, 0.1, 0, { transparent: true, opacity: 0.6 }));
     g.add(b);
-    const paper = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 10), std(0xf2ede2, 0.9)); paper.position.y = 0.1; g.add(paper);
+    const paper = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 20), std(0xf2ede2, 0.9)); paper.position.y = 0.1; g.add(paper);
     g.rotation.z = Math.PI / 2 - 0.15;
   }
   return g;
@@ -306,7 +306,7 @@ export function buildPlaces(scene, glowTex, platform) {
     g.add(im);
     for (let d = 8; d >= p.to; d -= 3) {
       for (const s of [-1, 1]) {
-        const post = mesh(new THREE.CylinderGeometry(0.11, 0.13, 7, 10), darkWood);
+        const post = mesh(new THREE.CylinderGeometry(0.11, 0.13, 7, 20), darkWood);
         post.position.set(s * (p.half - 0.1), p.deck - 3.6, d); g.add(post);
       }
       const beam = boxM(p.half * 2 + 0.2, 0.12, 0.14, darkWood); beam.position.set(0, p.deck - 0.13, d); g.add(beam);
@@ -366,7 +366,7 @@ export function buildPlaces(scene, glowTex, platform) {
     // tavolino e panchina
     const table = new THREE.Group();
     const top = mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.04, 28), whiteWood); top.position.y = 0.74; table.add(top);
-    const leg = mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.74, 10), std(0x2a2b2d, 0.5, 0.6)); leg.position.y = 0.37; table.add(leg);
+    const leg = mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.74, 20), std(0x2a2b2d, 0.5, 0.6)); leg.position.y = 0.37; table.add(leg);
     table.position.set(-2, 0, -0.6); g.add(table);
     const b = bench(g, -2, 0, -1.6, Math.PI, woodM);
     // sedie impilate
@@ -392,7 +392,7 @@ export function buildPlaces(scene, glowTex, platform) {
       const g = new THREE.Group();
       const m = std(0xffffff, 0.8, 0, { map: cabinTex(cols[i]) });
       const body = rboxM(1.9, 2.2, 1.8, 0.05, m); body.position.y = 1.1; g.add(body);
-      const roof = mesh(new THREE.CylinderGeometry(0.01, 1.4, 0.5, 4, 1), whiteWood); roof.position.y = 2.45; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.95); g.add(roof);
+      const roof = mesh(new THREE.CylinderGeometry(0.01, 1.4, 0.5, 16, 1), whiteWood); roof.position.y = 2.45; roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.95); g.add(roof);
       const door = boxM(0.8, 1.7, 0.03, std(0xd8d2c6, 0.8)); door.position.set(0, 0.9, -0.91); g.add(door);
       g.position.set(c.x, y0 - 0.05, c.z);
       scene.add(g);
@@ -454,7 +454,7 @@ export function buildPlaces(scene, glowTex, platform) {
       // palma ogni due segmenti
       if (i % 2 === 0) {
         const palm = new THREE.Group();
-        const trunkG = new THREE.CylinderGeometry(0.16, 0.26, 6, 10, 12);
+        const trunkG = new THREE.CylinderGeometry(0.16, 0.26, 6, 20, 12);
         const tp = trunkG.attributes.position;
         for (let k = 0; k < tp.count; k++) { const y = tp.getY(k) + 3; tp.setX(k, tp.getX(k) + 0.04 * y * y); }
         trunkG.computeVertexNormals();
@@ -503,7 +503,7 @@ export function buildPlaces(scene, glowTex, platform) {
     }
     const b = bench(g, 0, 0, 0.6, 0, woodM);
     const cyp = mesh(new THREE.IcosahedronGeometry(1, 3), std(0x2f4229, 0.9)); cyp.scale.set(0.9, 5.5, 0.9); cyp.position.set(3.2, 5.2, 2.5); g.add(cyp);
-    const ctr = mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.2, 8), std(0x4a3a2c, 0.95)); ctr.position.set(3.2, 0.3, 2.5); g.add(ctr);
+    const ctr = mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.2, 18), std(0x4a3a2c, 0.95)); ctr.position.set(3.2, 0.3, 2.5); g.add(ctr);
     g.position.set(B.x, y0, B.z);
     scene.add(g);
     g.updateMatrixWorld(true);
@@ -512,7 +512,7 @@ export function buildPlaces(scene, glowTex, platform) {
     const spot = new THREE.Vector3(B.x - 1.2, 0, B.z - 2.2); spot.y = heightAt(spot.x, spot.z) + 0.55;
     P.belvedereSpot = spot;
     // un sasso piatto su cui è appoggiato il binocolo
-    const rest = mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.5, 14), stone); rest.position.set(spot.x, spot.y - 0.27, spot.z); scene.add(rest);
+    const rest = mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.5, 28), stone); rest.position.set(spot.x, spot.y - 0.27, spot.z); scene.add(rest);
   }
 
   // ---- Le tracce: oggetti reali, un riflesso di luce li tradisce da lontano

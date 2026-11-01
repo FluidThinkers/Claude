@@ -62,7 +62,7 @@ export function buildWorld(scene, glow) {
     for (let i = 0; i < 4; i++) {
       const rail = box(21, 0.08, 0.08, std(0xe0b030)); rail.position.set(0, 8 + i * 0.01, i < 2 ? 6.5 : -6.5); if (i % 2) rail.position.y = 8.5; g.add(rail);
     }
-    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 0.4, 0.3) }));
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.25, 20, 14), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 0.4, 0.3) }));
     lamp.position.set(7, 19.6, 2.5); g.add(lamp);
     const lampGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xff3020, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     lampGlow.scale.setScalar(6); lampGlow.position.copy(lamp.position); g.add(lampGlow);
