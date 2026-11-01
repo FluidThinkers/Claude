@@ -534,9 +534,10 @@ export function makePost(renderer) {
     tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
     uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
-    uUnder: { value: 0 }, uFlow: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
+    uUnder: { value: 0 }, uFlow: { value: 0 }, uForm: { value: new THREE.Vector4(1, 1, 1, 0) }, uDrops: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
   }, /* glsl */`
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
+    uniform vec4 uForm; uniform float uDrops;
     uniform float uUnder, uFlow, uIllum, uMask, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
@@ -554,6 +555,20 @@ export function makePost(renderer) {
         uv += vec2(sin(uv.y * 9.0 + uTime * 2.2), cos(uv.x * 7.0 + uTime * 1.9)) * 0.006 * uFlow * (0.3 + ed);
         uv += c * ed * 0.03 * uFlow * sin(uTime * 1.3);
       }
+      float dropHL = 0.0;
+      if (uDrops > 0.0) {
+        // gocce sull'obiettivo appena riemergi
+        vec2 g = (uv + vec2(0.0, uTime * 0.0)) * vec2(16.0, 9.0);
+        vec2 id = floor(g); vec2 fr = fract(g) - 0.5;
+        float hh = hash(id);
+        vec2 o = vec2(hash(id + 3.1), hash(id + 7.7)) - 0.5;
+        float rad = 0.12 + 0.22 * hh;
+        vec2 q = fr - o * 0.5; q.y *= 0.8 + 0.4 * hash(id + 1.3);
+        float dd = length(q);
+        float m = (1.0 - smoothstep(rad * 0.55, rad, dd)) * step(0.4, hh) * uDrops;
+        uv -= q * m * 0.045;
+        dropHL = m * smoothstep(rad, 0.0, length(q + vec2(0.05, -0.06)));
+      }
       vec3 col;
       col.r = texture2D(tScene, uv - c * r2 * 0.012).r;
       col.g = texture2D(tScene, uv).g;
@@ -564,6 +579,7 @@ export function makePost(renderer) {
         col = acc / 9.0;
       }
       col *= uExposure;
+      col += vec3(dropHL) * 0.25;
       col += texture2D(tBloom, uv).rgb * 0.55;
       col += texture2D(tRays, uv).rgb * 1.1 * uRaysK;
       if (uSunVis > 0.001) {
@@ -616,6 +632,12 @@ export function makePost(renderer) {
         float ed2 = smoothstep(0.2, 0.8, length(c));
         col = mix(col, col * vec3(0.75, 1.0, 1.08) + vec3(0.0, 0.03, 0.05), uFlow * 0.6);
         col = mix(col, uUnderCol * 2.2 + vec3(0.08, 0.14, 0.16), ed2 * uFlow * 0.45);
+      }
+      if (uForm.w > 0.0) {
+        // ogni forma vede il mondo a modo suo: la nuvola velata, l'albero caldo, la sabbia bassa e dorata
+        float ed3 = smoothstep(0.25, 0.85, length(c));
+        col = mix(col, col * uForm.rgb, uForm.w);
+        col = mix(col, vec3(dot(col, vec3(0.33))) * 1.05 + 0.04, ed3 * uForm.w * (uForm.b > 1.06 ? 0.9 : 0.3));
       }
       // illuminazione: un ricordo che torna, luce calda e morbida
       if (uIllum > 0.0) {

@@ -7,11 +7,14 @@ export class Minimap {
     this.ctx = canvas.getContext('2d');
     this.big = false;
     this.frame = 0;
+    this.zoom = 1;
+    canvas.addEventListener('wheel', (e) => { this.setZoom(this.zoom * (e.deltaY > 0 ? 0.85 : 1.18)); e.preventDefault(); }, { passive: false });
     canvas.addEventListener('click', () => this.toggle());
     canvas.addEventListener('touchstart', (e) => { this.toggle(); e.preventDefault(); e.stopPropagation(); }, { passive: false });
   }
 
-  toggle() { this.big = !this.big; this.cv.classList.toggle('big', this.big); }
+  toggle() { this.big = !this.big; this.cv.classList.toggle('big', this.big); document.getElementById('mapZoom').classList.toggle('on', this.big); }
+  setZoom(z) { this.zoom = Math.max(0.25, Math.min(6, z)); this.frame = 0; }
 
   draw(S) {
     if (this.frame++ % 3) return;
@@ -20,7 +23,7 @@ export class Minimap {
     if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
     const c = this.ctx;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const scale = this.big ? W / 900 : W / 380; // pixel per metro
+    const scale = (this.big ? W / 900 : W / 380) * this.zoom; // pixel per metro
     const px = S.player.x, pz = S.player.z;
     const cx = W / 2, cy = H / 2;
     const toS = (x, z) => [cx + (x - px) * scale, cy + (z - pz) * scale];
@@ -86,6 +89,25 @@ export class Minimap {
     for (const t of S.traces) dot(t.x, t.z, 3, t.found ? 'rgba(255,214,150,1)' : null, t.found ? null : 'rgba(255,214,150,0.9)');
     if (S.figure) dot(S.figure.x, S.figure.z, 3.5, 'rgba(240,235,225,1)', 'rgba(0,0,0,0.6)');
 
+    // frecce verso il prossimo passo della storia e verso la scoperta
+    const arrow = (z, col) => {
+      if (!z) return;
+      const dx = (z.x - px) * scale, dy = (z.z - pz) * scale;
+      const dist = Math.hypot(z.x - px, z.z - pz);
+      const rr = Math.hypot(dx, dy);
+      const lim = (this.big ? Math.min(W, H) / 2 : W / 2) - 14;
+      if (rr < lim - 4) return;
+      const a = Math.atan2(dy, dx);
+      const ax = cx + Math.cos(a) * lim, ay = cy + Math.sin(a) * lim;
+      c.save(); c.translate(ax, ay); c.rotate(a);
+      c.beginPath(); c.moveTo(9, 0); c.lineTo(-5, -6); c.lineTo(-2, 0); c.lineTo(-5, 6); c.closePath();
+      c.fillStyle = col; c.fill(); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 1; c.stroke();
+      c.restore();
+      c.font = '9px system-ui, sans-serif'; c.fillStyle = col; c.textAlign = 'center';
+      c.fillText(dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.round(dist) + ' m', cx + Math.cos(a) * (lim - 16), cy + Math.sin(a) * (lim - 16) + 3);
+    };
+    arrow(S.zone, 'rgba(255,214,150,1)');
+    arrow(S.discZone, 'rgba(170,230,240,1)');
     // tu
     c.save(); c.translate(cx, cy); c.rotate(-S.yaw);
     c.beginPath(); c.moveTo(0, -8); c.lineTo(5, 6); c.lineTo(0, 3); c.lineTo(-5, 6); c.closePath();

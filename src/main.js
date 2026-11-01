@@ -19,6 +19,7 @@ import { Minimap } from './minimap.js';
 import { buildExplore, updateExplore, exploreHeight, exploreCollide, nearLadder, MOLO } from './explore.js';
 import { DISCOVERIES, ECHOES } from './story.js';
 import { Physics } from './physics.js';
+import { FORM_TEXT, gullWings, moveForm } from './forms.js';
 import { SCOGLIERA, PERGOLA, BARCA, TORRETTA, BELVEDERE } from './places.js';
 import { FOCE } from './terrain.js';
 
@@ -80,11 +81,18 @@ const drift = new SandDrift(scene);
 const bike = buildBike(scene);
 const tracks = new TireTracks(scene);
 const spray = new SandSpray(scene);
+const waterSpray = new SandSpray(scene, 0xeef6f8, 0.06); waterSpray.floorY = 0;
+let drops = 0;
+document.getElementById('zin').addEventListener('click', () => minimap.setZoom(minimap.zoom * 1.4));
+document.getElementById('zout').addEventListener('click', () => minimap.setZoom(minimap.zoom / 1.4));
+document.getElementById('zin').addEventListener('touchstart', (e) => { minimap.setZoom(minimap.zoom * 1.4); e.preventDefault(); });
+document.getElementById('zout').addEventListener('touchstart', (e) => { minimap.setZoom(minimap.zoom / 1.4); e.preventDefault(); });
 // sabbia morbida: spiaggia asciutta, non la passeggiata né l'erba
 const softSand = (x, z) => { const d = z - shoreZ(x); if (d < 1 || d > 74) return 0; if (placeHeight(x, z, 99) > heightAt(x, z) + 0.1) return 0; return Math.min(1, (d - 1) / 4) * (d > 60 ? Math.max(0, (74 - d) / 14) : 1); };
 const craft = buildCraft(scene);
 const explore = buildExplore(scene, PLATFORM, glowTex);
 const wrack = new Wrack(scene);
+const wings = gullWings(); camera.add(wings);
 // ---------- ostacoli fisici
 const phys = new Physics();
 {
@@ -99,6 +107,8 @@ const phys = new Physics();
   for (const [lx, lz] of [[-8, -5], [8, -5], [-8, 5], [8, 5], [0, -5], [0, 5]]) phys.add(PLATFORM.x + lx * pc + lz * ps, PLATFORM.z - lx * ps + lz * pc, 0.62, 6.8);
   phys.add(12 - 1.75, shoreZ(12) - 3 + 1.2, 0.08, 6);
 }
+phys.add(explore.raft.x, explore.raft.z, 2.0, 0.5);
+phys.add(explore.buoy.g.position.x, explore.buoy.g.position.z, 0.9, 1.5);
 const shipCircles = () => {
   const out = [];
   for (const S of craft.ships) {
@@ -297,6 +307,10 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyJ') journal.toggle();
   if (e.code === 'KeyN') minimap.toggle();
   if (e.code === 'KeyF') toggleFlow();
+  if (e.code === 'KeyQ') enterForm(formOptions());
+  if (e.code === 'Equal' || e.code === 'NumpadAdd') minimap.setZoom(minimap.zoom * 1.4);
+  if (e.code === 'Minus' || e.code === 'NumpadSubtract') minimap.setZoom(minimap.zoom / 1.4);
+  if (e.code === 'KeyB') returnToBody();
   if (e.code === 'KeyE') action();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -361,6 +375,8 @@ document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { touch
 document.getElementById('timeBtn').addEventListener('touchstart', (e) => { advancePhase(); e.preventDefault(); });
 document.getElementById('actBtn').addEventListener('touchstart', (e) => { action(); e.preventDefault(); });
 document.getElementById('flowBtn').addEventListener('touchstart', (e) => { toggleFlow(); e.preventDefault(); });
+document.getElementById('formBtn').addEventListener('touchstart', (e) => { enterForm(formOptions()); e.preventDefault(); });
+document.getElementById('bodyBtn').addEventListener('touchstart', (e) => { returnToBody(); e.preventDefault(); });
 if (flowUnlocked) document.getElementById('flowBtn').classList.remove('hidden');
 let touchDive = false;
 document.getElementById('diveBtn').addEventListener('touchstart', (e) => { touchDive = true; e.preventDefault(); });
@@ -485,6 +501,7 @@ function onDiscover(id) {
 function addRing(x, z, amp) {
   const r = waterUniforms.uRings.value[ringI++ % 4];
   r.set(x, z, elapsed, amp);
+  waterSpray.burst(new THREE.Vector3(x, waterUniforms.uLevel.value + 0.1, z), Math.round(40 * amp), 2.5 * amp);
   sound.splash('dive', 1.2);
 }
 function toggleFlow() {
@@ -504,6 +521,78 @@ function toggleFlow() {
     illum = 0.6; sound.chord();
     showMsg('Sei il mare.', 3);
   }
+}
+// ---------- le forme
+const FORMS = ['gull', 'tree', 'sand', 'wave', 'cloud'];
+const unlocked = new Set((Q.get('forms') || '').split(',').filter(Boolean));
+let body = null, stillT = 0, touchT = 0;
+function unlockForm(id) {
+  if (unlocked.has(id)) return;
+  unlocked.add(id);
+  const F = FORM_TEXT[id];
+  illum = Math.max(illum, 0.6); sound.chime(6);
+  echoEl.textContent = F.unlock + (isTouch ? '  (FORMA)' : '  (Q)'); echoEl.classList.add('on');
+  clearTimeout(echo.t); echo.t = setTimeout(() => echoEl.classList.remove('on'), 7000);
+  document.getElementById('formBtn').classList.remove('hidden');
+}
+function nearestTree(maxD) {
+  let best = null, bd = maxD;
+  for (const c of flora.colliders) { if (c.r > 0.5) continue; const d = Math.hypot(c.x - player.pos.x, c.z - player.pos.z); if (d < bd) { bd = d; best = c; } }
+  return best;
+}
+function nearestGull(maxD) {
+  let bd = maxD, ok = false;
+  for (const b of gulls.birds) { const d = b.m.position.distanceTo(camera.position); if (d < bd) { bd = d; ok = true; } }
+  return ok;
+}
+function formOptions() {
+  const M = player.mode, lvl = waterUniforms.uLevel.value;
+  const deep = lvl - heightAt(player.pos.x, player.pos.z);
+  const dS = player.pos.z - shoreZ(player.pos.x);
+  const drySand = dS > 3.5 && dS < 60 && heightAt(player.pos.x, player.pos.z) > lvl + 0.1;
+  if (M === 'flow') return unlocked.has('wave') ? 'wave' : null;
+  if (M === 'wave') return unlocked.has('cloud') ? 'cloud' : null;
+  if (M === 'cloud') return unlocked.has('gull') ? 'gull' : null;
+  if (M === 'tree') return unlocked.has('gull') ? 'gull' : null;
+  if (M === 'sand') return unlocked.has('cloud') ? 'cloud' : unlocked.has('gull') ? 'gull' : null;
+  if (M === 'gull') {
+    const tr = nearestTree(14);
+    if (tr && unlocked.has('tree') && player.pos.y > tr.top - 6) return 'tree';
+    if (player.pos.y < lvl + 6 && deep > 1.5 && flowUnlocked) return 'flow';
+    if (player.pos.y < heightAt(player.pos.x, player.pos.z) + 5 && drySand && unlocked.has('sand')) return 'sand';
+    if (player.pos.y > 120 && unlocked.has('cloud')) return 'cloud';
+    return null;
+  }
+  if (!['walk', 'swim', 'dive'].includes(M)) return null;
+  if (unlocked.has('tree') && nearestTree(2.5)) return 'tree';
+  if (unlocked.has('gull') && nearestGull(35)) return 'gull';
+  if (flowUnlocked && (M === 'swim' || M === 'dive')) return 'flow';
+  if (unlocked.has('sand') && drySand && M === 'walk') return 'sand';
+  return null;
+}
+function enterForm(f) {
+  if (!f) { showMsg('Qui non c\'è niente in cui entrare.', 2.5); return; }
+  if (['walk', 'swim', 'dive'].includes(player.mode) && !body) body = { pos: player.pos.clone(), yaw: player.yaw, mode: player.mode };
+  if (f === 'flow') { if (player.mode === 'gull') { player.pos.y = waterUniforms.uLevel.value + 0.2; } player.mode = 'swim'; toggleFlow(); return; }
+  const from = player.mode;
+  player.mode = f; player.vel.set(0, 0, 0);
+  fade = 0.55; post.uniforms.uFadeCol.value.setRGB(0.95, 0.97, 1);
+  sound.chord(); illum = Math.max(illum, 0.5);
+  if (f === 'tree') { const t = nearestTree(16); player.treeX = t.x; player.treeZ = t.z; player.treeY = t.top - 0.6; player.pitch = -0.1; }
+  if (f === 'gull') { player.gs = 11; player.bank = 0; if (from !== 'cloud' && from !== 'tree') player.pos.y = Math.max(player.pos.y, heightAt(player.pos.x, player.pos.z)) + 6; if (from === 'cloud') player.pos.y -= 30; player.pitch = -0.15; }
+  if (f === 'sand') { player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.4; player.pitch = -0.08; }
+  if (f === 'wave') { player.ws = 3; player.yaw = 0 + Math.PI; player.pitch = -0.1; }
+  if (f === 'cloud') { player.cloudY = 320; player.pitch = -0.6; }
+  wings.visible = f === 'gull';
+  showMsg(FORM_TEXT[f].enter, 3);
+}
+function returnToBody() {
+  if (!body) { if (player.mode === 'flow') toggleFlow(); return; }
+  player.pos.copy(body.pos); player.yaw = body.yaw; player.mode = body.mode; player.vel.set(0, 0, 0);
+  if (player.mode === 'walk') player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 0.5);
+  body = null; wings.visible = false;
+  fade = 0.7; post.uniforms.uFadeCol.value.setRGB(0.05, 0.05, 0.06);
+  showMsg('Torni corpo.', 2.5);
 }
 function onMeet() {
   zone = null;
@@ -581,7 +670,7 @@ function frame() {
     const d2 = depthAt(player.pos.x, player.pos.z);
     if (d2 > 1.3 && player.pos.y < lvl - 0.2) {
       // dentro l'acqua alta: si nuota
-      if (player.vel.y < -3) { sound.splash('dive', 1); for (let i = 0; i < 3; i++) setTimeout(() => spawnRipple(W, player.pos.x, player.pos.z, night > 0.5), i * 160); }
+      if (player.vel.y < -3) { sound.splash('dive', 1); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl + 0.05, player.pos.z), 70, 3.2); drops = 1; for (let i = 0; i < 3; i++) setTimeout(() => spawnRipple(W, player.pos.x, player.pos.z, night > 0.5), i * 160); }
       player.mode = 'swim'; player.vel.y = 0;
       if (!seenDiveHint) { seenDiveHint = true; showMsg(isTouch ? 'GIÙ per immergerti' : 'C per immergerti · Spazio per risalire', 4); }
     } else if (player.pos.y <= gh) {
@@ -650,11 +739,27 @@ function frame() {
     sound.wind(Math.min(1, 0.3 + hsF / 20));
     player.stroke += dt * hsF * 0.25;
     if (player.stroke > 1) { player.stroke = 0; if (player.pos.y > lvl - 0.5) spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); else sound.bubbles(); }
-    if (jump && elapsed - lastRing > 1.2 && player.pos.y > lvl - 1.5) { lastRing = elapsed; addRing(player.pos.x - ys * 7, player.pos.z - yc * 7, 1.0 + (run ? 0.5 : 0)); }
+    if (jump && elapsed - lastRing > 1.2 && player.pos.y > lvl - 1.5) { lastRing = elapsed; setTimeout(() => unlockForm('wave'), 2500); addRing(player.pos.x - ys * 7, player.pos.z - yc * 7, 1.0 + (run ? 0.5 : 0)); }
     // arrivato a riva, l'onda si scioglie e torni corpo
     if (lvl - heightAt(player.pos.x, player.pos.z) < 0.6) {
       player.mode = 'walk'; player.pos.y = Math.max(heightAt(player.pos.x, player.pos.z), lvl - 0.5); player.vel.set(0, 0, 0);
       addRing(player.pos.x, player.pos.z - 3, 0.6); showMsg('L\'onda si scioglie sulla sabbia. Torni corpo.', 3.5);
+    }
+  } else if (FORMS.includes(M)) {
+    const r = moveForm(M, player, { dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed });
+    eyeH = 0;
+    player.formRoll = r.roll;
+    if (r.timeScale && !todAnim && running) tod += dt * r.timeScale / CYCLE;
+    if (M === 'gull') { wings.userData.L.rotation.z = r.flap; wings.userData.R.rotation.z = -r.flap; sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.05) sound.gull(0, 3); }
+    if (M === 'tree') sound.wind(Math.min(1, wind.strength.value + 0.3));
+    if (M === 'sand' && r.inWater) { addRing(player.pos.x, player.pos.z, 0.4); player.mode = 'swim'; player.pos.y = lvl + 0.1 - 1.65; toggleFlow(); showMsg('La sabbia scivola in acqua, e tu con lei.', 3); }
+    if (M === 'wave') {
+      const T = waterUniforms.uTrail.value; if (Math.random() < dt * 6) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, 1);
+      if (r.broke) {
+        addRing(player.pos.x, player.pos.z - 2, 0.9); sound.splash('dive', 1.4);
+        if (!unlocked.has('cloud')) unlockForm('cloud');
+        player.pos.y = lvl + 0.5; enterForm('cloud');
+      }
     }
   } else if (M === 'boat') {
     const B = craft.boat;
@@ -736,6 +841,7 @@ function frame() {
   if (player.mode === 'swim') roll = Math.sin(elapsed * 1.3) * 0.02;
   if (player.mode === 'boat') roll = (player.boatRoll || 0) * 0.8 + Math.sin(elapsed * 1.1) * 0.012;
   if (player.mode === 'glide') roll = craft.glider.bank * 0.85;
+  if (FORMS.includes(player.mode)) roll = player.formRoll || 0;
   if (player.mode === 'bike') roll = (player.bikeLean || 0) * 0.7 + Math.sin(elapsed * 23) * 0.0015 * Math.min(Math.abs(bike.speed), 10);
   if (player.mode !== 'bike') sound.engine(false, 0, 0);
   if (player.mode !== 'boat') sound.boatEngine(false, 0, 0);
@@ -751,6 +857,14 @@ function frame() {
   }
 
   const fp = footprints.update(dt, player.pos, player.yaw, onSand && player.ground, hs > 0.6, hs * dt);
+  if (player.mode === 'walk') {
+    const tr = nearestTree(1.3);
+    touchT = tr ? touchT + dt : 0;
+    if (touchT > 1.5) unlockForm('tree');
+    const dS2 = player.pos.z - shoreZ(player.pos.x);
+    stillT = (hs < 0.15 && dS2 > 4 && dS2 < 60 && Math.abs(player.pos.y - heightAt(player.pos.x, player.pos.z)) < 0.1 && wind.strength.value > 0.3) ? stillT + dt : 0;
+    if (stillT > 7) unlockForm('sand');
+  }
   // passi: il suono dipende da cosa c'è sotto i piedi
   if (player.mode === 'walk' && player.ground && hs > 0.6 && !sitting) {
     stepDist += hs * dt;
@@ -840,6 +954,7 @@ function frame() {
     const rel = tmp.copy(p).sub(camera.position);
     const pan = rel.x * Math.cos(player.yaw) - rel.z * Math.sin(player.yaw);
     sound.gull(pan / Math.max(rel.length(), 1), rel.length() * (under ? 4 : 1));
+    if (takeoff && rel.length() < 16 && player.mode === 'walk') setTimeout(() => unlockForm('gull'), 1500);
     if (takeoff) sound.splash('stroke', 0.3);
   });
 
@@ -849,6 +964,8 @@ function frame() {
     if (sitting) { promptEl.textContent = 'Il tempo passa · E per alzarti'; promptEl.classList.add('on'); }
     else if (a) { promptEl.textContent = (isTouch ? 'AZIONE · ' : 'E · ') + a; promptEl.classList.add('on'); }
     else if (player.mode === 'dive' && player.breath < 0.35) { promptEl.textContent = 'risali'; promptEl.classList.add('on'); }
+    else if (unlocked.size && formOptions() && formOptions() !== 'flow') { promptEl.textContent = (isTouch ? 'FORMA · ' : 'Q · ') + 'diventa ' + FORM_TEXT[formOptions()].name.toLowerCase(); promptEl.classList.add('on'); }
+    else if (FORMS.includes(player.mode) && body) { promptEl.textContent = (isTouch ? 'CORPO' : 'B') + ' · torna corpo'; promptEl.classList.add('on'); }
     else promptEl.classList.remove('on');
   }
 
@@ -908,7 +1025,15 @@ function frame() {
   }
   scene.environmentIntensity = under ? 0.15 : 0.35 + 0.4 * (1 - night);
   hemi.intensity = pal.hI * 0.7;
-  if (under !== lastUnder) { lastUnder = under; sound.setUnder(under ? 1 : 0); }
+  if (under !== lastUnder) {
+    lastUnder = under; sound.setUnder(under ? 1 : 0);
+    if (!under) drops = 1; // riemergi: gocce sull'obiettivo
+    else waterSpray.burst(new THREE.Vector3(camera.position.x, waterUniforms.uLevel.value + 0.05, camera.position.z), 25, 1.6);
+  }
+  drops = Math.max(0, drops - dt * 0.4);
+  wings.visible = player.mode === 'gull';
+  waterSpray.update(dt);
+  document.getElementById('bodyBtn').classList.toggle('hidden', !body || !isTouch);
 
   waterUniforms.uCam.value.copy(camera.position);
   waterUniforms.uLightDir.value.copy(lightDir);
@@ -966,7 +1091,7 @@ function frame() {
       { ...PERGOLA, name: 'Chiosco' }, { ...BARCA, name: 'Barca in secco' }, { ...TORRETTA, name: 'Stabilimento' },
       { ...BELVEDERE, name: 'Belvedere' }, { x: PLATFORM.x, z: PLATFORM.z, name: 'Piattaforma' },
       { x: FOCE.x, z: shoreZ(FOCE.x) + 20, name: 'Foce' }, { x: 15, z: shoreZ(15) + 2, name: 'Bandiera' },
-      { x: explore.shed.x, z: explore.shed.z, name: 'Capannone' }, { x: MOLO.x, z: MOLO.z0 - 130, name: 'Vecchio molo' },
+      { x: explore.shed.x, z: explore.shed.z, name: 'Capannone' }, { x: explore.raft.x, z: explore.raft.z, name: 'Zattera' }, { x: explore.buoy.g.position.x, z: explore.buoy.g.position.z, name: 'Boa' }, { x: MOLO.x, z: MOLO.z0 - 130, name: 'Vecchio molo' },
     ],
     vehicles: [
       { x: bike.g.position.x, z: bike.g.position.z, name: 'Moto', color: '#e0623f' },
@@ -997,7 +1122,9 @@ function frame() {
   P.uBlur.value = under && !hasGear ? 1 : 0;
   P.uMask.value = under && hasGear ? 1 : 0;
   P.uIllum.value = illum;
-  P.uFlow.value = player.mode === 'flow' ? 1 : 0;
+  P.uDrops.value = Math.min(1, drops * 1.5) * (under ? 0 : 1);
+  P.uFlow.value = player.mode === 'flow' || player.mode === 'wave' ? 1 : 0;
+  P.uForm.value.set(...({ cloud: [1.05, 1.05, 1.08, 0.55], gull: [1.02, 1.02, 1.04, 0.2], tree: [1.04, 1.06, 0.92, 0.35], sand: [1.1, 1.0, 0.86, 0.35] }[player.mode] || [1, 1, 1, 0]));
   P.uUnderCol.value.copy(underCol);
   P.uBreath.value = player.mode === 'dive' ? THREE.MathUtils.smoothstep(0.4 - player.breath, 0, 0.4) : 0;
   fade += (fadeTarget - fade) * Math.min(1, dt * 1.5);
@@ -1024,4 +1151,4 @@ if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, pla
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };

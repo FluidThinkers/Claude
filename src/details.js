@@ -361,17 +361,27 @@ export class TireTracks {
 }
 
 export class SandSpray {
-  constructor(scene) {
+  constructor(scene, color = 0xcdb798, size = 0.05) {
     this.n = 260;
     this.p = new Float32Array(this.n * 3).fill(-999);
     this.v = new Float32Array(this.n * 3);
     this.life = new Float32Array(this.n);
     this.geo = new THREE.BufferGeometry();
     this.geo.setAttribute('position', new THREE.BufferAttribute(this.p, 3));
-    this.mat = new THREE.PointsMaterial({ color: 0xcdb798, size: 0.05, transparent: true, opacity: 0.85, depthWrite: false });
+    this.mat = new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.85, depthWrite: false });
     this.pts = new THREE.Points(this.geo, this.mat); this.pts.frustumCulled = false;
     scene.add(this.pts);
     this.k = 0;
+  }
+  // spruzzo d'acqua: getto verso l'alto in tutte le direzioni
+  burst(pos, n, power) {
+    while (n-- > 0) {
+      const i = this.k = (this.k + 1) % this.n;
+      this.p[i * 3] = pos.x + (Math.random() - 0.5) * 0.6; this.p[i * 3 + 1] = pos.y; this.p[i * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.6;
+      const a = Math.random() * 6.28, r = Math.random() * power;
+      this.v[i * 3] = Math.cos(a) * r; this.v[i * 3 + 1] = power * (0.8 + Math.random()); this.v[i * 3 + 2] = Math.sin(a) * r;
+      this.life[i] = 0.8 + Math.random() * 0.6;
+    }
   }
   emit(pos, yaw, speed, amount, dt) {
     let n = Math.floor(amount * dt * 400 + Math.random());
@@ -394,7 +404,7 @@ export class SandSpray {
       this.life[i] -= dt;
       this.v[i * 3 + 1] -= 9 * dt;
       this.p[i * 3] += this.v[i * 3] * dt; this.p[i * 3 + 1] += this.v[i * 3 + 1] * dt; this.p[i * 3 + 2] += this.v[i * 3 + 2] * dt;
-      const h = heightAt(this.p[i * 3], this.p[i * 3 + 2]);
+      const h = Math.max(heightAt(this.p[i * 3], this.p[i * 3 + 2]), this.floorY ?? -99);
       if (this.p[i * 3 + 1] < h || this.life[i] <= 0) { this.life[i] = 0; this.p[i * 3 + 1] = -999; }
     }
     this.geo.attributes.position.needsUpdate = true;

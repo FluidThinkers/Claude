@@ -244,6 +244,44 @@ export function buildExplore(scene, platform, glowTex) {
     E.turtle = { g, flip, t: 0, pos: new THREE.Vector3(), dir: 0, active: false };
   }
 
+  // ---- Al largo: una zattera ancorata (si sale con la scaletta) e una boa di segnalazione
+  {
+    const x = -10, z = shoreZ(-10) - 230;
+    const g = new THREE.Group();
+    const wood = std({ color: 0x8a6c4c, roughness: 0.9 });
+    for (let i = 0; i < 9; i++) { const pl = mesh(rbox(0.38, 0.08, 4, 0.03), wood); pl.position.set(-1.6 + i * 0.4, 0.5, 0); g.add(pl); }
+    for (const sx of [-1.4, 1.4]) for (const sz of [-1.5, 1.5]) { const dr = mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.9, 16), std({ color: 0x2e4a66, roughness: 0.5 })); dr.rotation.z = Math.PI / 2; dr.position.set(sx * 0.6, 0.05, sz); g.add(dr); }
+    const lad = new THREE.Group();
+    for (const sx of [-0.2, 0.2]) { const r2 = mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 6), std({ color: 0xcfd2d4, metalness: 0.9, roughness: 0.25 })); r2.position.set(sx, 0.1, 0); lad.add(r2); }
+    for (let k = 0; k < 3; k++) { const st = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 6), std({ color: 0xcfd2d4, metalness: 0.9, roughness: 0.25 })); st.rotation.z = Math.PI / 2; st.position.y = -0.4 + k * 0.4; lad.add(st); }
+    lad.position.set(1.85, 0, 0); g.add(lad);
+    g.position.set(x, 0, z); scene.add(g);
+    E.raft = { g, x, z };
+    E.rects.push({ x, z, hx: 1.8, hz: 2.0, y: 0.55, rot: 0 });
+    E.ladders.push({ x: x + 2.1, z, top: 0.55, name: 'sali sulla zattera' });
+    // boa cardinale gialla e nera, con la luce in cima
+    const by = new THREE.Group();
+    const body = mesh(new THREE.CylinderGeometry(0.7, 0.9, 1.4, 20), std({ color: 0xd9b52a, roughness: 0.5 })); body.position.y = 0.4; by.add(body);
+    const band = mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.5, 20), std({ color: 0x1b1b1b, roughness: 0.5 })); band.position.y = 0.6; by.add(band);
+    const mast = mesh(new THREE.CylinderGeometry(0.06, 0.08, 3, 8), std({ color: 0xd9b52a, roughness: 0.5 })); mast.position.y = 2.5; by.add(mast);
+    for (const k of [0, 1]) { const cone = mesh(new THREE.ConeGeometry(0.35, 0.45, 12), std({ color: 0x1b1b1b, roughness: 0.5 })); cone.position.y = 3.6 + k * 0.5; by.add(cone); }
+    const lamp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xfff0c0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+    lamp.position.y = 4.5; lamp.scale.setScalar(4); by.add(lamp);
+    by.position.set(160, 0, shoreZ(160) - 560); scene.add(by);
+    E.buoy = { g: by, lamp };
+  }
+
+  // ---- Meduse: campane traslucide che pulsano a mezz'acqua
+  {
+    const bell = new THREE.SphereGeometry(0.22, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    const m = new THREE.MeshStandardMaterial({ color: 0xd8a8d8, roughness: 0.2, transparent: true, opacity: 0.45, emissive: 0x6a3a6a, emissiveIntensity: 0.4, side: THREE.DoubleSide, depthWrite: false });
+    const im = new THREE.InstancedMesh(bell, m, 24); im.frustumCulled = false; im.count = 0;
+    const tent = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.01, 0.003, 0.6, 4), new THREE.MeshStandardMaterial({ color: 0xe8c0e0, transparent: true, opacity: 0.35, depthWrite: false }), 24 * 6);
+    tent.frustumCulled = false; tent.count = 0;
+    scene.add(im, tent);
+    E.jelly = { im, tent, list: [] };
+  }
+
   // ---- Stelle cadenti
   {
     const geo = new THREE.BufferGeometry();
@@ -296,16 +334,47 @@ export function nearLadder(E, pos, mode) {
 
 const tv = new THREE.Vector3();
 export function updateExplore(E, dt, time, ctx) {
+  // boa: lampi di notte, dondola
+  E.buoy.g.position.y = ctx.water + Math.sin(time * 0.8) * 0.15; E.buoy.g.rotation.z = Math.sin(time * 0.6) * 0.06;
+  E.buoy.lamp.material.opacity = ctx.night > 0.3 ? ((time % 5) < 0.3 || ((time % 5) > 0.6 && (time % 5) < 0.9) ? 1 : 0) : 0;
+  E.raft.g.position.y = ctx.water - 0.05 + Math.sin(time * 0.9) * 0.05; E.raft.g.rotation.x = Math.sin(time * 0.7) * 0.02;
+  // meduse attorno a te quando sei in acqua alta
+  {
+    const J = E.jelly, du = new THREE.Object3D();
+    if (ctx.inSea && J.list.length < 18 && heightAt(ctx.player.x, ctx.player.z) < -3) {
+      const a = Math.random() * 6.28, r = 6 + Math.random() * 22;
+      const x = ctx.player.x + Math.cos(a) * r, z = ctx.player.z + Math.sin(a) * r, h = heightAt(x, z);
+      if (h < -2.5) J.list.push({ x, z, y: ctx.water - 0.8 - Math.random() * Math.min(4, -h - 1.5), ph: Math.random() * 6, s: 0.6 + Math.random() * 0.8 });
+    }
+    J.list = J.list.filter((j) => Math.hypot(j.x - ctx.player.x, j.z - ctx.player.z) < 60);
+    let n = 0, nt = 0;
+    for (const j of J.list) {
+      const pulse = Math.sin(time * 2.2 + j.ph);
+      j.y += (0.05 + Math.max(0, pulse) * 0.12) * dt; j.y -= 0.06 * dt; j.y = Math.min(j.y, ctx.water - 0.5);
+      j.x += Math.sin(time * 0.1 + j.ph) * 0.05 * dt;
+      du.position.set(j.x, j.y, j.z); du.rotation.set(0, j.ph, 0); du.scale.set(j.s * (1 + pulse * 0.12), j.s * (1 - pulse * 0.15), j.s * (1 + pulse * 0.12));
+      du.updateMatrix(); J.im.setMatrixAt(n++, du.matrix);
+      for (let k = 0; k < 6 && nt < 144; k++) {
+        const a = k / 6 * 6.28;
+        du.position.set(j.x + Math.cos(a) * 0.12 * j.s, j.y - 0.32 * j.s, j.z + Math.sin(a) * 0.12 * j.s);
+        du.rotation.set(Math.sin(time * 1.5 + k + j.ph) * 0.3, 0, Math.cos(time * 1.3 + k) * 0.3); du.scale.setScalar(j.s);
+        du.updateMatrix(); J.tent.setMatrixAt(nt++, du.matrix);
+      }
+    }
+    J.im.count = n; J.tent.count = nt;
+    J.im.instanceMatrix.needsUpdate = true; J.tent.instanceMatrix.needsUpdate = true;
+  }
   // la radio: il quadrante pulsa
   E.radio.dial.material.color.setRGB(0.3 + 0.2 * Math.sin(time * 3), 1.4 + 0.3 * Math.sin(time * 3), 0.5);
 
   // delfini: un gruppo che salta, ogni tanto, al largo davanti a te
   const P = E.pod;
   P.next -= dt;
+  if (ctx.inSea && P.next > 12) P.next = 12;
   if (P.t < 0 && P.next <= 0) {
     P.t = 0; P.dir = Math.random() < 0.5 ? -1 : 1;
     P.x = ctx.player.x - P.dir * 90; P.z = shoreZ(ctx.player.x) - 140 - Math.random() * 160;
-    if (ctx.inSea) { P.x = ctx.player.x - P.dir * 60; P.z = ctx.player.z - 25 - Math.random() * 40; }
+    if (ctx.inSea) { P.x = ctx.player.x - P.dir * 45; P.z = ctx.player.z - 8 - Math.random() * 14; }
   }
   if (P.t >= 0) {
     P.t += dt;

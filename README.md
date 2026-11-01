@@ -11,7 +11,8 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 ## Comandi
 - WASD / frecce: cammina, nuota, pagaia · Mouse: guarda · Shift: corri / nuota più forte
 - Spazio: salta, o risali quando sei sott'acqua · C: immergiti
-- E: azione (moto, SUP, barchino, deltaplano, sali a bordo, maschera e pinne, panchine)
+- E: azione (moto, SUP, barchino, deltaplano, sali a bordo, scalette, maschera e pinne, panchine)
+- F: fluire · Q: cambia forma · B: torna corpo
 - N: mappa (piccola / grande)
 - T: fase successiva del giorno · J: diario · M: audio on/off
 - Touch: metà sinistra per muoverti, metà destra per guardare, tasti SU / GIÙ / AZIONE / ORA / DIARIO
@@ -62,6 +63,22 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - **Scoperte**: si trovano vagando, senza ordine obbligato, e finiscono nel diario. Alcune portano ad altre: il registro porta alla radio, la radio al relitto (sulla mappa compare una zona azzurra).
 - **Fluire**: il relitto accende un pensiero, e da quel momento in acqua puoi **diventare il mare** (F, su telefono FLUISCI). Scorri veloce sopra e sotto la superficie, con Spazio sollevi un'onda che si allarga, e quando arrivi a riva l'onda si scioglie e torni corpo.
 
+**Le forme: trasferirsi nelle cose, in un pensiero**
+- **Gabbiano**: si sblocca quando ne vedi uno alzarsi vicino a te. Voli: lo sguardo guida la quota, A e D virano, Spazio batte le ali.
+- **Albero**: si sblocca appoggiandoti a un tronco. Sei in cima alla chioma, il vento ti muove e il tempo corre veloce.
+- **Sabbia**: si sblocca restando fermo sulla sabbia asciutta quando c'è vento. Scivoli a filo del suolo dove va il vento; se arrivi all'acqua diventi acqua.
+- **Acqua → onda → nuvola**: il ciclo dell'acqua. Da Fluire, sollevando un'onda sblocchi l'onda; come onda corri verso riva, ti rompi nella schiuma e il sole ti solleva in nuvola. Dalla nuvola scendi come gabbiano, dal gabbiano entri in un albero, nell'acqua o nella sabbia.
+- Q (su telefono FORMA) cambia forma secondo dove sei; B (CORPO) ti riporta al tuo corpo, che resta dove l'hai lasciato.
+
+**Al largo**
+- Una zattera ancorata (si sale con la scaletta), una boa di segnalazione che lampeggia di notte, meduse che pulsano a mezz'acqua, delfini che ti nuotano accanto quando sei in mare.
+
+**Mappa**
+- Frecce sul bordo verso il prossimo ricordo e la prossima scoperta, con la distanza. Zoom con la rotella, i tasti + e −, o i pulsanti quando è ingrandita.
+
+**Contatto con l'acqua**
+- Spruzzi quando ti tuffi o sollevi un'onda, gocce sull'obiettivo quando riemergi.
+
 **Fisicità**
 - Niente più oggetti attraversati: tronchi, palme, pali del pontile, piloni del molo, gambe della piattaforma, pergola, torretta, muretto del belvedere, navi, moto e barchino sono ostacoli veri. La moto e il barchino ci sbattono e rimbalzano.
 - Atterrando da un salto lo sguardo si abbassa e risale; le salite ripide rallentano, quelle troppo ripide non si scalano.
@@ -93,4 +110,4 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - Il diario (J) conserva ogni ricordo con il suo pensiero. Alla fine, alla bandiera, c'è qualcuno che ti aspetta.
 
 ## Parametri di debug (URL)
-`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup|bike|boat|glide`, `&alto=1` per il cielo a pecorelle per partire in acqua, `&autostart` per saltare la schermata iniziale.
+`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup|bike|boat|glide`, `&alto=1` per il cielo a pecorelle, `&flow&forms=gull,tree,sand,wave,cloud` per avere tutte le forme per partire in acqua, `&autostart` per saltare la schermata iniziale.
