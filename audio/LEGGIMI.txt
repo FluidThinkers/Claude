@@ -1,4 +1,7 @@
-Campioni audio veri (opzionali).
-Metti qui i file (m4a o mp3, mono, 44.1 kHz) e un manifest.json, per esempio:
-{ "gull": ["gull1.m4a", "gull2.m4a", "gull3.m4a"] }
-Se non ci sono, il gioco usa i suoni sintetizzati.
+Registrazioni vere usate dal gioco (mono, AAC).
+Fonte: progetto Moodist (github.com/remvze/moodist), suoni con licenza CC0 o Pixabay Content License, uso libero.
+- gull1..N: versi singoli di gabbiano tagliati da seagulls.mp3
+- gulls: colonia di gabbiani lontana (sfondo)
+- sea: onde; wind: vento; trees: vento tra gli alberi; under: sott'acqua
+- rain: pioggia leggera; purr: fusa di gatto; night: grilli
+manifest.json elenca i file. Se mancano, il gioco usa i suoni generati (ma niente gabbiani elettronici).

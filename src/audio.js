@@ -119,7 +119,29 @@ export class Sound {
     this.rushF.frequency.setTargetAtTime(500 + s.speed * 40, t, 0.3);
     this.droneG.gain.setTargetAtTime(0.02 * s.night, t, 1.0);
     this.verbSend.gain.setTargetAtTime(s.reverb ?? 0.04, t, 0.4);
+    this._beds(s, t, near, far);
     this._form(s, t);
+  }
+
+  // ambienti registrati: mare, vento, alberi, sott'acqua, pioggia, grilli, colonia di gabbiani
+  _beds(s, t, near, far) {
+    const B = this.beds; if (!B) return;
+    const set = (k, v, tc = 0.6) => { if (B[k]) B[k].gain.setTargetAtTime(v, t, tc); };
+    const w = this.windBoost, ex = s.exposure ?? 1, f = s.form || '';
+    const day = 1 - (s.night || 0), onLand = s.shoreDist > 4;
+    set('sea', (0.16 + 0.34 * near) * far * (s.under ? 0.15 : 1));
+    set('wind', (0.03 + 0.32 * w * w) * ex * (s.under ? 0 : 1));
+    set('trees', (f === 'tree' ? 0.5 : (s.trees || 0) * (0.08 + 0.35 * w)) * (s.under ? 0 : 1));
+    set('under', s.under ? 0.55 : 0, 0.15);
+    set('purr', s.cat && (s.formSpeed || 0) < 0.3 ? 0.4 : 0, 0.8);
+    set('rain', (f === 'rain' || s.raining) && !s.under ? (f === 'rain' ? 0.5 : 0.35) : 0, 0.8);
+    set('night', onLand && !s.under ? 0.22 * Math.max(0, (s.night || 0) - 0.3) : 0, 1.5);
+    set('gulls', day * Math.exp(-Math.abs(s.shoreDist) / 70) * (s.under ? 0 : 0.07) * (f === 'cloud' ? 0.3 : 1), 1.5);
+    // con le registrazioni, i suoni generati restano solo come dettaglio
+    this.bedG.gain.setTargetAtTime(0.05 * far, t, 0.5);
+    this.windLowG.gain.setTargetAtTime(0.02 * ex, t, 0.6); this.windWhG.gain.setTargetAtTime(0.004 * Math.pow(w, 3) * ex, t, 0.5);
+    this.leafG.gain.setTargetAtTime(0, t, 0.3);
+    if (this.underG) this.underG.gain.setTargetAtTime(s.under ? 0.06 : 0, t, 0.15);
   }
 
   // ---------------------------------------------------------------- le forme hanno la loro voce
@@ -172,10 +194,10 @@ export class Sound {
     if (f === 'sand') { if (Math.random() < 0.08) L.grainF.frequency.setTargetAtTime(3800 + Math.random() * 3000, t, 0.3); set(L.grainG, (0.01 + Math.min(0.045, v * 0.005)) * (0.5 + Math.random()), 0.25); if (Math.random() < 0.05) this._grains(0.012); }
     else set(L.grainG, 0);
     const rainy = f === 'rain' || s.raining;
-    set(L.rainG, rainy ? (f === 'rain' ? 0.06 : 0.04) + Math.random() * 0.03 : 0, 0.15);
+    set(L.rainG, rainy ? ((f === 'rain' ? 0.06 : 0.04) + Math.random() * 0.03) * (this.beds && this.beds.rain ? 0.3 : 1) : 0, 0.15);
     if (rainy) this._grains(f === 'rain' ? 0.02 : 0.012, 3 + (Math.random() * 4 | 0));
     if (rainy && Math.random() < 0.06) L.rainF.frequency.setTargetAtTime(1600 + Math.random() * 1800, t, 0.4);
-    set(L.purrG, s.cat && v < 0.3 ? 0.07 : 0, 0.8);
+    set(L.purrG, s.cat && v < 0.3 && !(this.beds && this.beds.purr) ? 0.07 : 0, 0.8);
     set(L.padG, f === 'light' ? 0.02 + 0.015 * Math.sin(t * 0.21) * Math.sin(t * 0.13) : 0, 1.5);
     // in alto (nuvola, gabbiano molto alto) l'aria assorbe gli acuti del mondo sotto
     L.hiF.frequency.setTargetAtTime(f === 'cloud' ? 3200 : f === 'tree' ? 11000 : 20000, t, 0.8);
@@ -384,54 +406,6 @@ export class Sound {
     }
   }
 
-  // Voci di gabbiano costruite campione per campione: impulsi glottali irregolari, raddoppio di periodo
-  // (la raucedine tipica), soffio, poi formanti nasali. Niente oscillatori puliti: suona come una gola, non come un synth.
-  _gullBank() {
-    const ctx = this.ctx, sr = ctx.sampleRate, out = [];
-    const bq = (x, f, Q) => { const w = 2 * Math.PI * f / sr, al = Math.sin(w) / (2 * Q), a0 = 1 + al;
-      const b0 = al / a0, b2 = -al / a0, a1 = -2 * Math.cos(w) / a0, a2 = (1 - al) / a0; const y = new Float32Array(x.length);
-      let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = b0 * x[i] + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y; };
-    for (let v = 0; v < 7; v++) {
-      const notes = [];
-      const f0 = 520 + Math.random() * 260;
-      if (v % 3 !== 2) notes.push({ len: 0.38 + Math.random() * 0.22, up: 1.22, down: 0.62, rough: 0.55, gap: 0.09 });
-      const nh = v % 3 === 1 ? 0 : 2 + (Math.random() * 4 | 0);
-      for (let i = 0; i < nh; i++) notes.push({ len: 0.1 + Math.random() * 0.05, up: 1.1, down: 0.8, rough: 0.35, gap: 0.05 + Math.random() * 0.05 });
-      const total = notes.reduce((a, n) => a + n.len + n.gap, 0.05);
-      const x = new Float32Array(Math.ceil(total * sr));
-      let o = Math.floor(0.02 * sr), ph = 0;
-      for (const N of notes) {
-        const L = Math.floor(N.len * sr);
-        let drift = 0;
-        for (let i = 0; i < L; i++) {
-          const t = i / L;
-          const cont = t < 0.25 ? 0.82 + (N.up - 0.82) * (t / 0.25) : N.up + (N.down - N.up) * Math.pow((t - 0.25) / 0.75, 1.3);
-          drift += (Math.random() - 0.5) * 0.004; drift *= 0.995;
-          const f = f0 * cont * (1 + drift + (Math.random() - 0.5) * 0.03);
-          ph += f / sr;
-          const pf = ph % 1;
-          // impulso glottale asimmetrico: apertura lenta, chiusura brusca
-          let g = pf < 0.55 ? Math.sin(Math.PI * pf / 0.55) ** 2 : 0;
-          g -= 0.3;
-          const env = Math.min(1, t / 0.06) * Math.pow(1 - t, 0.6) * (1 - 0.25 * Math.sin(t * 40));
-          // raddoppio di periodo nella parte forte: un impulso sì e uno più debole
-          const sub = (Math.floor(ph) % 2) ? 1 - N.rough * Math.sin(Math.PI * Math.min(1, t * 1.6)) : 1;
-          const breath = (Math.random() * 2 - 1) * (0.05 + 0.06 * (1 - t));
-          x[o + i] += (g * sub + breath) * env;
-        }
-        o += L + Math.floor(N.gap * sr);
-      }
-      // gola e becco: formanti in parallelo, un passa-alto, un po' di saturazione
-      const a = bq(x, 1400 + Math.random() * 300, 3), b = bq(x, 2500 + Math.random() * 400, 4), c = bq(x, 3800, 5), d = bq(x, 700, 2);
-      const y = new Float32Array(x.length); let mx = 0;
-      for (let i = 0; i < x.length; i++) { const s0 = a[i] * 1.2 + b[i] * 0.9 + c[i] * 0.25 + d[i] * 0.12; y[i] = Math.tanh(s0 * 1.6); mx = Math.max(mx, Math.abs(y[i])); }
-      const buf = ctx.createBuffer(1, y.length, sr); const ch = buf.getChannelData(0);
-      for (let i = 0; i < y.length; i++) ch[i] = y[i] / (mx || 1) * 0.9;
-      out.push(buf);
-    }
-    return out;
-  }
-
   // campioni veri: se nella cartella audio/ c'è manifest.json con { "gull": ["gull1.m4a", ...] } li usa
   async loadSamples() {
     if (this.samples || !this.ctx) return;
@@ -439,9 +413,23 @@ export class Sound {
     try {
       const r = await fetch('audio/manifest.json'); if (!r.ok) return;
       const man = await r.json();
+      const dec = async (f) => { const b = await (await fetch('audio/' + f)).arrayBuffer(); return await new Promise((ok, ko) => this.ctx.decodeAudioData(b, ok, ko)); };
       for (const [k, list] of Object.entries(man)) {
+        if (k === 'beds') continue;
         this.samples[k] = [];
-        for (const f of list) { try { const b = await (await fetch('audio/' + f)).arrayBuffer(); this.samples[k].push(await this.ctx.decodeAudioData(b)); } catch (e) { /* file mancante */ } }
+        for (const f of list) { try { this.samples[k].push(await dec(f)); } catch (e) { /* file mancante */ } }
+      }
+      // ambienti registrati: in loop, il volume lo decide update()
+      this.beds = {};
+      for (const [k, f] of Object.entries(man.beds || {})) {
+        try {
+          const buf = await dec(f);
+          const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+          const g = this.ctx.createGain(); g.gain.value = 0;
+          src.connect(g); g.connect(k === 'under' ? this.comp : this.master);
+          src.start(0, Math.random() * buf.duration);
+          this.beds[k] = g;
+        } catch (e) { /* manca */ }
       }
     } catch (e) { /* nessun campione: resta la sintesi */ }
   }
@@ -451,57 +439,17 @@ export class Sound {
     const ctx = this.ctx, { lp, gain } = this.mk;
     const s = ctx.createBufferSource(); s.buffer = L[(Math.random() * L.length) | 0];
     s.playbackRate.value = 0.92 + Math.random() * 0.16;
-    const f = lp(Math.max(1200, 14000 - dist * 90)), g = gain(Math.min(0.9, 6 / (dist + 6)) * vol);
+    const f = lp(Math.max(1200, 14000 - dist * 90)), g = gain(Math.min(0.7, 5 / (dist + 7)) * vol);
     s.connect(f); f.connect(g); g.connect(this._pan(pan)); s.start();
     return true;
   }
   // gabbiano reale (gabbiano reale mediterraneo): un lungo «kiàu» nasale e roco, poi una serie di «ha-ha-ha»
   gull(pan = 0, dist = 30) {
     if (!this.ctx) return;
-    if (this._sample('gull', pan, dist)) return;
-    if (!this.gullSyn) this.gullSyn = this._gullBank();
-    { // voce costruita: con l'aria che la attenua e un po' di eco della riva
-      const ctx = this.ctx, { lp, gain } = this.mk;
-      const s = ctx.createBufferSource(); s.buffer = this.gullSyn[(Math.random() * this.gullSyn.length) | 0];
-      s.playbackRate.value = 0.9 + Math.random() * 0.2;
-      const f = lp(Math.max(1400, 12000 - dist * 80)), g = gain(Math.min(0.5, 3.2 / (dist + 6)));
-      s.connect(f); f.connect(g); g.connect(this._pan(pan)); s.start();
-      return;
-    }
-    const ctx = this.ctx, { bp, lp, hp, gain } = this.mk;
-    const vol = Math.min(0.09, 2.0 / (dist + 8));
-    if (vol < 0.006) return;
-    const p = this._pan(pan);
-    const air = lp(Math.max(1400, 10000 - dist * 70)); air.connect(p);
-    // corpo nasale: due formanti in parallelo
-    const bus = gain(1), f1 = bp(1500, 3.2), f2 = bp(2900, 4), f3 = hp(450), mix = gain(1);
-    bus.connect(f1); bus.connect(f2); bus.connect(f3); const g3 = gain(0.25); f3.connect(g3);
-    f1.connect(mix); f2.connect(mix); g3.connect(mix); mix.connect(air);
-    const f0 = 760 + Math.random() * 220;
-    const notes = [];
-    if (Math.random() < 0.6) notes.push({ len: 0.42 + Math.random() * 0.2, rise: 1.18, fall: 0.62, a: 1 });
-    const n = 2 + (Math.random() * 4 | 0);
-    for (let i = 0; i < n; i++) notes.push({ len: 0.11 + Math.random() * 0.04, rise: 1.08, fall: 0.85, a: 0.75 - i * 0.06 });
-    let t = ctx.currentTime + 0.02;
-    for (const N of notes) {
-      const o = ctx.createOscillator(); o.type = 'sawtooth';
-      const fr = f0 * (0.97 + Math.random() * 0.06);
-      o.frequency.setValueAtTime(fr * 0.86, t);
-      o.frequency.linearRampToValueAtTime(fr * N.rise, t + N.len * 0.28);
-      o.frequency.exponentialRampToValueAtTime(fr * N.fall, t + N.len);
-      // raucedine: modulazione rapida d'ampiezza
-      const am = ctx.createOscillator(); am.frequency.value = 70 + Math.random() * 40;
-      const amg = gain(0.45), env = gain(0); am.connect(amg); amg.connect(env.gain);
-      env.gain.setValueAtTime(0.0001, t); env.gain.linearRampToValueAtTime(vol * N.a, t + 0.02);
-      env.gain.setValueAtTime(vol * N.a, t + N.len * 0.6); env.gain.exponentialRampToValueAtTime(0.0001, t + N.len);
-      o.connect(env); env.connect(bus);
-      // soffio nella voce
-      const ns = this._src('white'), nf = bp(2600, 1.5), ng = gain(0);
-      ng.gain.setValueAtTime(0.0001, t); ng.gain.linearRampToValueAtTime(vol * 0.25 * N.a, t + 0.02); ng.gain.exponentialRampToValueAtTime(0.0001, t + N.len);
-      ns.connect(nf); nf.connect(ng); ng.connect(air);
-      o.start(t); am.start(t); o.stop(t + N.len + 0.05); am.stop(t + N.len + 0.05); ns.stop(t + N.len + 0.05);
-      t += N.len + (N.len > 0.3 ? 0.12 : 0.06 + Math.random() * 0.04);
-    }
+    // solo registrazioni vere; mai due versi uno sopra l'altro
+    const now = this.ctx.currentTime;
+    if (now - (this.lastGull || 0) < 1.4 || dist > 120) return;
+    if (this._sample('gull', pan, dist, 0.8)) this.lastGull = now;
   }
 
 

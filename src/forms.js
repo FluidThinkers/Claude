@@ -26,8 +26,8 @@ function featherTex() {
   const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#f2f1ee'); g.addColorStop(0.35, '#c9ccd0'); g.addColorStop(1, '#b4b8bd');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
   // file di copritrici: archi sottili
-  c.strokeStyle = 'rgba(90,95,100,0.25)'; c.lineWidth = 1;
-  for (let row = 0; row < 4; row++) for (let x = -10; x < W + 10; x += 14 + row * 3) { c.beginPath(); c.arc(x, 18 + row * 22, 9 + row * 2, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke(); }
+  c.strokeStyle = 'rgba(90,95,100,0.1)'; c.lineWidth = 1;
+  for (let row = 0; row < 6; row++) for (let x = -10; x < W + 10; x += 8 + row * 2) { c.beginPath(); c.arc(x + (row % 2) * 4, 14 + row * 13, 5 + row, 0.2 * Math.PI, 0.8 * Math.PI); c.stroke(); }
   // secondarie lungo il bordo d'uscita, punta bianca
   for (let x = 0; x < W; x += 12) { c.fillStyle = '#aeb3b8'; c.beginPath(); c.moveTo(x, 92); c.lineTo(x + 12, 92); c.lineTo(x + 10, 124); c.quadraticCurveTo(x + 6, 128, x + 2, 124); c.fill(); c.strokeStyle = 'rgba(70,75,80,0.35)'; c.stroke(); c.fillStyle = '#f4f4f2'; c.fillRect(x + 2, 118, 8, 6); }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
@@ -51,7 +51,7 @@ export function gullWings() {
     // braccio: superficie curva (profilo d'ala), più spessa al bordo d'attacco
     const arm = new THREE.PlaneGeometry(0.62, 0.3, 14, 6);
     const p = arm.attributes.position;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i) + 0.31, y = p.getY(i); const camber = 0.035 * Math.cos((y / 0.3) * Math.PI); p.setXYZ(i, x * s, camber - x * 0.05, -y - 0.02 * Math.sin(x * 4)); }
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i) + 0.31, y0 = p.getY(i), y = y0 * (1 - 0.35 * x / 0.62) - 0.03 * x; const camber = 0.03 * Math.cos((y0 / 0.3) * Math.PI); p.setXYZ(i, x * s, camber - x * 0.04, -y - 0.02 * Math.sin(x * 4)); }
     arm.computeVertexNormals();
     const armMesh = new THREE.Mesh(arm, armM); root.add(armMesh);
     // mano: perno al polso, 9 primarie a ventaglio
@@ -69,8 +69,10 @@ export function gullWings() {
     }
     // piccola copertura scura sul polso
     const cov = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.16), armM); cov.rotation.x = -Math.PI / 2; cov.position.set(s * 0.07, 0.005, -0.05); hand.add(cov);
-    root.position.set(0.1 * s, -0.2, -0.22);
-    root.rotation.y = s * 0.12;
+    // le ali partono ai lati, appena sotto lo sguardo, e vanno all'indietro: si vedono il bordo e le punte
+    root.position.set(0.34 * s, -0.24, -0.34);
+    root.rotation.set(0.1, -s * 0.3, 0);
+    root.scale.setScalar(0.9);
     return { root, hand, feathers, s };
   };
   const L = mk(-1), R = mk(1);
@@ -84,7 +86,7 @@ export function gullWings() {
 export function flapWings(g, flap, bank, glide) {
   for (const w of g.userData.W) {
     const s = w.s;
-    w.root.rotation.z = -s * flap - bank * 0.4;
+    w.root.rotation.z = -s * (flap - 0.12) - bank * 0.4;
     w.hand.rotation.z = -s * flap * 0.7;
     w.hand.rotation.y = s * (0.15 - glide * 0.12);
     w.feathers.forEach((f, k) => { f.rotation.y = -s * (Math.PI / 2 - f.userData.a * (0.8 + glide * 0.35)); });

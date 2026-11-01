@@ -56,7 +56,7 @@ float surfJit(float x){ return vn(vec2(x * 0.018, 3.0)) * 2.2 + vn(vec2(x * 0.00
 // la lama di risacca: a lobi, ogni onda diversa dall'altra, che sale veloce, rallenta, si ferma e si ritira.
 // u: fase (0 arrivo); R: fin dove arriva quest'onda qui; adv: 1 mentre avanza
 float swash(float x, float t, float windK, out float u, out float R, out float adv){
-  float setMod = (0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0)) * (0.75 + 0.5 * windK);
+  float setMod = (0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0)) * (0.25 + 1.5 * windK);
   float lobe = vn(vec2(x * 0.075, 1.3)) * 1.1 + vn(vec2(x * 0.21, 4.1)) * 0.35;  // i tratti di riva arrivano in tempi diversi
   float ph = (SURF_OM * t + surfJit(x) + lobe) / 6.2831853;
   float n = floor(ph); u = fract(ph);
@@ -74,7 +74,7 @@ float swash(float x, float t, float windK, out float u, out float R, out float a
 float surfY(float x, float d, float t, float lvl, float windK, out float s, out float brk, out float bore, out float film, out float front){
   float depth = -baseH(d);
   float setMod = 0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0);
-  setMod *= 0.75 + 0.5 * windK;
+  setMod *= 0.25 + 1.5 * windK;
   float jit = surfJit(x);
   float ph = SURF_OM * t - d * 0.5 + jit;
   s = fract(ph / 6.2831853);
@@ -330,6 +330,7 @@ export function makeWater() {
                + wv(p, normalize(vec2(0.9,0.4)), 1.3, 0.025, 2.2)
                + wv(p, normalize(vec2(-0.3,-1.0)), 2.7, 0.012, 3.1)
                + wv(p, normalize(vec2(0.7,-0.6)), 5.3, 0.006, 4.0);
+        g *= 0.4 + 1.2 * uWindK; // mare calmo o mosso
         vec2 q = p * 2.2 + vec2(uTime * 0.35, uTime * 0.2);
         float e = 0.05;
         g += vec2(vn(q + vec2(e,0)) - vn(q - vec2(e,0)), vn(q + vec2(0,e)) - vn(q - vec2(0,e))) / (2.0*e) * 0.03;

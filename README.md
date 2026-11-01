@@ -14,7 +14,7 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - E: azione (moto, SUP, barchino, deltaplano, sali a bordo, scalette, maschera e pinne, panchine)
 - F: fluire (quando la storia te lo concede) · Q: piovi, quando sei nuvola · B: torna corpo, lì dove sei
 - N: mappa (piccola / grande)
-- T: fase successiva del giorno · J: diario · M: audio on/off
+- T: un'ora avanti · J: diario · M: audio on/off
 - Touch: metà sinistra per muoverti, metà destra per guardare, tasti SU / GIÙ / AZIONE / ORA / DIARIO
 
 ## Cosa c'è
@@ -120,7 +120,7 @@ Dopo il pensiero diventi, nel punto esatto in cui sei, la cosa giusta per arriva
 9. Il binocolo → **deltaplano** verso la bandiera. Dopo l'incontro diventi **luce**, poi resti libero di esplorare.
 - Sulla mappa c'è solo il prossimo ricordo, verde e pulsante, con una freccia che lo indica; quelli già trovati spariscono. Nel mondo una colonna di luce verde lo segnala da lontano.
 - In ogni luogo del ricordo succede qualcosa: la luce si libera a spirale, e poi la candela alza la sabbia e i gabbiani, il libro e la lettera volano via nel vento, il cappello se lo porta il vento, l'orologio riprende a ticchettare tra le bolle, la lanterna illumina tutto, il binocolo avvicina lo sguardo.
-- Ogni forma ha un **percorso** prima del ricordo: correnti d'aria (anelli di luce che girano) per gabbiano, nuvola e deltaplano, mulinelli di sabbia, cerchi di luce sul mare, colonne di bolle sul fondo per il pesce. Il ricordo si lascia prendere solo alla fine; la freccia in alto e la mappa indicano il passaggio successivo.
+- Ogni forma ha un **percorso** facoltativo verso il ricordo: correnti d'aria (anelli di luce che girano) per gabbiano, nuvola e deltaplano, mulinelli di sabbia, cerchi di luce sul mare, colonne di bolle sul fondo. Ogni passaggio dà una spinta; il ricordo si prende comunque, appena lo raggiungi.
 - **Cosa puoi fare in ogni forma** (la prima volta un pensiero lo racconta):
   - **Onda**: avanti cresci e corri, indietro rallenti e ti fai piccola; alle tue spalle arriva un'onda più grande: lasciati raggiungere e ti unisci a lei.
   - **Pesce**: veloce vicino alla superficie, Spazio, e salti fuori dall'acqua.
@@ -138,6 +138,10 @@ Dopo il pensiero diventi, nel punto esatto in cui sei, la cosa giusta per arriva
 
 - In alto al centro c'è una freccia lieve verso il prossimo ricordo, con la distanza e un puntino per ogni ricordo (pieni quelli trovati).
 - Da Fluire, ogni onda sollevata subito dopo l'altra è più grande.
+
+**Suoni veri**
+- Registrazioni reali (cartella `audio/`, licenza CC0/Pixabay dal progetto Moodist): versi di gabbiano singoli e una colonia lontana, onde, vento, vento tra gli alberi, sott'acqua, pioggia, fusa del gatto, grilli di notte. Il volume dipende da dove sei e da cosa sei. I suoni generati restano solo come dettaglio (frangenti sincronizzati con le onde, passi, motori).
+- Il mare cambia da solo nel corso del tempo, da calma piatta a mare mosso: onde, risacca e rumore crescono insieme.
 
 **Suoni delle forme**
 - Gabbiano: colpi d'ala e aria. Pesce e Fluire: acqua che scorre e bolle. Onda: un rombo che cresce. Sabbia: granelli che scorrono. Pioggia: fruscio e gocce. Albero: foglie e legno che scricchiola, il mondo sotto un po' attutito. Nuvola: tutto lontano e ovattato. Gatto: zampe quasi silenziose e fusa. Luce: un accordo lieve.

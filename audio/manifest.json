@@ -1,0 +1,23 @@
+{
+ "gull": [
+  "gull1.m4a",
+  "gull2.m4a",
+  "gull3.m4a",
+  "gull4.m4a",
+  "gull5.m4a",
+  "gull6.m4a",
+  "gull7.m4a",
+  "gull8.m4a",
+  "gull9.m4a"
+ ],
+ "beds": {
+  "sea": "sea.m4a",
+  "wind": "wind.m4a",
+  "trees": "trees.m4a",
+  "under": "under.m4a",
+  "purr": "purr.m4a",
+  "rain": "rain.m4a",
+  "night": "night.m4a",
+  "gulls": "gulls.m4a"
+ }
+}
