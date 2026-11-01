@@ -133,7 +133,6 @@ export class Sound {
     L.foamF = bp(2400, 0.5); L.foamG = gain(); loop('white', 0.8).connect(L.foamF); L.foamF.connect(L.foamG); L.foamG.connect(this.master);
     // granelli che scorrono (sabbia)
     L.grainF = bp(5200, 0.7); L.grainG = gain(); loop('white', 1.1).connect(L.grainF); L.grainF.connect(L.grainG); L.grainG.connect(this.master);
-    L.grainLfo = ctx.createOscillator(); L.grainLfo.frequency.value = 9; const lg = gain(0.4); L.grainLfo.connect(lg); lg.connect(L.grainG.gain); L.grainLfo.start();
     // pioggia: fruscio fitto
     L.rainF = hp(2200); L.rainG = gain(); const rl = lp(9000); loop('white', 1).connect(L.rainF); L.rainF.connect(rl); rl.connect(L.rainG); L.rainG.connect(this.master);
     // fusa del gatto: rumore scuro modulato a 26 Hz
@@ -164,21 +163,24 @@ export class Sound {
     const wet = f === 'fish' || f === 'flow';
     set(L.flowG, wet ? 0.06 + Math.min(0.22, v * 0.025) : 0);
     L.flowF.frequency.setTargetAtTime(260 + v * 45, t, 0.3);
-    if (wet && Math.random() < 0.02 + v * 0.006) this.bubbles();
+    if (wet && Math.random() < 0.006 + v * 0.002) this.bubbles();
     const crest = f === 'wave' ? Math.min(1, v / 9) : 0;
     set(L.crestG, crest * 0.22); set(L.foamG, crest * crest * 0.05);
     L.crestF.frequency.setTargetAtTime(300 + crest * 700, t, 0.5);
-    set(L.grainG, f === 'sand' ? 0.012 + Math.min(0.05, v * 0.006) : 0);
-    set(L.rainG, f === 'rain' ? 0.09 : 0, 0.1);
-    if (f === 'rain' && Math.random() < 0.5) this._drop(0.02 + Math.random() * 0.03);
+    // sabbia: il fruscio va a folate irregolari, come il vento che la spinge
+    if (f === 'sand') { if (Math.random() < 0.08) L.grainF.frequency.setTargetAtTime(3800 + Math.random() * 3000, t, 0.3); set(L.grainG, (0.01 + Math.min(0.045, v * 0.005)) * (0.5 + Math.random()), 0.25); if (Math.random() < 0.05) this._grains(0.012); }
+    else set(L.grainG, 0);
+    set(L.rainG, f === 'rain' ? 0.06 + Math.random() * 0.03 : 0, 0.15);
+    if (f === 'rain') this._grains(0.02, 3 + (Math.random() * 4 | 0));
+    if (f === 'rain' && Math.random() < 0.06) L.rainF.frequency.setTargetAtTime(1600 + Math.random() * 1800, t, 0.4);
     set(L.purrG, s.cat && v < 0.3 ? 0.07 : 0, 0.8);
-    set(L.padG, f === 'light' ? 0.05 : 0, 1.5);
+    set(L.padG, f === 'light' ? 0.02 + 0.015 * Math.sin(t * 0.21) * Math.sin(t * 0.13) : 0, 1.5);
     // in alto (nuvola, gabbiano molto alto) l'aria assorbe gli acuti del mondo sotto
-    L.hiF.frequency.setTargetAtTime(f === 'cloud' ? 1500 : f === 'tree' ? 9000 : 20000, t, 0.8);
+    L.hiF.frequency.setTargetAtTime(f === 'cloud' ? 3200 : f === 'tree' ? 11000 : 20000, t, 0.8);
     if (f === 'tree' && Math.random() < 0.004 * (0.3 + this.windBoost)) this._creak();
     if (f === 'gull') {
-      this.flapT = (this.flapT || 0) + (s.flapRate || 0) * dtA;
-      if (this.flapT > 1) { this.flapT = 0; this.flap(s.flapRate > 1 ? 1 : 0.45); }
+      this.flapT = (this.flapT || 0) + (s.flapRate || 0) * dtA * (this.flapJ || 1);
+      if (this.flapT > 1) { this.flapT = 0; this.flapJ = 0.75 + Math.random() * 0.5; this.flap((s.flapRate > 1 ? 0.8 : 0.35) * (0.7 + Math.random() * 0.5)); }
     }
   }
 
@@ -188,7 +190,8 @@ export class Sound {
     const t = this.ctx.currentTime, { bp, gain } = this.mk;
     // colpo verso il basso: aria spinta (sordo), poi il fruscio delle penne
     const s = this._src('brown'), f = bp(180, 0.9), g = gain(0);
-    f.frequency.setValueAtTime(140, t); f.frequency.exponentialRampToValueAtTime(420, t + 0.09); f.frequency.exponentialRampToValueAtTime(160, t + 0.28);
+    const fv = 0.8 + Math.random() * 0.4;
+    f.frequency.setValueAtTime(140 * fv, t); f.frequency.exponentialRampToValueAtTime(420 * fv, t + 0.09); f.frequency.exponentialRampToValueAtTime(160 * fv, t + 0.28);
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.22 * vol, t + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
     s.connect(f); f.connect(g); g.connect(this.master); s.stop(t + 0.35);
     const s2 = this._src('white'), f2 = bp(4200, 1.2), g2 = gain(0);
@@ -205,15 +208,32 @@ export class Sound {
     o.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.04);
   }
 
-  // il legno che scricchiola nel vento
+  // il legno che scricchiola nel vento: tanti piccoli attriti in fila, risonanti nel tronco
   _creak() {
-    const t = this.ctx.currentTime, { bp, gain } = this.mk;
-    const o = this.ctx.createOscillator(); o.type = 'sawtooth';
-    const f0 = 70 + Math.random() * 60; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * (0.8 + Math.random() * 0.5), t + 0.9);
-    const f = bp(700 + Math.random() * 500, 6), g = gain(0);
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.025, t + 0.25); g.gain.linearRampToValueAtTime(0.018, t + 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
-    o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 1.05);
+    const t0 = this.ctx.currentTime, { bp, gain } = this.mk;
+    const res = bp(380 + Math.random() * 500, 9), out = gain(0.9); res.connect(out); out.connect(this.master);
+    let t = t0, rate = 25 + Math.random() * 30;
+    const len = 0.5 + Math.random() * 0.8;
+    while (t < t0 + len) {
+      const s = this._src('white', 1, Math.random() * 2), g = gain(0);
+      const a = 0.05 * Math.sin(Math.PI * (t - t0) / len) * (0.6 + Math.random() * 0.4);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(a, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.008);
+      s.connect(g); g.connect(res); s.stop(t + 0.012);
+      rate *= 0.97 + Math.random() * 0.08; t += 1 / rate;
+    }
   }
+
+  // granelli: piccoli impulsi di rumore (pioggia, sabbia), mai uguali
+  _grains(vol, n = 2) {
+    const t0 = this.ctx.currentTime, { bp, gain } = this.mk;
+    for (let i = 0; i < n; i++) {
+      const t = t0 + Math.random() * 0.06, s = this._src('white', 1, Math.random() * 2.5), f = bp(1200 + Math.random() * 5000, 1 + Math.random() * 2), g = gain(0);
+      const a = vol * (0.3 + Math.random() * 0.7), len = 0.006 + Math.random() * 0.02;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(a, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      s.connect(f); f.connect(g); g.connect(this.master); s.stop(t + len + 0.01);
+    }
+  }
+
 
   // ---------------------------------------------------------------- mare
   _src(name, rate = 1, off = 0) { const s = this.ctx.createBufferSource(); s.buffer = this.buf[name]; s.playbackRate.value = rate; s.start(this.ctx.currentTime, off || Math.random() * 2); return s; }
@@ -351,12 +371,13 @@ export class Sound {
   bubbles() {
     if (!this.ctx) return;
     const ctx = this.ctx, t0 = ctx.currentTime, { gain } = this.mk;
-    for (let i = 0; i < 5; i++) {
-      const t = t0 + i * (0.04 + Math.random() * 0.07);
+    const nb = 2 + (Math.random() * 6 | 0);
+    for (let i = 0; i < nb; i++) {
+      const t = t0 + i * (0.03 + Math.random() * 0.12);
       const o = ctx.createOscillator(); o.type = 'sine';
       const f0 = 250 + Math.random() * 600;
       o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 2.4, t + 0.07);
-      const g = gain(0); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      const g = gain(0); g.gain.setValueAtTime(0.0001, t); const bv = 0.015 + Math.random() * 0.035; g.gain.linearRampToValueAtTime(bv, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05 + Math.random() * 0.08);
       o.connect(g); g.connect(this.comp); o.start(t); o.stop(t + 0.1);
     }
   }

@@ -22,7 +22,7 @@ import { Physics } from './physics.js';
 import { FORM_TEXT, gullWings, moveForm } from './forms.js';
 import { SCOGLIERA, PERGOLA, BARCA, TORRETTA, BELVEDERE } from './places.js';
 import { FOCE } from './terrain.js';
-import { Motes } from './particles.js';
+import { Motes, LightBurst } from './particles.js';
 import { buildIsland, updateIsland } from './island.js';
 import { ISLAND } from './terrain.js';
 
@@ -72,6 +72,7 @@ scene.add(hemi);
 
 const glowTex = glowTexture();
 const motes = new Motes(scene, glowTex);
+const burst = new LightBurst(scene, glowTex);
 const island = buildIsland(scene);
 // colonna di luce sopra il prossimo ricordo: si vede da lontano, svanisce quando sei vicino
 const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 60, 16, 1, true), new THREE.ShaderMaterial({
@@ -473,8 +474,26 @@ function updateWisp(dt) {
   wisp.scale.setScalar(0.6 + 0.25 * Math.sin(k * 6));
   if (k > 10) { wispS.t = -1; wisp.material.opacity = 0; }
 }
+// in ogni luogo del ricordo succede qualcosa
+function memoryEvent(t) {
+  const p = t.pos.clone();
+  burst.burst(p, 140);
+  const lvl = waterUniforms.uLevel.value;
+  const k = t.kind;
+  if (k === 'jar') { spray.burst(p, 90, 2.2); setTimeout(() => sound.gull(-0.4, 25), 600); setTimeout(() => sound.gull(0.5, 35), 1500); }
+  if (k === 'book' || k === 'letter') { waterSpray.mat.color.set(0xfffaf0); waterSpray.burst(p, 50, 1.6); }
+  if (k === 'sandals') { addRing(p.x, p.z - 4, 0.5); }
+  if (k === 'watch') { for (let i = 0; i < 6; i++) setTimeout(() => sound.bubbles(), i * 350); for (let i = 0; i < 8; i++) setTimeout(() => sound._grains && sound.ctx && sound._grains(0.03, 1), 1200 + i * 1000); }
+  if (k === 'hat') { spray.burst(p, 40, 1.5); setTimeout(() => sound.gull(0, 18), 400); }
+  if (k === 'lantern') { illum = 1.2; }
+  if (k === 'bottle') { for (let i = 0; i < 3; i++) setTimeout(() => burst.burst(p, 60), 900 * (i + 1)); }
+  if (k === 'binoculars') { zoomPulse = 1; }
+  if (p.y < lvl + 0.3 && k !== 'watch') spawnRipple(W, p.x, p.z, false);
+}
+let zoomPulse = 0;
 function onFind(t) {
   sound.chime(t.i); setTimeout(() => sound.chord(), 400);
+  memoryEvent(t);
   const f = FRAGMENTS[t.i];
   journal.add(t.i);
   illum = 1;
@@ -486,13 +505,13 @@ function onFind(t) {
     msgEl.classList.add('thought');
     showMsg(f.thought, 8);
     if (zone) launchWisp(t.pos, zone);
-    if (f.form) setTimeout(() => storyForm(f.form, f.become), 8200);
+    if (f.form) setTimeout(() => storyForm(f.form, f.become, f.why), 8600);
     setTimeout(() => msgEl.classList.remove('thought'), 8000);
     const nf = FRAGMENTS[active];
     if (nf) {
       setGoal(f.goal);
       const need = nf.needs;
-      if (nf.needsHint && (need !== 'gear' || !hasGear)) setTimeout(() => showMsg(nf.needsHint, 6), 9000);
+      if (nf.needsHint && !f.form && (need !== 'gear' || !hasGear)) setTimeout(() => showMsg(nf.needsHint, 6), 9000);
     } else {
       setGoal(f.goal);
       if (f.needsHint) setTimeout(() => showMsg(f.needsHint, 6), 9000);
@@ -630,13 +649,22 @@ function onMeet() {
   }, ENDING.length * 4200 + 3000);
 }
 // la forma che un ricordo ti fa prendere, per arrivare al successivo
-function storyForm(form, text) {
+// la trasformazione: annunciata, lenta, e spiegata
+const BECOME = { gull: 'un gabbiano', sand: 'sabbia', fish: 'un pesce', wave: 'un\'onda', cloud: 'una nuvola', cat: 'un gatto', body: 'di nuovo umano', glide: 'leggero, come chi vola' };
+function storyForm(form, text, why) {
+  msgEl.classList.remove('thought');
+  showMsg('Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '…', 3.6);
+  fadeTarget = 0.8; post.uniforms.uFadeCol.value.setRGB(1, 0.96, 0.9);
+  sound.chord(); illum = Math.max(illum, 0.6);
+  setTimeout(() => { applyForm(form); fadeTarget = 0; if (text) showMsg(text, 5.5); }, 3000);
+  if (why) setTimeout(() => { msgEl.classList.add('thought'); showMsg(why, 11); setTimeout(() => msgEl.classList.remove('thought'), 11000); }, 9200);
+}
+function applyForm(form) {
   const lvl = waterUniforms.uLevel.value;
   if (FORMS.includes(player.mode) || player.mode === 'flow') { body = null; }
   if (['bike', 'boat', 'sup', 'glide'].includes(player.mode)) { player.mode = 'walk'; bike.fp.visible = false; bike.on = false; sea.fpPaddle.visible = false; craft.boat.on = false; }
   player.cat = false; wings.visible = false; body = null;
-  fade = 0.6; post.uniforms.uFadeCol.value.setRGB(1, 0.96, 0.9);
-  sound.chord(); illum = Math.max(illum, 0.7);
+  illum = Math.max(illum, 0.7);
   if (form === 'sand') { flowUnlocked = true; player.mode = 'sand'; player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.4; player.pitch = -0.06; }
   else if (form === 'cat') { player.mode = 'walk'; player.cat = true; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 1); }
   else if (form === 'fish') {
@@ -655,7 +683,6 @@ function storyForm(form, text) {
     player.yaw = Math.atan2(-(18 - player.pos.x), -(shoreZ(18) - player.pos.z)); sitting = null;
     player.pos.y += 1.5; launchGlider(); G.speed = 12;
   }
-  if (text) setTimeout(() => showMsg(text, 5), 600);
 }
 
 // ---------- loop
@@ -1009,7 +1036,7 @@ function frame() {
   }
   const windK = updateWind(elapsed);
   drift.update(dt, player.pos, windK);
-  sound.wind(player.mode === 'wind' ? 1 : player.mode === 'petal' ? Math.max(windK, 0.55) : windK);
+  sound.wind(player.mode === 'wind' ? 1 : player.mode === 'petal' ? Math.max(windK, 0.55) : player.mode === 'cloud' ? Math.max(windK, 0.75) : player.mode === 'gull' ? Math.max(windK, Math.min(1, 0.3 + (player.gs || 0) / 25)) : player.mode === 'tree' ? Math.min(1, windK + 0.3) : windK);
   waterUniforms.uWindK.value = windK; waterUniforms.uWindDir.value.copy(wind.dir);
   updateSea(sea, dt, elapsed, { player: player.pos, water: lvl });
   // scia: chi si muove sull'acqua lascia punti che si allargano in onde e schiuma
@@ -1175,7 +1202,7 @@ function frame() {
   });
   updateWisp(dt);
   illum = Math.max(0, illum - dt * 0.25);
-  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind,
+  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind, windDir: wind.dir,
     reach: ['gull', 'cloud', 'rain', 'wave'].includes(player.mode) ? 7 : FORMS.includes(player.mode) || player.mode === 'flow' ? 4 : 2.7 });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
@@ -1222,6 +1249,14 @@ function frame() {
     beam.material.uniforms.uOp.value += (op - beam.material.uniforms.uOp.value) * Math.min(1, dt * 2);
     beam.material.uniforms.uTime.value = elapsed; beam.visible = beam.material.uniforms.uOp.value > 0.01;
   }
+  burst.update(dt, wind.dir);
+  if (zoomPulse > 0) {
+    // il binocolo: per un attimo lo sguardo si avvicina a ciò che vede
+    zoomPulse = Math.max(0, zoomPulse - dt / 5);
+    if (!camera.userData.fov0) camera.userData.fov0 = camera.fov;
+    camera.fov = camera.userData.fov0 * (1 - 0.55 * Math.sin(Math.PI * (1 - zoomPulse)));
+    camera.updateProjectionMatrix();
+  }
   motes.update(dt, elapsed, camera.position, under ? 'snow' : player.mode === 'rain' ? 'rain' : player.mode === 'light' ? 'light' : '', underDeep, wind.dir, renderer.domElement.height);
   // mappa
   minimap.draw({
@@ -1244,7 +1279,7 @@ function frame() {
       ...(hasGear ? [] : [{ x: GEAR.x, z: GEAR.z, name: 'Maschera e pinne', color: '#9fe0a0' }]),
       ...craft.ships.map((S) => ({ x: S.g.position.x, z: S.g.position.z, name: S.name, color: '#d8e6f2' })),
     ],
-    traces: places.traces.filter((t) => t.found || t.i === active).map((t) => ({ x: t.pos.x, z: t.pos.z, found: t.found })),
+    traces: places.traces.filter((t) => !t.found && t.i === active).map((t) => ({ x: t.pos.x, z: t.pos.z, found: false })),
     zone, discZone,
     figure: W.phantom.state === 'final' ? W.phantom.g.position : null,
   });

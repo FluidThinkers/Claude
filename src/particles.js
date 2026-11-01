@@ -86,3 +86,36 @@ export class Motes {
     }
   }
 }
+
+// Luce che si libera da un ricordo trovato: sale a spirale e il vento la porta
+export class LightBurst {
+  constructor(scene, tex) {
+    this.n = 240;
+    this.p = new Float32Array(this.n * 3).fill(-999);
+    this.s = Array.from({ length: this.n }, () => ({ life: 0, a: 0, r: 0, cx: 0, cz: 0, y: 0, vy: 0 }));
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.p, 3));
+    this.mat = new THREE.PointsMaterial({ map: tex, color: 0xffe6b8, size: 0.2, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending });
+    this.pts = new THREE.Points(g, this.mat); this.pts.frustumCulled = false; scene.add(this.pts);
+    this.k = 0;
+  }
+  burst(pos, n = 120) {
+    while (n-- > 0) {
+      const S = this.s[this.k = (this.k + 1) % this.n];
+      S.life = 3 + Math.random() * 3; S.a = Math.random() * 6.28; S.r = 0.2 + Math.random() * 1.2;
+      S.cx = pos.x; S.cz = pos.z; S.y = pos.y + Math.random() * 0.4; S.vy = 0.5 + Math.random() * 1.6; S.w = 0.8 + Math.random() * 1.5;
+    }
+  }
+  update(dt, wind) {
+    let any = false;
+    for (let i = 0; i < this.n; i++) {
+      const S = this.s[i];
+      if (S.life <= 0) { this.p[i * 3 + 1] = -999; continue; }
+      any = true;
+      S.life -= dt; S.a += S.w * dt; S.r += 0.35 * dt; S.y += S.vy * dt;
+      S.cx += wind.x * 1.2 * dt; S.cz += wind.y * 1.2 * dt;
+      this.p[i * 3] = S.cx + Math.cos(S.a) * S.r; this.p[i * 3 + 1] = S.life > 0 ? S.y : -999; this.p[i * 3 + 2] = S.cz + Math.sin(S.a) * S.r;
+    }
+    this.pts.visible = any;
+    if (any) this.pts.geometry.attributes.position.needsUpdate = true;
+  }
+}

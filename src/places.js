@@ -523,10 +523,20 @@ export function updatePlaces(P, dt, time, ctx) {
     if (t.kind === 'bottle' && !t.follow) { t.g.position.y = t.base + Math.sin(time * 0.9) * 0.05; t.g.rotation.x = Math.sin(time * 0.7) * 0.15; }
     t.sp.position.copy(t.pos); t.sp.position.y += 0.14;
     const active = t.i === ctx.active;
-    const shown = t.found || active;
+    // un ricordo trovato si congeda: cappello, lettera e libro li prende il vento, gli altri si sciolgono in luce
+    if (t.found) {
+      t.leaveT = (t.leaveT || 0) + dt;
+      const k = Math.min(1, t.leaveT / 6);
+      if (['hat', 'letter', 'book'].includes(t.kind)) {
+        t.pos.x += (ctx.windDir ? ctx.windDir.x : 0.5) * 2.2 * dt * k; t.pos.z += (ctx.windDir ? ctx.windDir.y : 0.3) * 2.2 * dt * k; t.pos.y += 1.1 * dt * k;
+        if (!t.follow) t.g.position.copy(t.pos);
+        t.g.rotation.x += dt * 1.7 * k; t.g.rotation.z += dt * 1.1 * k;
+      }
+    }
+    const shown = (t.found && (t.leaveT || 0) < 6) || active;
     t.appear = Math.min(1, (t.appear || 0) + (shown ? dt * 0.6 : -dt));
     t.g.visible = t.appear > 0.01;
-    t.g.scale.setScalar((t.kind === 'watch' ? 2.2 : 1) * Math.max(0.01, t.appear));
+    t.g.scale.setScalar((t.kind === 'watch' ? 2.2 : 1) * Math.max(0.01, t.appear) * (t.found ? Math.max(0.01, 1 - Math.max(0, (t.leaveT || 0) - 3) / 3) : 1));
     const d = tmp.copy(t.pos).sub(ctx.eye).length();
     if (active && !t.found) {
       // un riflesso intermittente, come il sole su un vetro

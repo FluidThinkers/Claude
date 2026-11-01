@@ -118,7 +118,9 @@ Dopo il pensiero diventi, nel punto esatto in cui sei, la cosa giusta per arriva
 7. La lanterna → di nuovo **umano**: per il largo servono un barchino o un SUP.
 8. La bottiglia, a bordo della barca a vela → **gabbiano**, fino al cipresso sulle colline.
 9. Il binocolo → **deltaplano** verso la bandiera. Dopo l'incontro diventi **luce**, poi resti libero di esplorare.
-- I ricordi sono verdi sulla mappa: pieni quelli trovati, il prossimo pulsa.
+- Sulla mappa c'è solo il prossimo ricordo, verde e pulsante, con una freccia che lo indica; quelli già trovati spariscono. Nel mondo una colonna di luce verde lo segnala da lontano.
+- In ogni luogo del ricordo succede qualcosa: la luce si libera a spirale, e poi la candela alza la sabbia e i gabbiani, il libro e la lettera volano via nel vento, il cappello se lo porta il vento, l'orologio riprende a ticchettare tra le bolle, la lanterna illumina tutto, il binocolo avvicina lo sguardo.
+- Ogni trasformazione è annunciata («Qualcosa cambia…»), avviene lenta in una luce chiara, e poi un pensiero spiega perché sei quella cosa e cosa devi cercare.
 
 **Il viaggio dell'acqua (l'isola)**
 - Da nuvola vedi il mondo nitido: in alto l'aria è più limpida.
