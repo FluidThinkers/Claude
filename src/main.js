@@ -72,6 +72,11 @@ const drift = new SandDrift(scene);
 const bike = buildBike(scene);
 const craft = buildCraft(scene);
 const minimap = new Minimap(document.getElementById('map'));
+{
+  const anchor = new THREE.Object3D(); anchor.position.set(2.6, 1.22, 0.7);
+  craft.ships[0].g.add(anchor);
+  const bt = places.traces[7]; bt.follow = anchor; bt.g.rotation.set(0, 0.4, Math.PI / 2 - 0.1);
+}
 bike.g.position.y = Math.max(heightAt(bike.g.position.x, bike.g.position.z), placeHeight(bike.g.position.x, bike.g.position.z, 99));
 camera.add(bike.fp);
 // luce riflessa dal cielo su tutti i materiali (aggiornata ogni tanto)
@@ -239,14 +244,14 @@ addEventListener('mousemove', (e) => {
 });
 
 const overlay = document.getElementById('start');
-if (MOBILE) { overlay.querySelector('.cta').textContent = 'Tocca per entrare'; overlay.querySelector('.keys').innerHTML = 'Sinistra: muoviti · Destra: guarda<br>SU / GIÙ: salta, risali, immergiti · AZIONE · ORA · DIARIO<br>Ogni cosa si lascia vedere alla sua ora.'; }
+if (MOBILE) { overlay.querySelector('.cta').textContent = 'Tocca per entrare'; overlay.querySelector('.keys').innerHTML = 'Sinistra: muoviti · Destra: guarda<br>SU / GIÙ: salta, risali, immergiti · AZIONE · ORA · DIARIO<br>Ritrova i ricordi: ognuno ti porterà al prossimo.'; }
 function begin() {
   sound.start();
   started = running = true;
   overlay.classList.add('hidden');
   if (!isTouch) document.body.requestPointerLock?.();
   else document.getElementById('touch').classList.remove('hidden');
-  if (!introDone) { introDone = true; sequence(INTRO, 4.5, 1.5); }
+  if (!introDone) { introDone = true; sequence(INTRO, 4.5, 1.5); setTimeout(() => { if (places.found === 0) setGoal('Un riflesso di luce, sul cumulo di sabbia vicino a te.'); }, 15000); }
 }
 let introDone = false;
 overlay.addEventListener('click', begin);
@@ -322,15 +327,67 @@ function nextPhaseT() {
   return n === undefined ? PHASES[0] : n;
 }
 
+// ---------- la catena dei ricordi
+let active = 0;
+let illum = 0;
+let zone = null;
+const goalEl = document.getElementById('goal');
+function setGoal(txt) {
+  goalEl.innerHTML = `<span class="gc">Ricordi ${places.found} / ${places.traces.length}</span>${txt}`;
+  goalEl.classList.add('on');
+}
+function setZone(i) {
+  const t = places.traces[i];
+  if (!t) { zone = null; return; }
+  const a = Math.random() * 6.28, r = 15 + Math.random() * 25;
+  zone = { i, x: t.pos.x + Math.cos(a) * r, z: t.pos.z + Math.sin(a) * r, r: 55 };
+}
+// una piccola luce che si stacca dall'oggetto e vola verso il prossimo ricordo
+const wisp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffe2b8, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+wisp.scale.setScalar(0.9); scene.add(wisp);
+const wispS = { t: -1, from: new THREE.Vector3(), dir: new THREE.Vector3() };
+function launchWisp(from, to) {
+  wispS.t = 0; wispS.from.copy(from);
+  wispS.dir.set(to.x - from.x, 0, to.z - from.z).normalize();
+}
+function updateWisp(dt) {
+  if (wispS.t < 0) return;
+  wispS.t += dt;
+  const k = wispS.t;
+  const rise = Math.min(k * 1.2, 2.5);
+  const run = Math.max(0, k - 1.5) * 6;
+  wisp.position.copy(wispS.from).addScaledVector(wispS.dir, run);
+  wisp.position.y += rise + Math.sin(k * 3) * 0.2;
+  wisp.material.opacity = Math.min(1, k) * Math.max(0, 1 - Math.max(0, k - 7) / 3);
+  wisp.scale.setScalar(0.6 + 0.25 * Math.sin(k * 6));
+  if (k > 10) { wispS.t = -1; wisp.material.opacity = 0; }
+}
 function onFind(t) {
-  sound.chime(t.i);
-  countEl.textContent = `${places.found} / ${places.traces.length}`;
-  countEl.classList.add('on');
-  setTimeout(() => countEl.classList.remove('on'), 6000);
+  sound.chime(t.i); setTimeout(() => sound.chord(), 400);
   const f = FRAGMENTS[t.i];
   journal.add(t.i);
-  showMsg(f.text, 8);
-  if (places.found === places.traces.length) {
+  illum = 1;
+  showMsg(f.text, 9);
+  active = t.i + 1;
+  setZone(active);
+  // il pensiero arriva dopo il ricordo, e indica la strada
+  setTimeout(() => {
+    msgEl.classList.add('thought');
+    showMsg(f.thought, 8);
+    if (zone) launchWisp(t.pos, zone);
+    setTimeout(() => msgEl.classList.remove('thought'), 8000);
+    const nf = FRAGMENTS[active];
+    if (nf) {
+      setGoal(f.goal);
+      const need = nf.needs;
+      if (nf.needsHint && (need !== 'gear' || !hasGear)) setTimeout(() => showMsg(nf.needsHint, 6), 9000);
+    } else {
+      setGoal(f.goal);
+      if (f.needsHint) setTimeout(() => showMsg(f.needsHint, 6), 9000);
+    }
+  }, 9500);
+  if (active >= places.traces.length) {
+    zone = { x: 18, z: shoreZ(18) + 1, r: 30 };
     // ti aspetta sul bagnasciuga, vicino alla bandiera
     const P = W.phantom;
     const x = 18, z = shoreZ(18) + 0.9;
@@ -340,6 +397,8 @@ function onFind(t) {
   }
 }
 function onMeet() {
+  zone = null;
+  goalEl.classList.remove('on');
   sequence(ENDING, 4.2, 0.5);
   setTimeout(() => { sound.chord(); const cur = ((tod % 1) + 1) % 1; todAnim = { from: tod, to: tod - cur + (cur < 0.75 ? 0.755 : 1.755), t: 0, dur: 30 }; }, ENDING.length * 4200);
 }
@@ -633,13 +692,15 @@ function frame() {
   waterUniforms.uLightCol.value.copy(pal.sun).multiplyScalar(pal.sunI * 0.5);
   waterUniforms.uAmb.value.copy(pal.hs).multiplyScalar(pal.hI * 0.75).add(tmpC.copy(pal.sun).multiplyScalar(pal.sunI * Math.max(sunDir.y, 0) * 0.18));
   waterUniforms.uFog.value = pal.fog;
-  water.position.set(Math.round(player.pos.x / 50) * 50, 0, Math.round(player.pos.z / 50) * 50);
+  water.position.set(Math.round(player.pos.x / 4) * 4, 0, Math.round(player.pos.z / 4) * 4);
   sky.position.copy(camera.position);
 
   updateWorld(W, dt, elapsed, {
     player: player.pos, yaw: player.yaw, night, pal, nextHor: nextPal.hor, onMeet,
   });
-  updatePlaces(places, dt, elapsed, { wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind });
+  updateWisp(dt);
+  illum = Math.max(0, illum - dt * 0.25);
+  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
   sound.update(elapsed, player.pos.z - shoreZ(player.pos.x), player.mode !== 'walk', hs, night);
@@ -672,7 +733,8 @@ function frame() {
       ...(hasGear ? [] : [{ x: GEAR.x, z: GEAR.z, name: 'Maschera e pinne', color: '#9fe0a0' }]),
       ...craft.ships.map((S) => ({ x: S.g.position.x, z: S.g.position.z, name: S.name, color: '#d8e6f2' })),
     ],
-    traces: places.traces.map((t) => ({ x: t.pos.x, z: t.pos.z, found: t.found })),
+    traces: places.traces.filter((t) => t.found).map((t) => ({ x: t.pos.x, z: t.pos.z, found: true })),
+    zone,
     figure: W.phantom.state === 'final' ? W.phantom.g.position : null,
   });
 
@@ -691,6 +753,7 @@ function frame() {
   P.uUnder.value = under ? 1 : 0;
   P.uBlur.value = under && !hasGear ? 1 : 0;
   P.uMask.value = under && hasGear ? 1 : 0;
+  P.uIllum.value = illum;
   P.uUnderCol.value.copy(underCol);
   P.uBreath.value = player.mode === 'dive' ? THREE.MathUtils.smoothstep(0.4 - player.breath, 0, 0.4) : 0;
   fade += (fadeTarget - fade) * Math.min(1, dt * 1.5);

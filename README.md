@@ -56,16 +56,18 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 
 **Vento, mare e cielo**
 - Il vento gira piano e va a raffiche: chiazze increspate corrono sull'acqua, la sabbia scivola a terra, palme e macchia si piegano, il suono del vento segue le raffiche.
-- Onde che arrivano a riva e si rompono, con la schiuma e la scia bianca dietro.
+- Risacca vera: le onde si gonfiano sul fondale basso, si rompono, diventano schiuma a merletto e risalgono la sabbia in una lama d'acqua sottile che poi si ritira.
 - Cumuli con la base scura e, in certi momenti, il cielo a pecorelle che vela la luce.
 - Una barca a vela e un traghetto passano lenti all'orizzonte.
 - Luce riflessa dal cielo su tutti i materiali; sassi, cespugli e scogli con superfici levigate.
+- Mezzi disegnati con cura: scafi a sezioni vere con insellatura e carena, coperta in teak, tientibene in acciaio, vele con profilo; enduro con telaio a tubi, forcella dorata e gomme tassellate; deltaplano con vela profilata.
 
-**Storia**
-- Fine settembre, gli ultimi giorni prima che chiudano tutto. Qualcuno ha lasciato otto oggetti lungo la riva, uno per ogni ora del giorno: una candela alle 06:40, un libro alle 08:15, dei sandali alle 10:30, un orologio sul fondo a mezzogiorno, un cappello alle 15:20, una lettera alle 17:45, una lanterna alle 19:30. Al largo, una bottiglia. In cima alle colline, al belvedere, un binocolo alle 18:30.
-- **Ogni oggetto riflette la luce soltanto alla sua ora**: per trovarli bisogna leggere il tempo, aspettare, tornare. L'ora è sempre in alto a sinistra.
-- I frammenti, nel diario (J), sembrano lettere a qualcuno. Solo alla fine si capisce che quegli oggetti erano segnavia lasciati per sé, per i giorni in cui la strada si dimentica, e che adesso la strada la conosci anche tu.
-- Ogni tanto una persona cammina lontana sul bagnasciuga e si dissolve se ti avvicini. Quando hai trovato tutto, ti aspetta vicino alla bandiera.
+**Storia: una catena di ricordi**
+- Fine settembre. Qualcuno ha dimenticato una giornata intera su questa spiaggia. L'obiettivo è sempre a schermo, sotto l'orologio: *ritrova i ricordi, ognuno ti porterà al prossimo*.
+- Ogni ricordo è un oggetto vero (candela, libro, sandali, orologio sul fondo, cappello, lettera, lanterna, bottiglia a bordo della barca a vela, binocolo al belvedere). Quando lo trovi arriva un'**illuminazione**: la luce si fa calda, torna il ricordo, poi parte un **pensiero** che indica dove andare.
+- Una piccola luce si stacca dall'oggetto e vola verso il prossimo luogo; sulla mappa compare una zona tratteggiata. Il ricordo successivo esiste solo da quel momento.
+- Il percorso usa tutti i modi di muoversi: a piedi, sul pontile, sott'acqua con la maschera, in barchino o SUP fino alla barca a vela, in moto sulle colline, in deltaplano per scendere. Quando serve, un pensiero suggerisce come arrivarci.
+- Il diario (J) conserva ogni ricordo con il suo pensiero. Alla fine, alla bandiera, c'è qualcuno che ti aspetta.
 
 ## Parametri di debug (URL)
 `?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup|bike|boat|glide`, `&alto=1` per il cielo a pecorelle per partire in acqua, `&autostart` per saltare la schermata iniziale.

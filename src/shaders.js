@@ -49,6 +49,35 @@ float cloudShadow(vec3 wp, vec3 L){
 }
 `;
 
+export const SURF_GLSL = /* glsl */`
+// ---- risacca: onde che si gonfiano, si rompono e risalgono la sabbia
+const float SURF_OM = 6.2831853 / 7.5;
+float surfJit(float x){ return vn(vec2(x * 0.018, 3.0)) * 2.2 + vn(vec2(x * 0.005, 7.0)) * 3.5; }
+// h: quota dell'acqua; s: fase (0 = cresta); brk: frangimento; bore: schiuma; film: lama sulla sabbia; front: fin dove risale
+float surfY(float x, float d, float t, float lvl, float windK, out float s, out float brk, out float bore, out float film, out float front){
+  float depth = -baseH(d);
+  float setMod = 0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0);
+  setMod *= 0.75 + 0.5 * windK;
+  float jit = surfJit(x);
+  float ph = SURF_OM * t - d * 0.5 + jit;
+  s = fract(ph / 6.2831853);
+  float prof = max(pow(1.0 - s, 2.6), pow(smoothstep(0.78, 1.0, s), 1.6));
+  float A = setMod * (0.08 + 0.62 * smoothstep(5.5, 1.5, depth)) * smoothstep(0.1, 1.1, depth);
+  brk = smoothstep(2.0, 1.25, depth) * smoothstep(0.25, 0.8, depth) * setMod;
+  bore = smoothstep(1.4, 0.5, depth) * smoothstep(-0.2, 0.3, depth) * setMod;
+  float seaY = lvl + A * (prof - 0.32);
+  // risalita: ogni cresta che arriva a riva spinge una lama d'acqua sulla sabbia
+  float u = fract((SURF_OM * t + jit) / 6.2831853);
+  float R = 1.2 + 3.6 * setMod;
+  front = u < 0.3 ? R * sin(u / 0.3 * 1.5708) : R * (1.0 - smoothstep(0.3, 0.97, u)) - 0.6 * smoothstep(0.7, 1.0, u);
+  film = 0.0;
+  if (d < -1.5) return seaY;
+  if (d > front) return min(lvl, baseH(d) - 0.25);
+  film = 0.025 + 0.07 * smoothstep(front, front - 2.5, d);
+  return max(seaY, baseH(d) + film);
+}
+`;
+
 const SKY_GLSL = /* glsl */`
 uniform vec3 uZen, uMid, uHor, uSea, uSunDir, uMoonDir, uSunCol;
 uniform float uSunVis, uNight, uTime;
@@ -161,24 +190,45 @@ export const waterUniforms = {
 };
 
 export function makeWater() {
-  const geo = new THREE.PlaneGeometry(9000, 9000, 1, 1);
-  geo.rotateX(-Math.PI / 2);
+  // griglia non uniforme: fitta vicino a te (le onde hanno forma), larga verso l'orizzonte
+  const N = 240, Rr = 4000, Aa = 0.02, n = N + 1;
+  const offs = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const u = -1 + (2 * i) / N; offs[i] = Rr * (Aa * u + (1 - Aa) * u * u * u); }
+  const pos = new Float32Array(n * n * 3), idx = [];
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const k = (j * n + i) * 3; pos[k] = offs[i]; pos[k + 1] = 0; pos[k + 2] = offs[j]; }
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const a = j * n + i, b = a + 1, c = a + n, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(new THREE.BufferAttribute(new Uint32Array(idx), 1));
   const mat = new THREE.ShaderMaterial({
     uniforms: { ...skyUniforms, ...waterUniforms },
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
     vertexShader: /* glsl */`
-      uniform float uLevel;
-      varying vec3 vW;
-      void main(){ vec4 w = modelMatrix * vec4(position,1.0); w.y += uLevel; vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+      uniform float uLevel, uTime, uWindK;
+      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront;
+      ` + NOISE_GLSL + SHORE_GLSL + SURF_GLSL + /* glsl */`
+      void main(){
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        float s, brk, bore, film, front, s2, b2, o2, f2, fr2;
+        float d = w.z - shoreZ(w.x);
+        float y = surfY(w.x, d, uTime, uLevel, uWindK, s, brk, bore, film, front);
+        float e = 0.35;
+        float yx = surfY(w.x + e, (w.z) - shoreZ(w.x + e), uTime, uLevel, uWindK, s2, b2, o2, f2, fr2);
+        float yz = surfY(w.x, d + e, uTime, uLevel, uWindK, s2, b2, o2, f2, fr2);
+        vSlope = vec2(yx - y, yz - y) / e;
+        w.y = y;
+        vW = w.xyz; vSurf = vec4(s, brk, bore, film); vFront = front - d;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
     fragmentShader: SKY_GLSL + SHORE_GLSL + /* glsl */`
       uniform vec3 uCam, uLightDir, uLightCol, uAmb, uDeep, uShallow, uMirror;
       uniform vec4 uLamp;
       uniform vec3 uUnderCol;
       uniform float uFog, uUnderFog, uWindK;
       uniform vec2 uWindDir;
-      varying vec3 vW;
+      varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
       void main(){
         vec2 p = vW.xz;
@@ -206,15 +256,8 @@ export function makeWater() {
         vec2 q = p * 2.2 + vec2(uTime * 0.35, uTime * 0.2);
         float e = 0.05;
         g += vec2(vn(q + vec2(e,0)) - vn(q - vec2(e,0)), vn(q + vec2(0,e)) - vn(q - vec2(0,e))) / (2.0*e) * 0.03;
-        // onde lunghe che arrivano a riva e si rompono
-        float dW = vW.z - shoreZ(vW.x);
-        float depthW = vW.y - baseH(dW);
-        float zone = smoothstep(3.2, 1.4, depthW) * smoothstep(0.02, 0.35, depthW);
-        float wph = dW * 0.62 + uTime * 1.25 + vn(vec2(vW.x * 0.03, uTime * 0.05)) * 3.0;
-        float wset = 0.55 + 0.45 * sin(uTime * 0.21 + vW.x * 0.004);
-        float crest = pow(0.5 + 0.5 * sin(wph), 7.0) * zone * wset;
-        float swell = (0.5 + 0.5 * sin(wph));
-        g += vec2(0.0, 1.0) * cos(wph) * 0.18 * smoothstep(5.0, 1.5, depthW) * smoothstep(0.0, 0.4, depthW) * (0.6 + uWindK * 0.6);
+        // pendenza dell'onda vera (dalla geometria)
+        g += vSlope * smoothstep(400.0, 60.0, dist);
         // raffiche: chiazze increspate più scure che corrono sull'acqua
         vec2 gp = p * 0.018 - uWindDir * uTime * 0.09;
         float gust = smoothstep(0.45, 0.8, vn(gp) * 0.7 + vn(gp * 2.3 + 7.0) * 0.3) * uWindK;
@@ -253,15 +296,23 @@ export function makeWater() {
         float edge = 0.12 + 0.08 * sin(uTime * 0.7 + vW.x * 0.03);
         float fn = vn(vW.xz * vec2(0.9, 2.2) + vec2(uTime * 0.25, 0.0));
         float foam = (1.0 - smoothstep(edge * 0.2, edge * 0.7, depth)) * (0.5 + 0.5 * fn) * step(-0.3, depth);
-        // schiuma della cresta e scia di schiuma che resta dietro l'onda rotta
-        float fd = vn(vW.xz * vec2(1.4, 3.0) + vec2(uTime * 0.3, -uTime * 0.6));
-        float fd2 = vn(vW.xz * vec2(5.0, 9.0) + vec2(-uTime * 0.2, uTime));
-        float crestFoam = smoothstep(0.25, 0.6, crest * (0.55 + 0.45 * fd)) ;
-        float trail = pow(0.5 + 0.5 * sin(wph - 0.9), 3.0) * zone * wset * smoothstep(0.45, 0.75, fd * 0.6 + fd2 * 0.4) * 0.8;
-        float swash = smoothstep(0.32, 0.06, depthW) * smoothstep(-0.05, 0.05, depthW) * smoothstep(0.35, 0.7, fd2 * 0.5 + fd * 0.5) * (0.4 + 0.6 * swell);
-        foam = max(foam * 0.7, max(crestFoam, max(trail, swash)));
-        // verde-azzurro traslucido sotto la cresta
-        col += uShallow * uAmb * 0.25 * crest * (1.0 - crestFoam);
+        // schiuma: labbro della cresta che si rompe, bianco dell'onda rotta, merletto, orlo della risacca
+        float sP = vSurf.x, brk = vSurf.y, bore = vSurf.z, film = vSurf.w;
+        vec2 fl = vW.xz * 1.7 + vec2(0.0, uTime * 0.5);
+        float lace = 1.0 - smoothstep(0.0, 0.06, abs(vn(fl) * 0.7 + vn(fl * 2.4 + 5.0) * 0.45 - 0.62));
+        float brkUp = smoothstep(0.35, 0.75, vn(vW.xz * vec2(0.8, 2.5) + vec2(uTime * 0.2, -uTime * 0.8)));
+        float lip = brk * smoothstep(0.86, 0.985, sP) * (0.55 + 0.45 * brkUp);
+        float white = bore * (smoothstep(0.5, 0.0, sP) + smoothstep(0.88, 1.0, sP)) * (0.5 + 0.5 * brkUp);
+        float residual = max(brk, bore) * lace * 0.55;
+        float edgeF = (film > 0.0) ? smoothstep(1.6, 0.0, vFront) * (0.45 + 0.55 * lace) : 0.0;
+        float filmLace = (film > 0.0) ? lace * 0.6 : 0.0;
+        foam = max(foam * 0.0, max(max(lip, white), max(residual, max(edgeF, filmLace))));
+        foam = clamp(foam, 0.0, 1.0);
+        // l'onda che si alza diventa verde-azzurra e traslucida contro la luce
+        float rise = brk * smoothstep(0.7, 0.97, sP);
+        col = mix(col, uShallow * uAmb * 1.35 + uLightCol * 0.06, rise * 0.45 * (1.0 - foam));
+        // la lama d'acqua sulla sabbia: sottile, trasparente, specchiante
+        if (film > 0.0) alpha = min(alpha, 0.35 + F * 0.6);
         vec3 foamCol = uAmb * 1.2 + uLightCol * 0.1;
         col = mix(col, foamCol, foam * 0.85);
         alpha = max(alpha, foam * 0.9);
@@ -400,10 +451,10 @@ export function makePost(renderer) {
     tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
     uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
-    uUnder: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
+    uUnder: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
   }, /* glsl */`
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
-    uniform float uUnder, uMask, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
+    uniform float uUnder, uIllum, uMask, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
     float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -471,6 +522,12 @@ export function makePost(renderer) {
         float frame = max(smoothstep(-0.01, 0.04, dm), nose);
         col = mix(col, vec3(0.015, 0.02, 0.025), frame * uMask);
         col += vec3(0.6, 0.8, 0.9) * 0.04 * smoothstep(-0.06, -0.0, dm) * (1.0 - frame) * uMask;
+      }
+      // illuminazione: un ricordo che torna, luce calda e morbida
+      if (uIllum > 0.0) {
+        float il = uIllum * uIllum;
+        col = mix(col, col * vec3(1.1, 1.0, 0.86) + vec3(0.07, 0.05, 0.03), il);
+        col += vec3(1.0, 0.85, 0.65) * 0.18 * il * (1.0 - smoothstep(0.0, 0.7, length(c)));
       }
       col = mix(col, uFadeCol, uFade);
       gl_FragColor = vec4(col, 1.0);

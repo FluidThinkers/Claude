@@ -65,6 +65,14 @@ export class Minimap {
       if (sx < 10 || sy < 14 || sx > W - 10 || sy > H) return;
       c.font = '10px system-ui, sans-serif'; c.fillStyle = col; c.textAlign = 'center'; c.fillText(txt, sx, sy - 8);
     };
+    if (S.zone) {
+      const [zx, zy] = toS(S.zone.x, S.zone.z);
+      const zr = Math.max(10, S.zone.r * scale);
+      const t = performance.now() / 1000;
+      c.beginPath(); c.arc(Math.max(zr * 0.3, Math.min(W - zr * 0.3, zx)), Math.max(zr * 0.3, Math.min(H - zr * 0.3, zy)), zr * (0.92 + 0.08 * Math.sin(t * 2)), 0, 7);
+      c.fillStyle = 'rgba(255,214,150,0.18)'; c.fill();
+      c.setLineDash([3, 3]); c.strokeStyle = 'rgba(255,224,170,0.85)'; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
+    }
     for (const p of S.places) { dot(p.x, p.z, 2.5, 'rgba(255,255,255,0.75)'); label(p.x, p.z, p.name); }
     for (const v of S.vehicles) { dot(v.x, v.z, 4, v.color, 'rgba(0,0,0,0.5)'); label(v.x, v.z, v.name, v.color); }
     for (const t of S.traces) dot(t.x, t.z, 3, t.found ? 'rgba(255,214,150,1)' : null, t.found ? null : 'rgba(255,214,150,0.9)');

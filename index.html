@@ -28,6 +28,11 @@
   #inv.on { opacity: .5; }
   #map { position: fixed; top: 18px; right: 18px; width: 150px; height: 150px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); opacity: .88; cursor: pointer; z-index: 5; }
   #map.big { width: min(78vw, 78vh); height: min(78vw, 78vh); border-radius: 12px; top: 50%; right: 50%; transform: translate(50%, -50%); }
+  #goal { top: 100px; left: 34px; max-width: min(320px, 60vw); font-size: 14px; font-style: italic; line-height: 1.45; letter-spacing: .03em; }
+  #goal.on { opacity: .82; }
+  #goal .gc { display: block; font-style: normal; font-size: 10px; letter-spacing: .3em; text-transform: uppercase; opacity: .65; font-family: system-ui, sans-serif; margin-bottom: 3px; }
+  #msg.thought { font-size: clamp(17px, 2.6vw, 26px); color: #ffe6c4; text-shadow: 0 0 18px rgba(255,180,120,.45); }
+  #journalList .th { display: block; margin-top: 6px; font-size: 15px; color: #ffe2bd; opacity: .85; }
   #touch.hidden { display: none; }
   #stick { position: fixed; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); opacity: 0; transition: opacity .2s; pointer-events: none; }
   #stick.on { opacity: 1; }
@@ -54,7 +59,7 @@
   <h1>RIVA</h1>
   <div class="sub">una spiaggia, fuori stagione</div>
   <div class="cta">Clicca per entrare</div>
-  <div class="keys">WASD — cammina, nuota, pagaia · Mouse — guarda · Shift — corri · Spazio — salta / risali · C — immergiti<br>E — azione (SUP, attrezzatura, panchine) · T — cambia l'ora · J — diario · N — mappa · M — audio<br>Ogni cosa si lascia vedere alla sua ora.</div>
+  <div class="keys">WASD — cammina, nuota, pagaia · Mouse — guarda · Shift — corri · Spazio — salta / risali · C — immergiti<br>E — azione (SUP, attrezzatura, panchine) · T — cambia l'ora · J — diario · N — mappa · M — audio<br>Ritrova i ricordi: ognuno ti porterà al prossimo.</div>
 </div>
 <div id="phase" class="hud"></div>
 <div id="count" class="hud"></div>
@@ -63,6 +68,7 @@
 <div id="clock"></div>
 <canvas id="map"></canvas>
 <div id="inv" class="hud"></div>
+<div id="goal" class="hud"></div>
 <div id="journal"><div class="page"><h2>Diario della riva</h2><ul id="journalList"></ul></div></div>
 <div id="touch" class="hidden">
   <div id="bookBtn" class="tbtn">DIARIO</div>

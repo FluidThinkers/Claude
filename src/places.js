@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { heightAt, shoreZ, vnoise } from './terrain.js';
 import { smoothNormals } from './terrain.js';
-import { FRAGMENTS } from './story.js';
 
 // Una spiaggia fuori stagione: tutto ciò che c'è è reale, solo un po' dimenticato.
 
@@ -489,7 +488,7 @@ export function buildPlaces(scene, glowTex, platform) {
         flame.position.copy(pos).add(g.userData.flame); flame.scale.setScalar(0.5);
         scene.add(flame);
       }
-      P.traces.push({ i, kind, g, sp, flame, pos: pos.clone(), base: pos.y, found: false, ph: rnd() * 10, hour: FRAGMENTS[i].hour });
+      P.traces.push({ i, kind, g, sp, flame, pos: pos.clone(), base: pos.y, found: false, ph: rnd() * 10, appear: i === 0 ? 1 : 0 });
     });
     P.traceLight = new THREE.PointLight(0xffa860, 0, 8, 1.6);
     scene.add(P.traceLight);
@@ -517,32 +516,37 @@ export function updatePlaces(P, dt, time, ctx) {
     }
   }
 
-  // tracce
-  let near = null, nd = 1e9;
+  // ricordi: solo quello attivo si lascia trovare; quelli futuri non esistono ancora
+  let nd = 1e9;
   for (const t of P.traces) {
-    if (t.kind === 'bottle') { t.g.position.y = t.base + Math.sin(time * 0.9) * 0.05; t.g.rotation.x = Math.sin(time * 0.7) * 0.15; t.sp.position.y = t.g.position.y + 0.08; }
+    if (t.follow) { t.follow.getWorldPosition(t.pos); t.g.position.copy(t.pos); }
+    if (t.kind === 'bottle' && !t.follow) { t.g.position.y = t.base + Math.sin(time * 0.9) * 0.05; t.g.rotation.x = Math.sin(time * 0.7) * 0.15; }
+    t.sp.position.copy(t.pos); t.sp.position.y += 0.14;
+    const active = t.i === ctx.active;
+    const shown = t.found || active;
+    t.appear = Math.min(1, (t.appear || 0) + (shown ? dt * 0.6 : -dt));
+    t.g.visible = t.appear > 0.01;
+    t.g.scale.setScalar((t.kind === 'watch' ? 2.2 : 1) * Math.max(0.01, t.appear));
     const d = tmp.copy(t.pos).sub(ctx.eye).length();
-    if (!t.found) {
-      // un riflesso intermittente, come il sole su un vetro, ma solo alla sua ora
+    if (active && !t.found) {
+      // un riflesso intermittente, come il sole su un vetro
       const tw = Math.pow(Math.max(0, Math.sin(time * 1.3 + t.ph) * Math.sin(time * 0.37 + t.ph * 2)), 3);
-      let dh = t.hour === null ? 0 : Math.abs(ctx.tod - t.hour); dh = Math.min(dh, 1 - dh);
-      const inHour = t.hour === null ? 1 : 1 - THREE.MathUtils.smoothstep(dh, 0.035, 0.06);
-      const vis = Math.min(1, d / 6) * Math.max(inHour, 1 - THREE.MathUtils.smoothstep(d, 8, 14));
-      const lightK = t.kind === 'watch' ? (ctx.underwater ? 1 : 0.6) : (1 - ctx.night * 0.5);
-      t.sp.material.opacity = (0.25 + 0.75 * tw) * vis * lightK;
-      t.sp.scale.setScalar(0.022 + 0.03 * tw);
-      if (d < nd) { nd = d; near = t; }
-      if (d < 2.7) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
-    }
+      const vis = Math.min(1, d / 6) * t.appear;
+      const lightK = t.kind === 'watch' ? (ctx.underwater ? 1 : 0.5) : (1 - ctx.night * 0.4);
+      t.sp.material.opacity = (0.3 + 0.7 * tw) * vis * lightK;
+      t.sp.scale.setScalar(0.024 + 0.032 * tw);
+      nd = d;
+      if (d < 2.7 && t.appear > 0.5) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
+    } else t.sp.material.opacity = 0;
     if (t.flame) {
       const fl = 0.85 + 0.15 * Math.sin(time * 17 + t.ph) * Math.sin(time * 9.1);
-      t.flame.material.opacity = on * fl;
+      t.flame.material.opacity = (shown ? 1 : 0) * Math.max(on, 0.25) * fl;
       t.flame.scale.setScalar(0.45 * fl);
     }
   }
   // una sola luce calda: la candela o la lanterna più vicina, di notte
   let lit = null, ld = 1e9;
-  for (const t of P.traces) if (t.flame) { const d = tmp.copy(t.pos).sub(ctx.player).length(); if (d < ld) { ld = d; lit = t; } }
+  for (const t of P.traces) if (t.flame && (t.found || t.i === ctx.active)) { const d = tmp.copy(t.pos).sub(ctx.player).length(); if (d < ld) { ld = d; lit = t; } }
   if (lit) { P.traceLight.position.copy(lit.flame.position); P.traceLight.intensity = on * 3 * (0.9 + 0.1 * Math.sin(time * 13)); }
   return { on, near: nd };
 }
