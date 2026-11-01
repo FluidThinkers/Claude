@@ -534,11 +534,11 @@ export function makePost(renderer) {
     tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
     uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
-    uUnder: { value: 0 }, uFlow: { value: 0 }, uForm: { value: new THREE.Vector4(1, 1, 1, 0) }, uDrops: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
+    uUnder: { value: 0 }, uFlow: { value: 0 }, uForm: { value: new THREE.Vector4(1, 1, 1, 0) }, uDrops: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uDepth: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
   }, /* glsl */`
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
     uniform vec4 uForm; uniform float uDrops;
-    uniform float uUnder, uFlow, uIllum, uMask, uBlur, uBreath, uHaze; uniform vec3 uUnderCol;
+    uniform float uUnder, uFlow, uIllum, uMask, uBlur, uBreath, uHaze, uDepth; uniform vec3 uUnderCol;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
     float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -608,8 +608,14 @@ export function makePost(renderer) {
       if (uUnder > 0.0) {
         // raggi di luce che scendono dalla superficie
         float sh = vn2(vec2(uv.x * 9.0 + uv.y * 2.0 + uTime * 0.15, uTime * 0.1)) * vn2(vec2(uv.x * 4.0 - uv.y * 1.0 - uTime * 0.07, 3.0));
-        col += uUnderCol * 2.5 * pow(sh, 2.0) * smoothstep(0.1, 1.0, uv.y) * uUnder;
+        float rays = exp(-uDepth * 0.12);
+        // i raggi si stringono in alto verso la superficie e si spengono in profondità
+        float sh2 = vn2(vec2((uv.x - 0.5) / (0.4 + uv.y) * 7.0 + uTime * 0.12, uTime * 0.08));
+        col += uUnderCol * (2.5 * pow(sh, 2.0) + 1.6 * pow(sh2, 3.0)) * smoothstep(0.1, 1.0, uv.y) * uUnder * rays;
+        // caustiche sul primo piano quando si è vicini alla superficie
+        col *= 1.0 + 0.25 * rays * pow(vn2(uv * vec2(14.0, 9.0) + uTime * 0.4) * vn2(uv * vec2(9.0, 13.0) - uTime * 0.3), 2.0) * 3.0 * uUnder;
         col = mix(col, (col + uUnderCol * 0.6) * vec3(0.45, 0.85, 1.0), 0.72 * uUnder);
+        col *= mix(1.0, 0.55 + 0.45 * smoothstep(-0.1, 1.0, uv.y), uUnder * (1.0 - rays * 0.6));
       }
       col = shoulder(col);
       col *= uGrade;

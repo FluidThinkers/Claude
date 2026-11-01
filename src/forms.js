@@ -10,6 +10,10 @@ export const FORM_TEXT = {
   sand: { name: 'Sabbia', unlock: 'Resti fermo, e il vento comincia a portarti via, un granello alla volta.', enter: 'Sei sabbia. Vai dove va il vento.' },
   wave: { name: 'Onda', unlock: 'L\'acqua che hai sollevato non torna giù: corre verso riva.', enter: 'Sei un\'onda.' },
   cloud: { name: 'Nuvola', unlock: 'Ti sciogli sulla riva, e il sole ti solleva piano.', enter: 'Sei una nuvola.' },
+  fish: { name: 'Pesce', unlock: 'Il fondo ti chiama, e l\'acqua non pesa più.', enter: 'Sei un pesce.' },
+  rain: { name: 'Pioggia', unlock: 'Diventi pesante, e cadi.', enter: 'Diventi pioggia.' },
+  cat: { name: 'Gatto', unlock: 'Un gatto ti guarda dal muretto, senza fretta.', enter: 'Sei un gatto.' },
+  light: { name: 'Luce', enter: '' },
 };
 
 // ali in prima persona per il gabbiano
@@ -70,20 +74,47 @@ export function moveForm(form, P, ctx) {
   } else if (form === 'sand') {
     // a filo del suolo, portato dal vento; puoi solo deviare un poco
     const w = 1.5 + ctx.wind * 6;
-    const dx = ctx.windDir.x * w + (-ys * fz + yc * fx) * 2;
-    const dz = ctx.windDir.y * w + (-yc * fz - ys * fx) * 2;
+    let wx = ctx.windDir.x, wz = ctx.windDir.y;
+    if (ctx.target) { const tx = ctx.target.x - P.pos.x, tz = ctx.target.z - P.pos.z, tl = Math.hypot(tx, tz) || 1; wx = wx * 0.25 + tx / tl * 0.75; wz = wz * 0.25 + tz / tl * 0.75; const wl = Math.hypot(wx, wz); wx /= wl; wz /= wl; }
+    const dx = wx * w + (-ys * fz + yc * fx) * 2;
+    const dz = wz * w + (-yc * fz - ys * fx) * 2;
     P.pos.x += dx * dt; P.pos.z += dz * dt;
     const h = heightAt(P.pos.x, P.pos.z);
     const hm = Math.max(h, heightAt(P.pos.x + 0.8, P.pos.z), heightAt(P.pos.x - 0.8, P.pos.z), heightAt(P.pos.x, P.pos.z + 0.8), heightAt(P.pos.x, P.pos.z - 0.8));
     P.pos.y += (hm + 0.32 + Math.abs(Math.sin(ctx.time * 3)) * 0.08 * ctx.wind - P.pos.y) * Math.min(1, dt * 8);
     out.speed = Math.hypot(dx, dz);
     out.inWater = lvl - h > 0.05;
+  } else if (form === 'fish') {
+    // pesce: veloce e morbido sott'acqua, non esce mai dall'acqua
+    const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
+    const speed = fz > 0 ? (run ? 10 : 5.5) : fz < 0 ? -2 : 0;
+    P.fv = (P.fv || 0) + (speed - (P.fv || 0)) * Math.min(1, dt * 2.5);
+    P.pos.x += (-ys * cp * P.fv + Math.cos(P.yaw) * fx * 2.5) * dt;
+    P.pos.z += (-yc * cp * P.fv - Math.sin(P.yaw) * fx * 2.5) * dt;
+    P.pos.y += (sp * P.fv + (ctx.up ? 2 : 0) - (ctx.down ? 2 : 0)) * dt;
+    const floor = heightAt(P.pos.x, P.pos.z) + 0.3;
+    P.pos.y = Math.max(floor, Math.min(P.pos.y, lvl - 0.35));
+    roll = Math.sin(ctx.time * 6 * (0.3 + Math.abs(P.fv) / 8)) * 0.04;
+    out.speed = Math.abs(P.fv);
+    out.shallow = lvl - heightAt(P.pos.x, P.pos.z) < 0.6;
+  } else if (form === 'rain') {
+    // pioggia: cadi, il vento ti sposta un poco
+    P.pos.x += ctx.windDir.x * 3 * dt; P.pos.z += ctx.windDir.y * 3 * dt;
+    P.pos.y -= 32 * dt;
+    out.landed = P.pos.y < ground + 1.2;
+    out.speed = 32;
+  } else if (form === 'light') {
+    // il finale: ti alzi piano sopra l'acqua della sera
+    P.pos.x += -ys * 1.5 * dt; P.pos.z += -yc * 1.5 * dt;
+    P.pos.y += (lvl + 30 - P.pos.y) * Math.min(1, dt * 0.05);
+    out.speed = 2;
   } else if (form === 'wave') {
     // la cresta corre verso riva; tu sei la cresta
     P.ws = Math.min(9, (P.ws || 4) + dt * 1.5);
     const d = P.pos.z - shoreZ(P.pos.x);
     P.pos.z += P.ws * dt * (d < 0 ? 1 : 0);
-    P.pos.x += fx * 4 * dt;
+    P.pos.x += fx * 8 * dt;
+    if (ctx.target) P.pos.x += Math.sign(ctx.target.x - P.pos.x) * Math.min(Math.abs(ctx.target.x - P.pos.x), 7 * dt);
     const depth = lvl - heightAt(P.pos.x, P.pos.z);
     const lift = 0.6 + 0.8 * Math.max(0, 1 - Math.min(depth, 6) / 6);
     P.pos.y = lvl + lift + Math.sin(ctx.time * 1.7) * 0.05;

@@ -109,5 +109,27 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - Il percorso usa tutti i modi di muoversi: a piedi, sul pontile, sott'acqua con la maschera, in barchino o SUP fino alla barca a vela, in moto sulle colline, in deltaplano per scendere. Quando serve, un pensiero suggerisce come arrivarci.
 - Il diario (J) conserva ogni ricordo con il suo pensiero. Alla fine, alla bandiera, c'è qualcuno che ti aspetta.
 
+**Ogni ricordo ti cambia forma**
+Dopo il pensiero diventi la cosa giusta per raggiungere il ricordo successivo. Il viaggio va dai piedi alla luce:
+1. Il vasetto con la candela, a piedi → **sabbia**: il vento ti porta fino all'ombra della pergola.
+2. Il libro → **gatto**: leggero e veloce, salta alto, scansa l'acqua, fa le fusa quando è fermo. Va fino in fondo al pontile.
+3. I sandali → **pesce**: scivoli in acqua verso l'orologio sul fondo. Vedi nitido.
+4. L'orologio → **onda**: corri verso riva e pieghi verso la torretta.
+5. Il cappello → **gabbiano**: da lassù vedi la barca in secco.
+6. La lettera → di nuovo **corpo**, il passo lento, fino agli scogli.
+7. La lanterna: un mezzo degli uomini (barchino o SUP) fino alla barca a vela.
+8. La bottiglia → **nuvola**: sopra il cipresso scendi come **pioggia** (Q).
+9. Il binocolo → **deltaplano** verso la bandiera. Dopo l'incontro diventi **luce** e ti alzi sopra il mare della sera; poi resti libero di esplorare.
+- In alto al centro c'è una freccia lieve verso il prossimo ricordo, con la distanza e un puntino per ogni ricordo (pieni quelli trovati).
+- Da Fluire, ogni onda sollevata subito dopo l'altra è più grande.
+
+**Suoni delle forme**
+- Gabbiano: colpi d'ala e aria. Pesce e Fluire: acqua che scorre e bolle. Onda: un rombo che cresce. Sabbia: granelli che scorrono. Pioggia: fruscio e gocce. Albero: foglie e legno che scricchiola, il mondo sotto un po' attutito. Nuvola: tutto lontano e ovattato. Gatto: zampe quasi silenziose e fusa. Luce: un accordo lieve.
+- Passi diversi su sabbia asciutta, sabbia bagnata, legno, cemento, scoglio, erba e acqua.
+
+**Luce sott'acqua e ombre**
+- Più scendi, meno luce: il rosso sparisce per primo, i raggi dalla superficie si spengono in profondità, vicino alla superficie le caustiche tremano sul primo piano. Il pulviscolo marino galleggia attorno a te.
+- Le ombre seguono lo sguardo e si allargano quando voli (gabbiano, deltaplano, nuvola), così il paesaggio sotto ha sempre le sue ombre.
+
 ## Parametri di debug (URL)
-`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup|bike|boat|glide`, `&alto=1` per il cielo a pecorelle, `&flow&forms=gull,tree,sand,wave,cloud` per avere tutte le forme per partire in acqua, `&autostart` per saltare la schermata iniziale.
+`?t=0.75` per l'ora (0–1), `&x=..&z=..&yaw=..&pitch=..` per la posizione, `&freeze` per fermare il tempo, `&clouds=0.5` per fissare le nuvole, `&gear` per avere maschera e pinne, `&mode=swim|dive|sup|bike|boat|glide|flow`, `&alto=1` per il cielo a pecorelle, `&flow&forms=gull,tree,sand,wave,cloud` per avere tutte le forme per partire in acqua, `&autostart` per saltare la schermata iniziale.
