@@ -101,13 +101,22 @@ export class Minimap {
     if (S.figure) dot(S.figure.x, S.figure.z, 3.5, 'rgba(240,235,225,1)', 'rgba(0,0,0,0.6)');
 
     // frecce verso il prossimo passo della storia e verso la scoperta
-    const arrow = (z, col) => {
+    const arrow = (z, col, always = false) => {
       if (!z) return;
       const dx = (z.x - px) * scale, dy = (z.z - pz) * scale;
       const dist = Math.hypot(z.x - px, z.z - pz);
       const rr = Math.hypot(dx, dy);
       const lim = (this.big ? Math.min(W, H) / 2 : W / 2) - 14;
-      if (rr < lim - 4) return;
+      if (rr < lim - 4) {
+        // dentro la mappa: una freccia accanto a te che indica il ricordo
+        if (!always || rr < 22) return;
+        const a2 = Math.atan2(dy, dx), ax2 = cx + Math.cos(a2) * 20, ay2 = cy + Math.sin(a2) * 20;
+        c.save(); c.translate(ax2, ay2); c.rotate(a2);
+        c.beginPath(); c.moveTo(8, 0); c.lineTo(-4, -5); c.lineTo(-1, 0); c.lineTo(-4, 5); c.closePath();
+        c.fillStyle = col; c.fill(); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 1; c.stroke(); c.restore();
+        c.setLineDash([2, 4]); c.strokeStyle = col; c.globalAlpha = 0.5; c.beginPath(); c.moveTo(ax2, ay2); c.lineTo(cx + dx, cy + dy); c.stroke(); c.setLineDash([]); c.globalAlpha = 1;
+        return;
+      }
       const a = Math.atan2(dy, dx);
       const ax = cx + Math.cos(a) * lim, ay = cy + Math.sin(a) * lim;
       c.save(); c.translate(ax, ay); c.rotate(a);
@@ -117,7 +126,7 @@ export class Minimap {
       c.font = '9px system-ui, sans-serif'; c.fillStyle = col; c.textAlign = 'center';
       c.fillText(dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.round(dist) + ' m', cx + Math.cos(a) * (lim - 16), cy + Math.sin(a) * (lim - 16) + 3);
     };
-    arrow(S.zone, 'rgba(130,235,145,1)');
+    arrow(S.next || S.zone, 'rgba(130,235,145,1)', true);
     arrow(S.discZone, 'rgba(170,230,240,1)');
     // tu
     c.save(); c.translate(cx, cy); c.rotate(-S.yaw);

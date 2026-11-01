@@ -21,7 +21,7 @@ export class Motes {
         void main() {
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           vD = -mv.z; vS = seed;
-          gl_PointSize = max(1.0, uSize * (0.5 + seed) * uPx / max(vD, 0.3));
+          gl_PointSize = clamp(uSize * (0.5 + seed) * uPx / max(vD, 0.3), 1.0, uPx * 0.7 * uSize);
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */`

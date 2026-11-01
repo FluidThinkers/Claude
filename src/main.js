@@ -73,6 +73,13 @@ scene.add(hemi);
 const glowTex = glowTexture();
 const motes = new Motes(scene, glowTex);
 const island = buildIsland(scene);
+// colonna di luce sopra il prossimo ricordo: si vede da lontano, svanisce quando sei vicino
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 60, 16, 1, true), new THREE.ShaderMaterial({
+  uniforms: { uOp: { value: 0 }, uTime: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  vertexShader: 'varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }',
+  fragmentShader: 'uniform float uOp, uTime; varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(1.0 - abs(dot(normalize(vN.xz), normalize(vV.xz))), 0.5); float h = vUv.y; float a = (1.0 - rim) * pow(1.0 - h, 1.6) * smoothstep(0.0, 0.03, h) * (0.85 + 0.15 * sin(uTime * 2.0 - h * 20.0)); gl_FragColor = vec4(vec3(0.62, 1.0, 0.66) * a * uOp, 1.0); }',
+}));
+beam.frustumCulled = false; scene.add(beam);
 let isleQ = 0;
 const W = buildWorld(scene, glowTex);
 const places = buildPlaces(scene, glowTex, PLATFORM);
@@ -425,7 +432,7 @@ let hintKey = '';
 function updateHint() {
   const n = places.traces.length, key = places.found + '/' + active;
   if (key !== hintKey) { hintKey = key; hintDots.innerHTML = places.traces.map((t, i) => `<i class="${t.found ? 'f' : i === active ? 'n' : ''}"></i>`).join(''); }
-  const tgt = zone || (active < n ? places.traces[active].pos : null);
+  const tgt = active < n ? places.traces[active].pos : zone;
   if (!started || !tgt || sitting) { hintEl.classList.remove('on'); return; }
   hintEl.classList.add('on');
   const dx = tgt.x - player.pos.x, dz = tgt.z - player.pos.z, d = Math.hypot(dx, dz);
@@ -838,7 +845,7 @@ function frame() {
     eyeH = 0;
     player.formRoll = r.roll;
     if (r.timeScale && !todAnim && running) tod += dt * r.timeScale / CYCLE;
-    if (M === 'gull') { wings.userData.L.rotation.z = r.flap; wings.userData.R.rotation.z = -r.flap; sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.05) sound.gull(0, 3); }
+    if (M === 'gull') { wings.userData.L.rotation.z = r.flap; wings.userData.R.rotation.z = -r.flap; sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.03) sound.gull((Math.random() - 0.5) * 0.4, 7); }
     if (M === 'tree') sound.wind(Math.min(1, wind.strength.value + 0.3));
     if (M === 'fish' && r.shallow) { player.mode = 'walk'; player.pos.y = heightAt(player.pos.x, player.pos.z); showMsg('Il fondo sale, e torni sulla riva.', 3); }
     if (M === 'rain' && r.landed) {
@@ -1218,7 +1225,7 @@ function frame() {
       exposure: (player.pos.y > 25 || dS < -60) ? 1.4 : 1,
       form: FORMS.includes(player.mode) || player.mode === 'flow' ? player.mode : '', cat: player.cat && player.mode === 'walk',
       formSpeed: player.mode === 'flow' || player.mode === 'fish' ? Math.max(hs, player.fv || 0) : player.mode === 'wave' ? (player.ws || 0) : hs,
-      flapRate: player.mode === 'gull' ? (fz > 0 || upK ? 10 : 2.5) / (2 * Math.PI) : 0,
+      flapRate: player.mode === 'gull' ? (fz > 0 || upK ? 10 / (2 * Math.PI) : 0.12) : 0,
     });
   }
 
@@ -1233,10 +1240,18 @@ function frame() {
   }
 
   updateHint();
+  {
+    const t = places.traces[active];
+    let op = 0;
+    if (t && started) { const d = Math.hypot(t.pos.x - camera.position.x, t.pos.z - camera.position.z); op = THREE.MathUtils.smoothstep(d, 12, 45) * (0.5 + 0.5 * night) * 0.9; beam.position.set(t.pos.x, t.pos.y + 29.5, t.pos.z); beam.scale.setScalar(1 + d / 250); beam.scale.y = 1; }
+    beam.material.uniforms.uOp.value += (op - beam.material.uniforms.uOp.value) * Math.min(1, dt * 2);
+    beam.material.uniforms.uTime.value = elapsed; beam.visible = beam.material.uniforms.uOp.value > 0.01;
+  }
   motes.update(dt, elapsed, camera.position, under ? 'snow' : player.mode === 'rain' ? 'rain' : player.mode === 'light' ? 'light' : '', underDeep, wind.dir, renderer.domElement.height);
   // mappa
   minimap.draw({
     player: player.pos, yaw: player.yaw, foce: FOCE, island: ISLAND, bloom: island.bloom,
+    next: active < places.traces.length ? { x: places.traces[active].pos.x, z: places.traces[active].pos.z } : (zone && active >= places.traces.length ? zone : null),
     molo: [{ x: MOLO.x, z: MOLO.z0 + MOLO.from }, { x: MOLO.x, z: MOLO.z0 + MOLO.from - MOLO.n * MOLO.seg }],
     pontile: [{ x: PONTILE.x, z: PONTILE.z0 + PONTILE.from }, { x: PONTILE.x, z: PONTILE.z0 + PONTILE.to }],
     scogliera: [{ x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.from }, { x: SCOGLIERA.x, z: SCOGLIERA.z0 + SCOGLIERA.to }],

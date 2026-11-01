@@ -151,6 +151,16 @@ export class Sound {
     const f = s.form || '', v = s.formSpeed || 0;
     if (!this.fl) { if (!f && !s.cat) return; this._formLayers(); }
     const L = this.fl, set = (g, x, tc = 0.3) => g.gain.setTargetAtTime(x, t, tc);
+    // cambio forma: la voce della forma di prima si spegne subito
+    const key = f + (s.cat ? '+cat' : '');
+    if (key !== this.lastForm) {
+      if (this.lastForm !== undefined) {
+        for (const g of [L.flowG, L.crestG, L.foamG, L.grainG, L.rainG, L.purrG, L.padG, this.rushG, this.leafG]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 0.15); }
+        L.hiF.frequency.cancelScheduledValues(t); L.hiF.frequency.setValueAtTime(20000, t + 0.05);
+        this.flapT = 0;
+      }
+      this.lastForm = key;
+    }
     const wet = f === 'fish' || f === 'flow';
     set(L.flowG, wet ? 0.06 + Math.min(0.22, v * 0.025) : 0);
     L.flowF.frequency.setTargetAtTime(260 + v * 45, t, 0.3);
@@ -176,9 +186,10 @@ export class Sound {
   flap(vol = 1) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime, { bp, gain } = this.mk;
-    const s = this._src('pink'), f = bp(380, 0.8), g = gain(0);
-    f.frequency.setValueAtTime(260, t); f.frequency.exponentialRampToValueAtTime(900, t + 0.12); f.frequency.exponentialRampToValueAtTime(300, t + 0.3);
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.11 * vol, t + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+    // colpo verso il basso: aria spinta (sordo), poi il fruscio delle penne
+    const s = this._src('brown'), f = bp(180, 0.9), g = gain(0);
+    f.frequency.setValueAtTime(140, t); f.frequency.exponentialRampToValueAtTime(420, t + 0.09); f.frequency.exponentialRampToValueAtTime(160, t + 0.28);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.22 * vol, t + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
     s.connect(f); f.connect(g); g.connect(this.master); s.stop(t + 0.35);
     const s2 = this._src('white'), f2 = bp(4200, 1.2), g2 = gain(0);
     g2.gain.setValueAtTime(0.0001, t + 0.03); g2.gain.linearRampToValueAtTime(0.02 * vol, t + 0.07); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
@@ -350,30 +361,45 @@ export class Sound {
     }
   }
 
+  // gabbiano reale (gabbiano reale mediterraneo): un lungo «kiàu» nasale e roco, poi una serie di «ha-ha-ha»
   gull(pan = 0, dist = 30) {
     if (!this.ctx) return;
-    const ctx = this.ctx, { bp, lp, gain } = this.mk;
-    const vol = Math.min(0.1, 2.2 / (dist + 8));
-    if (vol < 0.008) return;
+    const ctx = this.ctx, { bp, lp, hp, gain } = this.mk;
+    const vol = Math.min(0.09, 2.0 / (dist + 8));
+    if (vol < 0.006) return;
     const p = this._pan(pan);
-    const air = lp(Math.max(1500, 9000 - dist * 60)); air.connect(p);
-    const n = 2 + (Math.random() * 3 | 0);
-    const base = 1150 + Math.random() * 400;
-    for (let i = 0; i < n; i++) {
-      const t = ctx.currentTime + i * (0.24 + Math.random() * 0.1);
-      const long = i === n - 1 && Math.random() < 0.5;
-      const len = long ? 0.45 : 0.24;
-      for (const [mul, a] of [[1, 1], [2.02, 0.35], [3.05, 0.12]]) {
-        const o = ctx.createOscillator(); o.type = 'triangle';
-        o.frequency.setValueAtTime(base * 1.15 * mul, t); o.frequency.linearRampToValueAtTime(base * mul, t + 0.05); o.frequency.exponentialRampToValueAtTime(base * 0.6 * mul, t + len);
-        const vib = ctx.createOscillator(); vib.frequency.value = 26 + Math.random() * 6; const vg = gain(14 * mul); vib.connect(vg); vg.connect(o.frequency);
-        const f = bp(1800, 1.6), g = gain(0);
-        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * a, t + 0.025); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-        o.connect(f); f.connect(g); g.connect(air);
-        o.start(t); vib.start(t); o.stop(t + len + 0.05); vib.stop(t + len + 0.05);
-      }
+    const air = lp(Math.max(1400, 10000 - dist * 70)); air.connect(p);
+    // corpo nasale: due formanti in parallelo
+    const bus = gain(1), f1 = bp(1500, 3.2), f2 = bp(2900, 4), f3 = hp(450), mix = gain(1);
+    bus.connect(f1); bus.connect(f2); bus.connect(f3); const g3 = gain(0.25); f3.connect(g3);
+    f1.connect(mix); f2.connect(mix); g3.connect(mix); mix.connect(air);
+    const f0 = 760 + Math.random() * 220;
+    const notes = [];
+    if (Math.random() < 0.6) notes.push({ len: 0.42 + Math.random() * 0.2, rise: 1.18, fall: 0.62, a: 1 });
+    const n = 2 + (Math.random() * 4 | 0);
+    for (let i = 0; i < n; i++) notes.push({ len: 0.11 + Math.random() * 0.04, rise: 1.08, fall: 0.85, a: 0.75 - i * 0.06 });
+    let t = ctx.currentTime + 0.02;
+    for (const N of notes) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth';
+      const fr = f0 * (0.97 + Math.random() * 0.06);
+      o.frequency.setValueAtTime(fr * 0.86, t);
+      o.frequency.linearRampToValueAtTime(fr * N.rise, t + N.len * 0.28);
+      o.frequency.exponentialRampToValueAtTime(fr * N.fall, t + N.len);
+      // raucedine: modulazione rapida d'ampiezza
+      const am = ctx.createOscillator(); am.frequency.value = 70 + Math.random() * 40;
+      const amg = gain(0.45), env = gain(0); am.connect(amg); amg.connect(env.gain);
+      env.gain.setValueAtTime(0.0001, t); env.gain.linearRampToValueAtTime(vol * N.a, t + 0.02);
+      env.gain.setValueAtTime(vol * N.a, t + N.len * 0.6); env.gain.exponentialRampToValueAtTime(0.0001, t + N.len);
+      o.connect(env); env.connect(bus);
+      // soffio nella voce
+      const ns = this._src('white'), nf = bp(2600, 1.5), ng = gain(0);
+      ng.gain.setValueAtTime(0.0001, t); ng.gain.linearRampToValueAtTime(vol * 0.25 * N.a, t + 0.02); ng.gain.exponentialRampToValueAtTime(0.0001, t + N.len);
+      ns.connect(nf); nf.connect(ng); ng.connect(air);
+      o.start(t); am.start(t); o.stop(t + N.len + 0.05); am.stop(t + N.len + 0.05); ns.stop(t + N.len + 0.05);
+      t += N.len + (N.len > 0.3 ? 0.12 : 0.06 + Math.random() * 0.04);
     }
   }
+
 
   // ---------------------------------------------------------------- motori
   _engine(cfg) {
