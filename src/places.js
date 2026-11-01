@@ -48,6 +48,60 @@ const woodTex = () => canvasTex(256, 256, (c, w, h) => {
   c.fillStyle = 'rgba(220,210,190,0.18)'; for (let k = 0; k < 60; k++) c.fillRect(rnd() * w, rnd() * h, rnd() * 30, 2);
 });
 
+// legno di pontile vecchio: argentato dal sale, venature lunghe, nodi, crepe, chiodi arrugginiti.
+// Disegna colore e rilievo insieme (stesso disegno, due canvas).
+function weatheredWood() {
+  const W = 1024, H = 128;
+  const col = document.createElement('canvas'), bmp = document.createElement('canvas');
+  col.width = bmp.width = W; col.height = bmp.height = H;
+  const c = col.getContext('2d'), b = bmp.getContext('2d');
+  const R = (() => { let s = 777; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
+  // fondo: grigio argento con sotto il bruno del legno
+  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#8d8579'); g.addColorStop(0.5, '#9a9184'); g.addColorStop(1, '#857c70');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  b.fillStyle = '#808080'; b.fillRect(0, 0, W, H);
+  // chiazze: dove il legno è ancora bruno, dove è sbiancato
+  for (let k = 0; k < 40; k++) { const x = R() * W, y = R() * H, rx = 40 + R() * 160, ry = 6 + R() * 30;
+    c.fillStyle = R() < 0.5 ? `rgba(120,92,62,${0.08 + R() * 0.12})` : `rgba(200,196,186,${0.06 + R() * 0.1})`;
+    c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 7); c.fill(); }
+  // nodi: venature che ci girano attorno
+  const knots = []; for (let k = 0; k < 3; k++) knots.push({ x: 120 + R() * (W - 240), y: 20 + R() * (H - 40), r: 5 + R() * 7 });
+  for (let l = 0; l < 70; l++) {
+    const y0 = (l + R() * 0.6) * H / 70, ph = R() * 6.28, amp = 0.6 + R() * 1.6, dark = 0.12 + R() * 0.25;
+    c.strokeStyle = `rgba(55,45,35,${dark})`; c.lineWidth = 0.6 + R() * 1.1;
+    b.strokeStyle = `rgba(30,30,30,${0.25 + dark})`; b.lineWidth = c.lineWidth;
+    c.beginPath(); b.beginPath();
+    for (let x = 0; x <= W; x += 8) {
+      let y = y0 + Math.sin(x * 0.006 + ph) * amp * 3 + Math.sin(x * 0.031 + ph * 2) * amp;
+      for (const K of knots) { const dx = x - K.x, dy = y - K.y, dd = Math.hypot(dx * 0.35, dy); if (dd < K.r * 4) y += Math.sign(dy || 1) * (K.r * 4 - dd) * 0.45 * Math.exp(-Math.abs(dx) / (K.r * 6)); }
+      x ? (c.lineTo(x, y), b.lineTo(x, y)) : (c.moveTo(x, y), b.moveTo(x, y));
+    }
+    c.stroke(); b.stroke();
+  }
+  for (const K of knots) {
+    for (let r = K.r; r > 1; r -= 1.6) { c.strokeStyle = `rgba(60,42,28,${0.25 + (K.r - r) / K.r * 0.4})`; c.lineWidth = 1; c.beginPath(); c.ellipse(K.x, K.y, r * 2.2, r, 0, 0, 7); c.stroke(); }
+    c.fillStyle = 'rgba(45,32,22,0.85)'; c.beginPath(); c.ellipse(K.x, K.y, K.r * 0.9, K.r * 0.45, 0, 0, 7); c.fill();
+    b.fillStyle = '#2a2a2a'; b.beginPath(); b.ellipse(K.x, K.y, K.r * 0.9, K.r * 0.45, 0, 0, 7); b.fill();
+  }
+  // crepe lungo la fibra
+  for (let k = 0; k < 14; k++) { const x = R() * W, y = R() * H, L = 40 + R() * 180;
+    c.strokeStyle = 'rgba(30,24,20,0.7)'; c.lineWidth = 1 + R(); b.strokeStyle = '#111'; b.lineWidth = c.lineWidth + 0.5;
+    c.beginPath(); b.beginPath(); c.moveTo(x, y); b.moveTo(x, y);
+    for (let t = 0; t < L; t += 10) { const yy = y + Math.sin(t * 0.05) * 1.5; c.lineTo(x + t, yy); b.lineTo(x + t, yy); }
+    c.stroke(); b.stroke(); }
+  // chiodi e ruggine alle estremità e al centro (sopra le travi)
+  for (const x of [22, W / 2, W - 22]) for (const y of [H * 0.3, H * 0.7]) {
+    const rg = c.createRadialGradient(x, y, 0, x, y, 14); rg.addColorStop(0, 'rgba(110,60,30,0.5)'); rg.addColorStop(1, 'rgba(110,60,30,0)');
+    c.fillStyle = rg; c.fillRect(x - 14, y - 14, 28, 28);
+    c.fillStyle = '#3a2a20'; c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill();
+    b.fillStyle = '#c0c0c0'; b.beginPath(); b.arc(x, y, 2.4, 0, 7); b.fill(); }
+  // bordi consumati
+  c.fillStyle = 'rgba(40,32,25,0.35)'; c.fillRect(0, 0, W, 2); c.fillRect(0, H - 2, W, 2);
+  b.fillStyle = '#404040'; b.fillRect(0, 0, W, 3); b.fillRect(0, H - 3, W, 3);
+  const mk = (cv, srgb) => { const t = new THREE.CanvasTexture(cv); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; };
+  return { map: mk(col, true), bump: mk(bmp, false) };
+}
+
 const cabinTex = (col) => canvasTex(128, 128, (c, w, h) => {
   c.fillStyle = '#ece8df'; c.fillRect(0, 0, w, h);
   c.fillStyle = col; for (let x = 0; x < w; x += 32) c.fillRect(x, 0, 16, h);
@@ -230,7 +284,12 @@ export function buildPlaces(scene, glowTex, platform) {
     const g = new THREE.Group();
     const n = Math.floor(len / 0.24);
     const plank = new THREE.BoxGeometry(p.half * 2, 0.05, 0.21);
-    const im = new THREE.InstancedMesh(plank, std(0xffffff, 0.85, 0, { map: wood }), n);
+    const ww = weatheredWood();
+    const plankM = std(0xffffff, 0.9, 0, { map: ww.map, bumpMap: ww.bump, bumpScale: 1.6 });
+    // ogni tavola prende un pezzo diverso della stessa venatura
+    plankM.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_INSTANCING\n  vec2 io = vec2(fract(float(gl_InstanceID) * 0.6180339), fract(float(gl_InstanceID) * 0.3819));\n  #ifdef USE_MAP\n  vMapUv += io;\n  #endif\n  #ifdef USE_BUMPMAP\n  vBumpMapUv += io;\n  #endif\n  #ifdef USE_ROUGHNESSMAP\n  vRoughnessMapUv += io;\n  #endif\n#endif'); };
+    for (const t of [ww.map, ww.bump]) t.repeat.set(0.5, 1);
+    const im = new THREE.InstancedMesh(plank, plankM, n);
     im.castShadow = im.receiveShadow = true;
     const dmy = new THREE.Object3D();
     const tones = new THREE.Color();
@@ -241,7 +300,7 @@ export function buildPlaces(scene, glowTex, platform) {
       dmy.position.set(0, y - 0.025, d);
       dmy.rotation.set(0, (rnd() - 0.5) * 0.015, (rnd() - 0.5) * 0.01);
       dmy.updateMatrix(); im.setMatrixAt(i, dmy.matrix);
-      const t = 0.82 + rnd() * 0.25; im.setColorAt(i, tones.setRGB(t, t * 0.96, t * 0.9));
+      const t = 0.8 + rnd() * 0.3, warm = rnd() * 0.08; im.setColorAt(i, tones.setRGB(t + warm, t * 0.97, t * (0.93 - warm)));
     }
     g.add(im);
     for (let d = 8; d >= p.to; d -= 3) {
@@ -536,7 +595,7 @@ export function updatePlaces(P, dt, time, ctx) {
       }
     }
     const shown = (t.found && (t.leaveT || 0) < 6) || active;
-    t.appear = Math.min(1, (t.appear || 0) + (shown ? dt * 0.6 : -dt));
+    t.appear = Math.max(0, Math.min(1, (t.appear || 0) + (shown ? dt * 1.5 : -dt)));
     t.g.visible = t.appear > 0.01;
     t.g.scale.setScalar((t.kind === 'watch' ? 2.2 : 1) * Math.max(0.01, t.appear) * (t.found ? Math.max(0.01, 1 - Math.max(0, (t.leaveT || 0) - 3) / 3) : 1));
     const d = tmp.copy(t.pos).sub(ctx.eye).length();
@@ -549,7 +608,8 @@ export function updatePlaces(P, dt, time, ctx) {
       t.sp.scale.setScalar(0.024 + 0.032 * tw);
       nd = d;
       const dh = Math.hypot(t.pos.x - ctx.eye.x, t.pos.z - ctx.eye.z), dv = Math.abs(t.pos.y - ctx.eye.y);
-      const close = ctx.reach > 2.7 ? (dh < ctx.reach && dv < 9) : d < 2.7;
+      // basta passarci sopra: distanza in orizzontale, con tolleranza in altezza che dipende dalla forma
+      const close = dh < ctx.reach && dv < (ctx.vtol || 3.5);
       if (close && t.appear > 0.5 && !ctx.locked && (!ctx.allow || ctx.allow(t))) { t.found = true; t.sp.material.opacity = 0; P.found++; ctx.onFind(t); }
     } else t.sp.material.opacity = 0;
     if (t.flame) {

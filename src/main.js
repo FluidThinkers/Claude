@@ -355,6 +355,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'KeyT') advancePhase();
+  if (e.code === 'KeyV') { voiceOn = !voiceOn; if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel(); showMsg(voiceOn ? 'Voce accesa.' : 'Voce spenta.', 2); }
   if (e.code === 'KeyM') sound.toggle();
   if (e.code === 'KeyJ') journal.toggle();
   if (e.code === 'KeyN') minimap.toggle();
@@ -375,6 +376,8 @@ addEventListener('mousemove', (e) => {
 const overlay = document.getElementById('start');
 if (MOBILE) { overlay.querySelector('.cta').textContent = 'Tocca per entrare'; overlay.querySelector('.keys').innerHTML = 'Sinistra: muoviti · Destra: guarda<br>SU / GIÙ: salta, risali, immergiti · AZIONE · ORA · DIARIO<br>Ritrova i ricordi: ognuno ti porterà al prossimo.'; }
 function begin() {
+  // sblocca la voce (iPhone la permette solo dopo un tocco)
+  if (window.speechSynthesis) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
   sound.start();
   started = running = true;
   overlay.classList.add('hidden');
@@ -729,9 +732,24 @@ function onMeet() {
 // la forma che un ricordo ti fa prendere, per arrivare al successivo
 // la trasformazione: annunciata, lenta, e spiegata
 const BECOME = { gull: 'un gabbiano', sand: 'sabbia', fish: 'un pesce', wave: 'un\'onda', cloud: 'una nuvola', cat: 'un gatto', body: 'di nuovo umano', glide: 'leggero, come chi vola' };
+// voce narrante: legge la trasformazione (V la spegne o la riaccende)
+let voiceOn = true, voiceIt = null;
+function pickVoice() { if (!window.speechSynthesis) return; const v = speechSynthesis.getVoices(); voiceIt = v.find((x) => /it[-_]IT/i.test(x.lang) && /Alice|Federica|Paola|Luca|Google/i.test(x.name)) || v.find((x) => /^it/i.test(x.lang)) || null; }
+if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function say(text, delay = 0) {
+  if (!voiceOn || !window.speechSynthesis || !text) return;
+  setTimeout(() => {
+    const u = new SpeechSynthesisUtterance(text.replace(/\([^)]*\)/g, ''));
+    u.lang = 'it-IT'; if (voiceIt) u.voice = voiceIt; u.rate = 0.9; u.pitch = 0.95; u.volume = 0.9;
+    speechSynthesis.speak(u);
+  }, delay);
+}
 function storyForm(form, text, why) {
   msgEl.classList.remove('thought');
   showMsg('Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '…', 3.6);
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  say('Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '.');
+  say(text, 3800); say(why, 9400);
   fadeTarget = 0.8; post.uniforms.uFadeCol.value.setRGB(1, 0.96, 0.9);
   sound.chord(); illum = Math.max(illum, 0.6);
   setTimeout(() => { applyForm(form); fadeTarget = 0; if (text) showMsg(text, 5.5); }, 3600);
@@ -1327,8 +1345,9 @@ function frame() {
   });
   updateWisp(dt);
   illum = Math.max(0, illum - dt * 0.25);
-  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind, windDir: wind.dir, locked: false, allow: (t) => (FRAGMENTS[t.i].act || 'pick') === 'pick',
-    reach: ['gull', 'cloud', 'rain', 'wave'].includes(player.mode) ? 7 : FORMS.includes(player.mode) || player.mode === 'flow' ? 4 : 2.7 });
+  updatePlaces(places, dt, elapsed, { active, wind: windK, night, player: player.pos, eye: camera.position, tod: todN, underwater: under, onFind, windDir: wind.dir, locked: false, allow: () => true,
+    reach: ['gull', 'cloud', 'rain', 'wave', 'glide'].includes(player.mode) ? 9 : FORMS.includes(player.mode) || player.mode === 'flow' ? 5 : 3.2,
+    vtol: player.mode === 'cloud' ? 400 : ['gull', 'rain', 'glide'].includes(player.mode) ? 14 : ['fish', 'flow', 'wave', 'dive', 'swim'].includes(player.mode) ? 10 : 3.5 });
   updateSkyline(skyline, camera.position, pal, sunDir, U.uSunVis.value);
 
   {
@@ -1375,7 +1394,6 @@ function frame() {
     beam.material.uniforms.uTime.value = elapsed; beam.visible = beam.material.uniforms.uOp.value > 0.01;
   }
   burst.update(dt, wind.dir);
-  if (running) checkAct(jump, downK);
   {
     const pi = fpath.update(dt, elapsed, player.mode === 'walk' || player.mode === 'swim' ? player.pos : camera.position, true);
     if (pi >= 0) {
@@ -1474,4 +1492,4 @@ if (Q.get('mode') === 'boat') { craft.boat.g.position.set(player.pos.x, 0.1, pla
 if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(player.pos.x, player.pos.z, 99), player.pos.z); bike.g.rotation.y = player.yaw; player.mode = 'walk'; action(); }
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
-window.__riva = { get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { camera, get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
