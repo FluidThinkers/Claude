@@ -1,1 +1,11 @@
-{}
+{
+ "apertura": "apertura.mp3",
+ "ricordo": "ricordo.mp3",
+ "trasformazione": "trasformazione.mp3",
+ "viaggio_aria": "viaggio_aria.mp3",
+ "viaggio_mare": "viaggio_mare.mp3",
+ "viaggio_terra": "viaggio_terra.mp3",
+ "notte": "notte.mp3",
+ "tempesta": "tempesta.mp3",
+ "finale": "finale.mp3"
+}
