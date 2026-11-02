@@ -10,7 +10,7 @@ const N = {
 const RAW = [
   [0.0, N],
   [0.215, { zen: 0x10121e, mid: 0x3a2a34, hor: 0x8a4a3a, sea: 0x1e1a20, sun: 0xff7040, sunI: 0.3, hs: 0x4a5078, hg: 0x2a2224, hI: 0.7, fog: 0.0016, exp: 1.25, grade: [1.0, 0.95, 1.05], label: 'Prima luce' }],
-  [0.27, { zen: 0x2a2836, mid: 0x8a4a3e, hor: 0xff7434, sea: 0x2a262c, sun: 0xff5a24, sunI: 2.2, hs: 0x6a5a68, hg: 0x3a2a24, hI: 0.75, fog: 0.0008, exp: 1.0, grade: [1.08, 0.93, 0.88], label: 'Alba' }],
+  [0.27, { zen: 0x262a3e, mid: 0x7a4e4e, hor: 0xf08446, sea: 0x2a262c, sun: 0xff7a3c, sunI: 1.6, hs: 0x5a6078, hg: 0x2a2424, hI: 0.7, fog: 0.0008, exp: 1.0, grade: [1.03, 0.97, 0.97], label: 'Alba' }],
   [0.305, { zen: 0x5a6276, mid: 0xb08458, hor: 0xf0a456, sea: 0x5e5446, sun: 0xffb060, sunI: 2.6, hs: 0x9a9aa8, hg: 0x7a6248, hI: 0.85, fog: 0.0012, exp: 1.0, grade: [1.08, 0.98, 0.88], label: 'Alba' }],
   [0.35, { zen: 0x1c46a8, mid: 0x3f78d0, hor: 0xb6d2f2, sea: 0x4f74a6, sun: 0xfff2de, sunI: 3.2, hs: 0x9cc0f2, hg: 0xa88a68, hI: 1.0, fog: 0.0007, exp: 1.0, grade: [0.98, 1.0, 1.04], label: 'Mattino' }],
   [0.5, { zen: 0x1a44aa, mid: 0x4682d8, hor: 0xc4dcf6, sea: 0x5f86ba, sun: 0xffffff, sunI: 3.4, hs: 0xa6c6f2, hg: 0xb09270, hI: 1.05, fog: 0.0007, exp: 1.0, grade: [1.0, 1.0, 1.02], label: 'Mezzogiorno' }],

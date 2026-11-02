@@ -1110,10 +1110,12 @@ function frame() {
         : v < 0.5 ? { hor: 0xf0b45a, mid: 0xa08060, sun: 0xffc070 }             // oro velato
         : v < 0.75 ? { hor: 0xff8a8a, mid: 0x7a5a86, sun: 0xff9a70 }            // rosa e viola
         : { hor: 0xff7a2a, mid: 0x3a2a2c, sun: 0xff6a2a };                       // ambra sotto nubi scure
-      const k = low * 0.9;
+      const k = low * 0.55;
       pal.hor.lerp(tmpC.set(V.hor), k); pal.mid.lerp(tmpC.set(V.mid), k * 0.9); pal.sun.lerp(tmpC.set(V.sun), k);
       if (v >= 0.5 && v < 0.75) pal.zen.lerp(tmpC.set(0x3a3a6a), k * 0.7); else if (v >= 0.25 && v < 0.5) pal.zen.lerp(tmpC.set(0x6a7890), k * 0.6);
       pal.fog *= 1 - 0.45 * low; // aria limpida: il colore sta nel cielo, non nella foschia
+      // con il sole basso la terra è in ombra: luce ambiente fredda e scura, il colore caldo resta in cielo
+      pal.hs.lerp(tmpC.setRGB(0.32, 0.36, 0.48), low * 0.7); pal.hg.lerp(tmpC.setRGB(0.12, 0.1, 0.1), low * 0.7); pal.hI *= 1 - 0.35 * low;
       dayLook = v;
     }
   }
@@ -1720,6 +1722,9 @@ function frame() {
   // da molto in alto l'aria è più limpida: si vede il mondo sotto
   const altFog = 1 / (1 + Math.max(0, camera.position.y - 25) / 70);
   sun.color.copy(pal.sun); sun.intensity = pal.sunI * (1 - alto * 0.55) * (1 - 0.45 * wx.dark * (1 - night * 0.7));
+  { const tn = ((tod % 1) + 1) % 1, lowL = Math.max(Math.exp(-(((tn - 0.27) / 0.045) ** 2)), Math.exp(-(((tn - 0.755) / 0.045) ** 2)));
+    // radente e attraverso tanta aria: la luce sulla terra è calda ma tenue, non rossa piena
+    sun.color.lerp(tmpC.setRGB(1.0, 0.72, 0.52), lowL * 0.6); sun.intensity *= 1 - 0.45 * lowL; }
   // ogni tanto il sole passa dietro una nuvola: la luce cala e torna, e quando esce i raggi si accendono
   {
     const cov = U.uCloud.value;
@@ -1771,7 +1776,9 @@ function frame() {
     scene.environment = envRT.texture;
     if (old) old.dispose();
   }
-  scene.environmentIntensity = under ? 0.15 : 0.35 + 0.4 * (1 - night);
+  { const tn = ((tod % 1) + 1) % 1, lowE = Math.max(Math.exp(-(((tn - 0.27) / 0.05) ** 2)), Math.exp(-(((tn - 0.755) / 0.05) ** 2)));
+    // col sole basso il cielo è rosso ma la luce che arriva alla terra è poca: il riflesso del cielo non deve tingere tutto
+    scene.environmentIntensity = under ? 0.15 : (0.35 + 0.4 * (1 - night)) * (1 - 0.7 * lowE); }
   hemi.intensity = pal.hI * 0.7;
   // tempesta di notte: la luna dietro le nuvole dà il minimo per leggere le sagome di onde, riva e colline
   if (night > 0.3 && wx.dark > 0.05) {

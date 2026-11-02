@@ -120,7 +120,9 @@ function windMat(opts, wind, amp, translucent = 0.25) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.85, side: THREE.DoubleSide, alphaTest: 0.45, ...opts });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = wind.time; sh.uniforms.uWind = wind.strength; sh.uniforms.uWDir = { value: wind.dir };
-    sh.vertexShader = 'uniform float uTime; uniform float uWind; uniform vec2 uWDir;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    sh.vertexShader = 'uniform float uTime; uniform float uWind; uniform vec2 uWDir; varying float vAO; varying float vHue;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vAO = clamp(position.y * 0.9 + 0.55 + length(position.xz) * 0.25, 0.0, 1.0);
+      vHue = fract(sin(dot(instanceMatrix[3].xz, vec2(12.9898, 78.233))) * 43758.5453);
       vec4 ipw = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
       vec2 wd = normalize(uWDir + vec2(1e-4));
       // raffiche che corrono sul prato nella direzione del vento
@@ -137,7 +139,9 @@ function windMat(opts, wind, amp, translucent = 0.25) {
       transformed.z += wl.z * bend;
       transformed.y -= bend * bend * 0.35;`);
     // un po' di luce che attraversa le foglie
-    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+    sh.fragmentShader = 'varying float vAO; varying float vHue;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      // dentro la chioma è più scuro; ogni pianta ha il suo verde
+      diffuseColor.rgb *= (0.45 + 0.55 * vAO) * mix(vec3(0.92, 0.98, 0.9), vec3(1.08, 1.02, 0.86), vHue);`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       totalEmissiveRadiance += diffuseColor.rgb * ${translucent.toFixed(2)} * 0.35;`);
   };
   return m;

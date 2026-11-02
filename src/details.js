@@ -284,6 +284,9 @@ function ridgeLayer(R, a0, a1, cols, heightFn, depth) {
         c += uSunCol * smoothstep(0.92, 1.0, t) * 0.06 * uSunVis * near;
         // la sera e la notte: le montagne diventano sagome scure, quasi nere
         c *= 1.0 - 0.55 * smoothstep(0.0, 1.0, 1.0 - uSunVis) * (1.0 - uDepth * 0.4);
+        // sole basso: le catene sono controluce o in ombra, sagome scure e fredde
+        float lowS = 1.0 - smoothstep(0.05, 0.35, uSunDir.y);
+        c = mix(c, c * vec3(0.55, 0.58, 0.7), lowS * (1.0 - uDepth * 0.5));
         // più scure e morbide: lontano si legge la massa, non il dettaglio
         c = mix(c, vec3(dot(c, vec3(0.3, 0.5, 0.2))) * vec3(0.92, 0.96, 1.05), 0.35) * 0.82;
         // sempre più scure dell'orizzonte dietro: anche col sole basso e la foschia del mattino restano sagome

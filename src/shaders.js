@@ -604,6 +604,21 @@ export function enhanceSand(material) {
         diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.2, 0.31, 0.11), vec3(0.42, 0.47, 0.2), gn) * (0.75 + 0.4 * vn(vWPos.xz * 2.3)), im * uBloom * 0.9 * (1.0 - dry * 0.7));
       }
       // la sabbia bagnata segue la risacca: dove l'onda è appena arrivata è scura e lucida, poi asciuga
+      // sabbia vera: colore che cambia a più scale (zone più chiare e più scure, sabbia fine e grossa,
+      // granelli scuri e conchiglie sminuzzate), e si spegne con la distanza invece di ripetersi
+      {
+        float dcs = length(vWPos - cameraPosition);
+        vec2 sp = vWPos.xz;
+        float big = vn(sp * 0.03) * 0.6 + vn(sp * 0.09 + 3.0) * 0.4;
+        float mid = vn(sp * 0.45 + 7.0);
+        float gr = h21(floor(sp * 140.0)), gr2 = h21(floor(sp * 60.0) + 11.0);
+        float near = 1.0 - smoothstep(4.0, 22.0, dcs);
+        vec3 tint = mix(vec3(0.94, 0.9, 0.84), vec3(1.05, 1.0, 0.92), big);
+        tint *= 0.93 + 0.14 * mid;
+        diffuseColor.rgb *= tint;
+        diffuseColor.rgb *= 1.0 - near * (step(0.93, gr) * 0.35 + step(0.97, gr2) * 0.25);   // granelli scuri
+        diffuseColor.rgb += near * step(0.985, h21(floor(sp * 90.0) + 5.0)) * vec3(0.25, 0.22, 0.18); // frammenti di conchiglia
+      }
       float swWet = 0.0;
       {
         float dS0 = vWPos.z - shoreZ(vWPos.x);
