@@ -64,11 +64,18 @@ export function buildCraft(scene) {
       g.add(tube(pts, 0.008, steel, 40));
     }
     // tuga con oblò
-    const cab = new THREE.Mesh(rbox(3.8, 0.55, 2.3, 0.22), mat.paint(0xf6f4ee, 0.25)); cab.position.set(-0.6, 1.47, 0); g.add(cab);
-    for (const sd of [1, -1]) for (const x of [-1.6, -0.6, 0.4]) { const w = new THREE.Mesh(rbox(0.5, 0.14, 0.02, 0.06), mat.dark(0.1)); w.position.set(x, 1.5, sd * 1.16); g.add(w); }
+    const cab = new THREE.Mesh(rbox(3.4, 0.26, 2.0, 0.12), teak); cab.position.set(-0.6, 1.3, 0); g.add(cab);
+    for (const sd of [1, -1]) for (const x of [-1.6, -0.6, 0.4]) { const w = new THREE.Mesh(rbox(0.45, 0.1, 0.02, 0.04), mat.dark(0.1)); w.position.set(x, 1.32, sd * 1.01); g.add(w); }
     // pozzetto
     const pit = new THREE.Mesh(rbox(2.4, 0.3, 2.0, 0.12), teak); pit.position.set(3.4, 1.05, 0); g.add(pit);
-    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.02, 8, 32), steel); wheel.position.set(4.6, 1.75, 0); wheel.rotation.y = Math.PI / 2; g.add(wheel);
+    const wheelG = new THREE.Group(); wheelG.position.set(4.3, 1.55, 0); wheelG.rotation.y = Math.PI / 2; g.add(wheelG);
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.025, 8, 32), steel); wheelG.add(wheel);
+    for (let k = 0; k < 6; k++) { const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.84, 6), steel); sp.rotation.z = k * Math.PI / 6; wheelG.add(sp); }
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mat.paint(0xc8322a, 0.4)); knob.position.set(0, 0.44, 0); wheelG.add(knob);
+    // bandierina segnavento su un'asta a poppa, ben visibile da chi timona
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.6, 8), steel); staff.position.set(5.6, 2.0, 0.9); g.add(staff);
+    const flagG = new THREE.Group(); flagG.position.set(5.6, 2.75, 0.9); g.add(flagG);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.22, 6, 2), new THREE.MeshBasicMaterial({ color: 0xd8342a, side: THREE.DoubleSide })); flag.geometry.translate(0.225, 0, 0); flagG.add(flag);
     // chiglia e timone
     const keel = new THREE.Mesh(rbox(1.2, 1.6, 0.16, 0.07), mat.paint(0x1b2e47, 0.4)); keel.position.set(-0.4, -1.4, 0); g.add(keel);
     const bulb = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 1.2, 6, 12), mat.paint(0x1b2e47, 0.4)); bulb.rotation.z = Math.PI / 2; bulb.position.set(-0.4, -2.2, 0); g.add(bulb);
@@ -123,7 +130,7 @@ export function buildCraft(scene) {
       const plate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.03), steel); plate.position.copy(cp); g.add(plate);
     }
     jibG.position.set(tack.x, 0, 0);
-    var rig = { boomG, jibG, main, jib, ribbons };
+    var rig = { boomG, jibG, main, jib, ribbons, wheelG, flagG, flag };
     shadowAll(g); scene.add(g);
     C.ships.push({ name: 'Barca a vela', g, kind: 'sail', speed: 1.4, s: 0, anchored: false, rig,
       deck: { hx: 5.2, hz: 1.45, y: 1.18 }, blocks: [{ x: -0.6, z: 0, hx: 1.9, hz: 1.15, top: 1.75 }],

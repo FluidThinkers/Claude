@@ -157,6 +157,9 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 - **Gabbiano e gru**: ti posi sul braccio della gru e ci cammini sopra fino al cappello, in cima. Quando diventi pesce, prima ti tuffi in mare dal braccio e solo sott'acqua cambi forma.
 - **Pesce**: segui il banco a lungo, in una deviazione, prima che ti porti al relitto.
 - **Voce narrante**: ricordo, pensiero, trasformazione e motivo si susseguono quando la voce ha finito la frase precedente. Le registrazioni vere vanno in `audio/voce/` (testi e nomi dei file in `TESTI-VOCE.md`).
+- **Strada di luce**: il sole e la luna si specchiano sul mare in una striscia fatta di mille scintille che arriva fino a chi guarda, più larga col mare mosso.
+- **Vento sul mare**: col vento le creste si imbiancano a sfumature, con strisce di schiuma sottovento; col vento forte o la tempesta il vento strappa lo spruzzo dalle creste.
+- **Barca**: timone a ruota che gira con la barra, bandierina rossa a poppa che mostra il vento, spruzzi a prua, coperta in teak senza ingombri sotto la vela.
 - **Ricomincia**: il pulsante in basso al centro (e nel diario) riparte da capo.
 - **Cielo di notte**: migliaia di stelle di luminosità e colore diversi (bianco-azzurre, gialle, arancio), che scintillano vicino all'orizzonte, e la Via Lattea con le sue corsie scure.
 - **Erba**: le raffiche corrono sul prato nella direzione del vento; ogni filo si piega curvo e trema per conto suo.

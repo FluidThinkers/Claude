@@ -466,6 +466,24 @@ export function makeWater() {
         float nh = max(dot(N, H), 0.0);
         float spec = (pow(nh, mix(500.0, 30000.0, mir)) * 8.0 + pow(nh, 60.0) * 0.12 * (1.0 - mir)) * cs;
         spec += pow(nh, 4000.0) * 30.0 * (1.0 - uNight) * mir * cs;
+        // la strada di luce: il sole (o la luna) si specchia in mille scintille che arrivano fino a chi guarda.
+        // La striscia nasce da tante faccette d'onda orientate giuste, non da una macchia liscia
+        {
+          vec3 Lg = uSunVis > 0.05 ? uLightDir : uMoonDir;
+          float lk = uSunVis > 0.05 ? uSunVis : uNight * step(0.0, uMoonDir.y) * 0.6;
+          vec3 lc = uSunVis > 0.05 ? uLightCol : vec3(0.75, 0.82, 1.0) * 0.6;
+          vec3 Rg = reflect(-V, N);
+          float rough = 0.25 + 0.5 * uWindK;
+          float path = pow(max(dot(Rg, Lg), 0.0), mix(160.0, 18.0, rough));          // quanto è larga la strada
+          vec3 nf = texture2D(uNormalMap, p * 0.42 + uTime * vec2(0.03, -0.02)).xyz * 2.0 - 1.0;
+          vec3 nf2 = texture2D(uNormalMap, p * 0.17 * mat2(0.6, -0.8, 0.8, 0.6) - uTime * vec2(0.02, 0.025)).xyz * 2.0 - 1.0;
+          vec3 Nf = normalize(N + vec3(nf.x + nf2.x, 0.0, nf.y + nf2.y) * (0.35 + 0.5 * rough));
+          float glint = pow(max(dot(reflect(-V, Nf), Lg), 0.0), 900.0);                // le singole scintille
+          float shimmer = 0.6 + 0.4 * sin(uTime * 7.0 + vn(p * 3.0) * 30.0);
+          vec3 road = lc * (path * 0.35 + glint * 22.0 * shimmer * smoothstep(0.0, 0.25, path * 4.0)) * lk * cs;
+          col += road * (1.0 - smoothstep(600.0, 2600.0, dist) * 0.5);
+          alpha = max(alpha, min(1.0, glint * lk * 6.0));
+        }
         col += uLightCol * spec;
         alpha = max(alpha, min(spec, 1.0));
         // riflesso del lampione
@@ -512,8 +530,15 @@ export function makeWater() {
         {
           float wk = smoothstep(0.35, 1.0, uWindK) * (1.0 + 0.6 * uStorm);
           float wc = vn(p * 0.35 + uWindDir * uTime * 1.2) * 0.55 + vn(p * 1.3 - uWindDir * uTime * 0.6) * 0.45;
-          float caps = smoothstep(0.78 - 0.22 * wk, 0.92, wc) * wk * (1.0 - smoothstep(150.0, 600.0, dist)) * smoothstep(-2.0, -8.0, d);
-          foam = max(foam, caps * (0.6 + 0.4 * brkUp));
+          // cavalloni: la cresta si rompe in una macchia bianca che si allunga sottovento e lascia strisce di schiuma
+          vec2 wdir = normalize(uWindDir + vec2(1e-4));
+          vec2 wp = vec2(dot(p, wdir), dot(p, vec2(-wdir.y, wdir.x)));
+          float crestN = vn(vec2(wp.x * 0.09 - uTime * 0.9, wp.y * 0.22)) * 0.6 + vn(vec2(wp.x * 0.3 - uTime * 1.6, wp.y * 0.6)) * 0.4;
+          float cn = wc * 0.5 + crestN * 0.5;
+          float caps = smoothstep(0.62 - 0.06 * min(wk, 1.2), 0.82, cn) * min(wk, 1.0) * (1.0 - smoothstep(200.0, 900.0, dist)) * smoothstep(-2.0, -8.0, d);
+          float streaks = smoothstep(0.72, 0.95, vn(vec2(wp.x * 0.02 - uTime * 0.25, wp.y * 0.9))) * min(wk, 1.0) * 0.22 * smoothstep(-2.0, -8.0, d);
+          // un velo sopra il mare, morbido: le creste si imbiancano a sfumature, non a macchie piene
+          foam = max(foam, (caps * (0.35 + 0.2 * brkUp) + streaks * (0.2 + 0.3 * lace)) * 0.7);
         }
         foam = clamp(foam, 0.0, 1.0);
         // l'onda che si alza diventa verde-azzurra e traslucida contro la luce

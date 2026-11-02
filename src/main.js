@@ -128,6 +128,7 @@ const bike = buildBike(scene);
 const tracks = new TireTracks(scene);
 const spray = new SandSpray(scene);
 const waterSpray = new SandSpray(scene, 0xeef6f8, 0.06); waterSpray.floorY = 0;
+const crestSpray = new SandSpray(scene, 0xf2f6f8, 0.32); crestSpray.floorY = 0; crestSpray.n = crestSpray.n;
 let drops = 0;
 document.getElementById('zin').addEventListener('click', () => minimap.setZoom(minimap.zoom * 1.4));
 document.getElementById('zout').addEventListener('click', () => minimap.setZoom(minimap.zoom / 1.4));
@@ -1332,8 +1333,8 @@ function frame() {
     sailState.luff += ((awa < 0.62 || err > 0.14 ? 1 : 0) - sailState.luff) * Math.min(1, dt * 3);
     sailState.fill = drive * Math.min(1, ws / 6);
     const polar = awa < 0.62 ? 0 : awa < 1.1 ? 0.55 + (awa - 0.62) / 0.48 * 0.4 : awa < 2.3 ? 1 : 1 - (awa - 2.3) * 0.25;
-    const target = ws * (0.95 + 0.3 * storm) * polar * drive;
-    sailState.v += (target - sailState.v) * Math.min(1, dt * 0.3);
+    const target = ws * (1.35 + 0.35 * storm) * polar * drive;
+    sailState.v += (target - sailState.v) * Math.min(1, dt * (target > sailState.v ? 0.55 : 0.35));
     // il timone morde di più quando la barca ha abbrivio
     sailState.rud = (sailState.rud || 0) + (fx - (sailState.rud || 0)) * Math.min(1, dt * 4);
     sailState.yaw -= sailState.rud * (0.3 + 0.06 * Math.min(sailState.v, 8)) * dt;
@@ -1363,6 +1364,8 @@ function frame() {
       R.jibG.quaternion.setFromAxisAngle(ax, sd * (sailState.boom * 0.75 + fl));
       R.jib.scale.z = -(sd >= 0 ? 1 : -1) * (0.15 + 0.95 * (sailState.fill || 0) + fl * 2);
       const loc = Math.atan2(awz, awx) + S.g.rotation.y; // direzione del vento apparente nel riferimento della barca
+      if (R.wheelG) R.wheelG.rotation.x = -(sailState.rud || 0) * 1.6;
+      if (R.flagG) { R.flagG.rotation.y = -loc; const fa = R.flag.geometry.attributes.position; if (!R.flag.userData.b) R.flag.userData.b = fa.array.slice(); const b0 = R.flag.userData.b; for (let k = 0; k < fa.count; k++) { const x = b0[k * 3]; fa.setZ(k, Math.sin(x * 14 - elapsed * (9 + 12 * wind.strength.value)) * 0.05 * x * 2); fa.setY(k, b0[k * 3 + 1] - x * 0.25 * (1 - wind.strength.value)); } fa.needsUpdate = true; }
       for (const rb of R.ribbons) {
         rb.rotation.set(0, -loc, 0);
         const pa = rb.geometry.attributes.position, b0 = rb.userData.base;
@@ -1378,6 +1381,8 @@ function frame() {
     player.boatRoll = heel;
     eyeH = 1.6;
     if (sailState.v > 1.5 && Math.random() < dt * 3) spawnRipple(W, S.g.position.x, S.g.position.z, night > 0.5);
+    // a prua l'acqua si apre in spruzzi, di più con la velocità e il mare formato
+    if (sailState.v > 2.5 && Math.random() < dt * (2 + sailState.v * 0.8)) { const bx = S.g.position.x + hx * 5.8, bz = S.g.position.z + hz * 5.8; crestSpray.burst(new THREE.Vector3(bx + (Math.random() - 0.5) * 1.2, lvl + swellAt(bx, bz, elapsed) + 0.2, bz), 6 + (sailState.v * 1.5 | 0), 1 + sailState.v * 0.18 + waterUniforms.uWindK.value); }
     { const T = waterUniforms.uTrail.value; if (sailState.v > 1 && Math.random() < dt * 4) T[trailI++ % T.length].set(S.g.position.x - hx * 5, S.g.position.z - hz * 5, elapsed, 0.6); }
     // pioggia sulla coperta
     if (wx.rain > 0.5 && Math.random() < dt * 25) waterSpray.burst(new THREE.Vector3(S.g.position.x + (Math.random() - 0.5) * 6, S.g.position.y + 1.3, S.g.position.z + (Math.random() - 0.5) * 2.5), 2, 0.6);
@@ -1756,7 +1761,7 @@ function frame() {
   }
   drops = 0;
   wings.visible = false; // niente ali in prima persona: solo l'ombra sul mare e sulla terra
-  waterSpray.update(dt);
+  waterSpray.update(dt); crestSpray.update(dt);
   document.getElementById('bodyBtn').classList.add('hidden');
 
   waterUniforms.uCam.value.copy(camera.position);
@@ -1872,14 +1877,14 @@ function frame() {
   }
   if ((pileTick = (pileTick + 1) % 4) === 0) updatePiles();
   // tempesta: le creste si rompono e il vento ne strappa lo spruzzo
-  if (waterUniforms.uStorm.value > 0.3 && !under) {
-    const st = waterUniforms.uStorm.value;
+  if ((waterUniforms.uStorm.value > 0.3 || waterUniforms.uWindK.value > 0.6) && !under) {
+    const st = Math.max(waterUniforms.uStorm.value, (waterUniforms.uWindK.value - 0.5) * 1.6);
     for (let k = 0; k < 3; k++) {
       const a = Math.random() * 6.28, r = 8 + Math.random() * 45;
       const x = camera.position.x + Math.cos(a) * r, z = camera.position.z + Math.sin(a) * r;
       if (heightAt(x, z) > waterUniforms.uLevel.value - 1.5) continue;
       const h = swellAt(x, z, elapsed), hb = swellAt(x - wind.dir.x * 2, z - wind.dir.y * 2, elapsed);
-      if (h > 0.9 * st && h > hb && Math.random() < st * 0.6) waterSpray.burst(new THREE.Vector3(x, waterUniforms.uLevel.value + h, z), 18, 1.8 + st * 1.5);
+      if (h > 0.5 * st && h > hb && Math.random() < st * 0.7) { crestSpray.burst(new THREE.Vector3(x, waterUniforms.uLevel.value + h + 0.2, z), 22, 2.2 + st * 2.5); }
     }
   }
   // il binocolo: per un attimo lo sguardo si avvicina a ciò che vede (applicato col campo visivo della forma)
