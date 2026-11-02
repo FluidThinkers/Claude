@@ -219,7 +219,9 @@ export function makeSky() {
   return m;
 }
 
+const _wn = new THREE.TextureLoader().load('textures/waternormals.jpg'); _wn.wrapS = _wn.wrapT = THREE.RepeatWrapping;
 export const waterUniforms = {
+  uNormalMap: { value: _wn },
   uCam: { value: new THREE.Vector3() },
   uLightDir: { value: new THREE.Vector3(0, 1, 0) },
   uLightCol: { value: new THREE.Color() },
@@ -350,6 +352,7 @@ export function makeWater() {
       uniform float uFog, uUnderFog, uWindK;
       uniform vec2 uWindDir;
       uniform vec4 uPiles[16];
+      uniform sampler2D uNormalMap;
       uniform float uRain;
       varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing; varying float vTrail;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
@@ -417,6 +420,19 @@ export function makeWater() {
             g += dv / max(r, 0.001) * rg * 0.35 * uRain * (1.0 - smoothstep(25.0, 70.0, dist));
           }
         }
+        // superficie vera: due strati di increspature (normal map) che scorrono in direzioni diverse,
+        // più grandi correnti e chiazze lente che rompono ogni ripetizione
+        {
+          float cur = vn(p * 0.006 + vec2(uTime * 0.004, -uTime * 0.003)) * 0.6 + vn(p * 0.017 - uTime * 0.006) * 0.4;
+          vec2 flow = vec2(cos(cur * 6.28), sin(cur * 6.28)) * 0.015;
+          vec3 n1 = texture2D(uNormalMap, p * 0.045 + flow * uTime + vec2(uTime * 0.012, uTime * 0.007)).xyz * 2.0 - 1.0;
+          vec3 n2 = texture2D(uNormalMap, p * 0.011 * mat2(0.8, -0.6, 0.6, 0.8) - vec2(uTime * 0.005, -uTime * 0.008)).xyz * 2.0 - 1.0;
+          vec3 n3 = texture2D(uNormalMap, p * 0.0023 + vec2(uTime * 0.002, 0.0)).xyz * 2.0 - 1.0;
+          float near = 1.0 - smoothstep(60.0, 700.0, dist);
+          float calmPatch = smoothstep(0.35, 0.75, vn(p * 0.004 + 9.0 + uTime * 0.001));
+          vec2 nn = (n1.xy * 0.55 * near + n2.xy * 0.45 + n3.xy * 0.35) * (0.06 + 0.16 * uWindK) * (1.0 - 0.6 * calmPatch);
+          g += nn;
+        }
         // lo Specchio: acqua perfettamente immobile
         float mir = 0.0;
         if (uMirror.z > 0.0) mir = 1.0 - smoothstep(uMirror.z * 0.75, uMirror.z, length(p - uMirror.xy));
@@ -438,7 +454,10 @@ export function makeWater() {
         float depth = vW.y - baseH(d);
         float sh = exp(-max(depth, 0.0) * 0.38);
         float cs = mix(1.0, cloudShadow(vW, uLightDir), uSunVis);
-        vec3 body = mix(uDeep, uShallow, sh) * uAmb * (0.75 + 0.25 * cs) * (1.0 - gust * 0.25);
+        // il colore del mare cambia a chiazze e correnti: dall'alto si leggono le scie e le zone più scure
+        float patchC = vn(p * 0.0045 + vec2(uTime * 0.002, 0.0)) * 0.6 + vn(p * 0.013 - uTime * 0.003) * 0.4;
+        float lanes = smoothstep(0.45, 0.5, abs(fract(dot(p, normalize(uWindDir + vec2(1e-4))) * 0.004 + vn(p * 0.003) * 0.8) - 0.5)) * 0.12;
+        vec3 body = mix(uDeep, uShallow, sh) * uAmb * (0.75 + 0.25 * cs) * (1.0 - gust * 0.25) * (0.86 + 0.28 * patchC) * (1.0 - lanes);
         float alpha = mix(0.97, 0.32, sh);
         vec3 col = body * (1.0 - F) + refl * F;
         alpha = clamp(alpha + F, 0.0, 1.0);
@@ -813,7 +832,7 @@ export function makePost(renderer) {
       if (uStorm > 0.0) {
         float L = lum(col);
         col = mix(col, vec3(L) * vec3(0.86, 0.95, 1.0), 0.45 * uStorm);
-        col = (col - 0.32) * (1.0 + 0.45 * uStorm) + 0.32 - 0.06 * uStorm;
+        col = (col - 0.3) * (1.0 + 0.5 * uStorm) + 0.3 + 0.01 * uStorm;
         col = max(col, vec3(0.018, 0.022, 0.028) * uStorm);
       }
       float l = lum(col); col = mix(vec3(l), col, 1.1);

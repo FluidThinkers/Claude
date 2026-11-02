@@ -93,6 +93,32 @@ export function buildSea(scene, skyUniforms) {
     S.grass = { im, max, cx: null, cz: null };
   }
 
+  // ---- Fondale vario: affioramenti di roccia con alghe, sparsi a gruppi sul fondo sabbioso
+  {
+    const geo = new THREE.IcosahedronGeometry(1, 2);
+    const pp = geo.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < pp.count; i++) { v.fromBufferAttribute(pp, i); const k = 1 + 0.25 * Math.sin(v.x * 4.1 + v.z * 2.7) * Math.sin(v.y * 3.3 + 1) + 0.1 * Math.sin(v.x * 11 + v.y * 9); pp.setXYZ(i, v.x * k, v.y * k * 0.6, v.z * k); }
+    geo.computeVertexNormals();
+    const rockM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, vertexColors: false });
+    const N = 900, im = new THREE.InstancedMesh(geo, rockM, N);
+    const dm = new THREE.Object3D(), col = new THREE.Color();
+    let k = 0, guard = 0;
+    while (k < N && guard++ < 20000) {
+      const cx = (Math.random() - 0.5) * 900, cz = shoreZ(cx) - 20 - Math.random() * 420;
+      const n = 6 + (Math.random() * 18 | 0);
+      for (let j = 0; j < n && k < N; j++) {
+        const x = cx + (Math.random() - 0.5) * 14, z = cz + (Math.random() - 0.5) * 14, h = heightAt(x, z);
+        if (h > -1.6) continue;
+        const sc = 0.3 + Math.pow(Math.random(), 2.5) * 2.6;
+        dm.position.set(x, h + sc * 0.2, z); dm.rotation.set(Math.random(), Math.random() * 6.28, Math.random() * 0.4); dm.scale.set(sc, sc * (0.6 + Math.random() * 0.6), sc);
+        dm.updateMatrix(); im.setMatrixAt(k, dm.matrix);
+        const g = Math.random(); im.setColorAt(k, col.setRGB(0.32 + g * 0.12, 0.33 + g * 0.14, 0.28 + g * 0.08).lerp(new THREE.Color(0.25, 0.35, 0.18), Math.random() * 0.5));
+        k++;
+      }
+    }
+    im.count = k; im.receiveShadow = true; scene.add(im);
+  }
+
   // ---- Banchi di pesci (salpe argentate)
   {
     // salpa: corpo affusolato e un po' schiacciato, coda a forbice; argento che lampeggia quando si gira
@@ -111,7 +137,7 @@ export function buildSea(scene, skyUniforms) {
         .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>');
       sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(0.75, 0.85, 0.9) * pow(max(dot(normal, vec3(0.0, 0.0, 1.0)), 0.0), 8.0) * 0.6;');
     };
-    const N = 3, per = 36;
+    const N = 6, per = 44;
     const im = new THREE.InstancedMesh(merged, mat, N * per);
     im.frustumCulled = false;
     scene.add(im);

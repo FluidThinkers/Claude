@@ -37,6 +37,7 @@
   #map.big { width: min(78vw, 78vh); height: min(78vw, 78vh); border-radius: 12px; top: 50%; right: 50%; transform: translate(50%, -50%); }
   #goal { top: 118px; left: 34px; max-width: min(320px, 60vw); font-size: 14px; font-style: italic; line-height: 1.45; letter-spacing: .03em; }
   #goal.on { opacity: .82; }
+  #goal .wx { display: block; margin-top: 6px; font: 300 11px system-ui, sans-serif; letter-spacing: .06em; color: #cfe6ff; opacity: .9; }
   #resetBtn { display: block; margin: 34px auto 6px; padding: 10px 20px; font: italic 14px Georgia, serif; letter-spacing: .05em; color: #3b2f22; background: rgba(255,250,240,.6); border: 1px solid rgba(80,60,40,.35); border-radius: 22px; cursor: pointer; }
   #formLbl { position: fixed; top: 76px; left: 34px; font: italic 13px Georgia, serif; letter-spacing: .12em; color: #fff7ea; opacity: 0; transition: opacity 1.5s; pointer-events: none; text-shadow: 0 0 10px rgba(0,0,0,.4); }
   #formLbl.on { opacity: .8; }
@@ -63,7 +64,7 @@
   #stick.on { opacity: 1; }
   .tbtn { position: fixed; right: 24px; width: 64px; height: 64px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.08);
     color: #fff; font-size: 13px; letter-spacing: .1em; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; }
-  #flowBtn { bottom: 184px; right: 100px; } #formBtn { bottom: 260px; right: 100px; } #bodyBtn { bottom: 260px; } .tbtn.hidden { display: none; } #journalList li.sep { margin-top: 28px; } #jumpBtn { bottom: 32px; } #diveBtn { bottom: 32px; right: 100px; } #actBtn { bottom: 108px; right: 100px; } #timeBtn { bottom: 108px; } #meteoBtn { bottom: 260px; left: 24px; } #bookBtn { bottom: 184px; }
+  #flowBtn { bottom: 184px; right: 100px; } #formBtn { bottom: 260px; right: 100px; } #bodyBtn { bottom: 260px; } .tbtn.hidden { display: none; } #journalList li.sep { margin-top: 28px; } #jumpBtn { bottom: 32px; } #diveBtn { bottom: 32px; right: 100px; } #actBtn { bottom: 108px; right: 100px; } #timeBtn { bottom: 108px; } #meteoBtn { bottom: 260px; left: 24px; } #windBtn { bottom: 336px; left: 24px; } #bookBtn { bottom: 184px; }
   #journal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,10,16,.55);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .8s; }
   #journal.open { opacity: 1; pointer-events: auto; }
@@ -95,16 +96,16 @@
     </div>
     <div class="kcol"><h3>Il mondo</h3>
       <div><kbd>T</kbd><span>un'ora avanti</span></div>
-      <div><kbd>G</kbd><span>meteo: sereno → tempesta</span></div>
+      <div><kbd>G</kbd><span>cielo: sereno → tempesta</span></div>
+      <div><kbd>X</kbd><span>vento: calma → uragano</span></div>
       <div><kbd>N</kbd><span>mappa</span></div>
       <div><kbd>J</kbd><span>diario</span></div>
       <div><kbd>M</kbd><span>audio</span></div>
       <div><kbd>V</kbd><span>voce narrante</span></div>
     </div>
     <div class="kcol"><h3>Le forme</h3>
-      <div><kbd>Q</kbd><span>pioggia, o torna alla forma della tappa</span></div>
-      <div><kbd>B</kbd><span>torna umano, lì dove sei</span></div>
-      <div><kbd>F</kbd><span>fluire, quando sei acqua</span></div>
+      <div><kbd>Q</kbd><span>trasformati, quando un ricordo te lo chiede</span></div>
+      <div><kbd>Q</kbd><span>da nuvola: piovi</span></div>
     </div>
     <p class="kfoot">Ritrova i ricordi: ognuno ti cambia, e ti porta al prossimo.</p>
   </div>
@@ -129,6 +130,7 @@
   <div id="bookBtn" class="tbtn">DIARIO</div>
   <div id="stick"></div>
   <div id="timeBtn" class="tbtn">ORA</div>
+  <div id="windBtn" class="tbtn">VENTO</div>
   <div id="meteoBtn" class="tbtn">METEO</div>
   <div id="jumpBtn" class="tbtn">SU</div>
   <div id="diveBtn" class="tbtn">GIÙ</div>

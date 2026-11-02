@@ -25,6 +25,7 @@ import { FOCE } from './terrain.js';
 import { buildAnts } from './ants.js';
 import { buildSignal } from './signal.js';
 import { CloudLayer } from './cloudlayer.js';
+import { Flocks } from './flock.js';
 import { COLONY } from './places.js';
 import { Motes, LightBurst } from './particles.js';
 import { FormPath } from './paths.js';
@@ -108,6 +109,7 @@ const beam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 1), new THREE.Shade
 beam.frustumCulled = false; beam.visible = false;
 const signal = buildSignal(scene);
 const cloudLayer = new CloudLayer(scene);
+const flocks = new Flocks(scene);
 let layerRain = 0;
 const cLit = new THREE.Color(), cShade = new THREE.Color();
 let signalOp = 0;
@@ -430,11 +432,10 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') sound.toggle();
   if (e.code === 'KeyJ') journal.toggle();
   if (e.code === 'KeyN') minimap.toggle();
-  if (e.code === 'KeyF') toggleFlow();
   if (e.code === 'KeyQ') enterForm(formOptions());
   if (e.code === 'Equal' || e.code === 'NumpadAdd') minimap.setZoom(minimap.zoom * 1.4);
   if (e.code === 'Minus' || e.code === 'NumpadSubtract') minimap.setZoom(minimap.zoom / 1.4);
-  if (e.code === 'KeyB') returnToBody();
+  if (e.code === 'KeyX') nextWind();
   if (e.code === 'KeyE') action();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -500,11 +501,12 @@ let touchJump = false;
 document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { touchJump = true; touchUp = true; e.preventDefault(); });
 document.getElementById('timeBtn').addEventListener('touchstart', (e) => { advancePhase(); e.preventDefault(); });
 document.getElementById('meteoBtn').addEventListener('touchstart', (e) => { nextWeather(); e.preventDefault(); });
+document.getElementById('windBtn').addEventListener('touchstart', (e) => { nextWind(); e.preventDefault(); });
 document.getElementById('actBtn').addEventListener('touchstart', (e) => { action(); e.preventDefault(); });
-document.getElementById('flowBtn').addEventListener('touchstart', (e) => { toggleFlow(); e.preventDefault(); });
+
 document.getElementById('formBtn').addEventListener('touchstart', (e) => { enterForm(formOptions()); e.preventDefault(); });
 document.getElementById('bodyBtn').addEventListener('touchstart', (e) => { returnToBody(); e.preventDefault(); });
-if (flowUnlocked) document.getElementById('flowBtn').classList.remove('hidden');
+
 let touchDive = false;
 document.getElementById('diveBtn').addEventListener('touchstart', (e) => { touchDive = true; e.preventDefault(); });
 document.getElementById('diveBtn').addEventListener('touchend', () => { touchDive = false; });
@@ -622,6 +624,20 @@ const WEATHER = [
   { name: 'Tempesta', txt: 'Tempesta. Pioggia, vento forte, onde lunghe che si rompono bianche.', cloud: 0.95, sea: 1, wind: 1, rain: 1, dark: 0.62 },
 ];
 let weatherI = -1, lastThunder = 0;
+// vento a comando (X): separato dal cielo. Muove sabbia, mare, nuvole, alberi, vele
+const WIND = [
+  { name: 'Nessun vento', txt: 'Il vento cade. La sabbia si ferma, il mare si fa liscio.', w: 0.02 },
+  { name: 'Brezza', txt: 'Una brezza leggera: increspa l\'acqua, muove appena l\'erba.', w: 0.28 },
+  { name: 'Vento medio', txt: 'Vento teso: la sabbia comincia a correre, le onde hanno la cresta bianca.', w: 0.52 },
+  { name: 'Vento forte', txt: 'Vento forte: la sabbia vola a nastri, il mare si gonfia, le palme si piegano.', w: 0.8 },
+  { name: 'Uragano', txt: 'Uragano. La sabbia è una nebbia che corre, il mare è montagne d\'acqua.', w: 1.0 },
+];
+let windI = -1, windOv = 0;
+function nextWind() {
+  windI = windI + 1 > 4 ? -1 : windI + 1;
+  showMsg(windI < 0 ? 'Il vento torna a fare da sé.' : WIND[windI].txt, 4);
+  sound.chord();
+}
 const wx = { k: 0, cloud: 0.3, sea: 0.3, wind: 0.4, rain: 0, dark: 0 };
 function nextWeather() {
   weatherI = weatherI + 1 > 3 ? -1 : weatherI + 1;
@@ -630,9 +646,12 @@ function nextWeather() {
 }
 // il gesto che fa nascere ogni ricordo, con la forma giusta
 const ACT_FORM = { land: 'gull', friends: 'fish', bigwave: 'wave', sails: 'wind', moor: 'sail', rain: 'cloud', nap: 'cat', carry: 'ant' };
-const FORM_NAME = { walk: 'umano', swim: 'umano, in acqua', dive: 'umano, sott\'acqua', sup: 'umano, sul SUP', bike: 'umano, in moto', boat: 'umano, in barca', glide: 'in volo, sul deltaplano', flow: 'acqua', gull: 'gabbiano', fish: 'pesce', wave: 'onda', cloud: 'nuvola', rain: 'pioggia', sand: 'sabbia', tree: 'albero', light: 'luce', petal: 'petalo', wind: 'vento', cat: 'gatto', ant: 'formica', sail: 'barca a vela, spinta dal vento' };
+const FORM_NAME = { walk: 'umano', swim: 'umano, in acqua', dive: 'umano, sott\'acqua', sup: 'umano, sul SUP', bike: 'umano, in moto', boat: 'umano, in barca', glide: 'in volo, sul deltaplano', flow: 'acqua', gull: 'gabbiano', fish: 'pesce', wave: 'onda', cloud: 'nuvola', rain: 'pioggia', sand: 'sabbia', tree: 'albero', light: 'luce', petal: 'petalo', wind: 'vento', cat: 'gatto', ant: 'formica', sail: 'barca a vela, spinta dal vento', body: 'umano' };
+// il meteo giusto per ogni tappa (G cambia il meteo)
+const WEATHER_FOR = { land: 'cielo sereno (G) e brezza (X): il gabbiano plana meglio con poca aria', friends: 'qualsiasi', bigwave: 'tempesta (G) e vento forte (X): solo il mare grosso fa onde grandi', sails: 'vento medio o forte (X): serve vento per raggiungere la barca', moor: 'vento medio (X): abbastanza per correre, non troppo per governare', rain: 'nuvoloso (G): le nuvole cariche fanno piovere', nap: 'sereno (G), di giorno (T), poco vento (X)', carry: 'senza pioggia e con poco vento: una formica vola via' };
 function curForm() { return player.cat && player.mode === 'walk' ? 'cat' : player.mode; }
 function formLabel() { const f = curForm(); return f === 'gull' && player.landed ? 'gabbiano, posato' : FORM_NAME[f] || ''; }
+let pendingForm = null;
 let hasKey = false, preDone = false, friendT = 0, napT = 0, fishLead = false, fishWay = null, fishLeadT = 0;
 function stepNeed() { const F = FRAGMENTS[active]; if (!F) return null; if (F.pre && !preDone) return ACT_FORM[F.pre]; return ACT_FORM[F.act] || null; }
 function collectTrace(t) {
@@ -784,10 +803,16 @@ function onFind(t) {
     await Promise.all([say(f.text, 'r' + i + '_ricordo'), minWait(7000)]);
     msgEl.classList.add('thought'); showMsg(f.thought, 60);
     if (zone) launchWisp(t.pos, zone);
-    setGoal(f.goal);
+    { const na = FRAGMENTS[active] && FRAGMENTS[active].act; const wf = WEATHER_FOR[na]; setGoal(f.goal + (wf && wf !== 'qualsiasi' ? '<span class="wx">tempo giusto · ' + wf + '</span>' : '')); }
     await Promise.all([say(f.thought, 'r' + i + '_pensiero'), minWait(6000)]);
     msgEl.classList.remove('thought');
-    if (f.form) await storyForm(f.form, f.become, f.why, i);
+    if (f.form) {
+      // il cambio di forma lo scegli tu, quando sei pronto: compare il tasto
+      pendingForm = { form: f.form, become: f.become, why: f.why, i };
+      const nm = FORM_NAME[f.form] || f.form;
+      showMsg((isTouch ? 'Tocca FORMA' : 'Premi Q') + ' per diventare ' + nm + '.', 60);
+      document.getElementById('formBtn').classList.remove('hidden');
+    }
     else msgTimer = 4;
     storyBusy = performance.now() + 3000;
   })();
@@ -818,7 +843,7 @@ function onDiscover(id) {
     else if (D.next === undefined && (id === 'relitto')) discZone = null;
     if (D.unlock === 'flow') {
       flowUnlocked = true;
-      setTimeout(() => { showMsg(isTouch ? 'Ora puoi fluire: in acqua tocca FLUISCI.' : 'Ora puoi fluire: in acqua premi F. Spazio solleva un\'onda.', 7); document.getElementById('flowBtn').classList.remove('hidden'); }, 7500);
+      
     }
   }, 8500);
 }
@@ -871,6 +896,8 @@ function nearestGull(maxD) {
 }
 // i cambi di forma li decide la storia: qui resta solo ciò che la storia chiede di fare con le tue mani
 function formOptions() {
+  if (pendingForm) return pendingForm.form;
+  if (player.mode === 'cloud' || player.mode === 'rain') { /* piovere fa parte della tappa della nuvola */ } else return null;
   if (player.mode === 'rain') return player.rainLanded ? 'cloud' : null;
   if (player.mode === 'cloud') {
     if (stepNeed() !== 'cloud') return 'rain';
@@ -889,6 +916,7 @@ function formOptions() {
 function enterForm(f) {
   if (!f) { showMsg('Qui non c\'è niente in cui entrare.', 2.5); return; }
   if (f === 'cloud' && player.mode === 'rain') { player.rainLanded = false; player.mode = 'cloud'; player.cloudY = 150; showMsg('Il sole ti scalda: evapori, e torni nuvola.', 3); return; }
+  if (pendingForm && f === pendingForm.form) { const pf = pendingForm; pendingForm = null; storyForm(pf.form, pf.become, pf.why, pf.i); return; }
   if (f !== 'rain') { storyForm(f, null, null); return; }
   if (['walk', 'swim', 'dive'].includes(player.mode) && !body) body = { pos: player.pos.clone(), yaw: player.yaw, mode: player.mode };
   if (f === 'flow') { if (player.mode === 'gull') { player.pos.y = waterUniforms.uLevel.value + 0.2; } player.mode = 'swim'; toggleFlow(); return; }
@@ -1525,7 +1553,10 @@ function frame() {
     wx.k += ((W8 ? 1 : 0) - wx.k) * a;
     if (W8) for (const k of ['cloud', 'sea', 'wind', 'rain', 'dark']) wx[k] += (W8[k] - wx[k]) * a;
     else { wx.rain += (0 - wx.rain) * a; wx.dark += (0 - wx.dark) * a; }
-    if (wx.k > 0.01) { wind.strength.value += (wx.wind - wind.strength.value) * wx.k; windK = wind.strength.value; }
+    if (wx.k > 0.01 && windI < 0) { wind.strength.value += (wx.wind - wind.strength.value) * wx.k; windK = wind.strength.value; }
+    windOv += ((windI >= 0 ? 1 : 0) - windOv) * Math.min(1, dt * 0.6);
+    if (windOv > 0.01) { wind.strength.value += ((windI >= 0 ? WIND[windI].w : wind.strength.value) - wind.strength.value) * windOv; windK = wind.strength.value; }
+    islandUniforms.uWindS.value = windK;
     islandUniforms.uWindS.value = windK;
     // tempesta: lampi e tuoni ogni tanto
     if (wx.rain > 0.7 && elapsed - lastThunder > 9 + Math.random() * 14) { lastThunder = elapsed; illum = Math.max(illum, 0.9); setTimeout(() => sound._sample && sound._sample('thunder', (Math.random() - 0.5) * 1.2, 60 + Math.random() * 80, 1.4), 600 + Math.random() * 1800); }
@@ -1538,6 +1569,8 @@ function frame() {
   if (lastSea < 0) lastSea = seaState;
   if (!Q.has('sea') && weatherI < 0 && Math.abs(seaState - lastSea) > 0.25) { lastSea = seaState; if (started && !under && performance.now() > storyBusy) { msgEl.classList.remove('thought'); showMsg(seaState > 0.6 ? 'Il cielo si chiude e il vento rinforza: il mare si alza, le onde arrivano lunghe e forti.' : 'Le nuvole si aprono, il vento cala: il mare si calma e torna liscio.', 4); } }
   waterUniforms.uWindK.value = Q.has('sea') ? num('sea', 0.5) : seaState + (wx.sea - seaState) * wx.k;
+  // il vento scelto comanda il mare: senza vento è liscio, con l'uragano è enorme (la tempesta lo alza ancora)
+  if (windOv > 0.01) waterUniforms.uWindK.value += (Math.min(1, 0.04 + 0.96 * Math.pow(windK, 1.1) + 0.15 * wx.rain) - waterUniforms.uWindK.value) * windOv;
   waterUniforms.uStorm.value = THREE.MathUtils.clamp(wx.dark * 1.6, 0, 1); waterUniforms.uRain.value = wx.rain;
   post.uniforms.uStorm.value = waterUniforms.uStorm.value;
   { // l'onda enorme che arriva a riva: sale lontano, sommerge, si ritira
@@ -1614,7 +1647,7 @@ function frame() {
     if (sitting) { promptEl.textContent = 'Il tempo passa · E per alzarti'; promptEl.classList.add('on'); }
     else if (a) { promptEl.textContent = (isTouch ? 'AZIONE · ' : 'E · ') + a; promptEl.classList.add('on'); }
     else if (player.mode === 'dive' && player.breath < 0.35) { promptEl.textContent = 'risali'; promptEl.classList.add('on'); }
-    else if (formOptions() && !actPrompt) { promptEl.textContent = (isTouch ? 'FORMA · ' : 'Q · ') + 'diventa ' + FORM_TEXT[formOptions()].name.toLowerCase(); promptEl.classList.add('on'); }
+    else if (formOptions() && !actPrompt) { const fo = formOptions(); promptEl.textContent = (isTouch ? 'FORMA · ' : 'Q · ') + 'diventa ' + (FORM_NAME[fo] || (FORM_TEXT[fo] && FORM_TEXT[fo].name) || fo).toLowerCase(); promptEl.classList.add('on'); }
     else if (FORMS.includes(player.mode) && body) { promptEl.textContent = (isTouch ? 'CORPO' : 'B') + ' · torna corpo'; promptEl.classList.add('on'); }
     else promptEl.classList.remove('on');
   }
@@ -1641,7 +1674,7 @@ function frame() {
   U.uCloud.value = Q.has('clouds') ? num('clouds', 0.4) : THREE.MathUtils.clamp(0.18 + 0.42 * slow + 0.2 * Math.max(0, Math.sin(elapsed * 0.0031 + 2.2)) + cloudBias, 0.0, 0.95);
   U.uCloud.value += (wx.cloud - U.uCloud.value) * wx.k;
   // cielo di tempesta: tutto più grigio e più buio
-  if (wx.dark > 0.01) { const gk = Math.min(1, wx.dark * 1.6); for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = Math.max((c.r + c.g + c.b) / 3, 0.06 * night); c.lerp(tmpC.setRGB(l * 0.96, l, l * 1.06), gk).multiplyScalar(1 - wx.dark * 0.5 * (1 - night * 0.6)); } U.uSunVis.value *= 1 - wx.dark; }
+  if (wx.dark > 0.01) { const gk = Math.min(1, wx.dark * 1.6); for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = Math.max((c.r + c.g + c.b) / 3, 0.06 * night); c.lerp(tmpC.setRGB(l * 0.96, l, l * 1.06), gk * 0.85).multiplyScalar(1 - wx.dark * 0.3 * (1 - night * 0.6)); } U.uSunVis.value *= 1 - wx.dark * 0.6; }
   U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
   const alto = Q.has('alto') ? num('alto', 1) : THREE.MathUtils.clamp(Math.sin(elapsed * 0.0045 + 2.2) * 1.4 - 0.5, 0, 1);
   U.uAlto.value = alto;
@@ -1650,7 +1683,7 @@ function frame() {
 
   // da molto in alto l'aria è più limpida: si vede il mondo sotto
   const altFog = 1 / (1 + Math.max(0, camera.position.y - 25) / 70);
-  sun.color.copy(pal.sun); sun.intensity = pal.sunI * (1 - alto * 0.55) * (1 - 0.8 * wx.dark * (1 - night * 0.7));
+  sun.color.copy(pal.sun); sun.intensity = pal.sunI * (1 - alto * 0.55) * (1 - 0.45 * wx.dark * (1 - night * 0.7));
   // ogni tanto il sole passa dietro una nuvola: la luce cala e torna, e quando esce i raggi si accendono
   {
     const cov = U.uCloud.value;
@@ -1673,7 +1706,7 @@ function frame() {
     sun.position.copy(sun.target.position).addScaledVector(lightDir, 120 + sz);
   }
   hemi.color.copy(pal.hs); hemi.groundColor.copy(pal.hg); hemi.intensity = pal.hI;
-  scene.fog.color.copy(pal.hor); scene.fog.density = pal.fog * 2.2 * (1 + mist * 1.2) * altFog;
+  scene.fog.color.copy(pal.hor); scene.fog.density = pal.fog * 2.2 * (1 + mist * 1.2) * altFog * ({ ant: 9, cat: 1.6, fish: 1.3, wind: 0.6, cloud: 0.6, gull: 0.8 }[curForm()] || 1);
   // sott'acqua: colore e foschia dell'acqua, la luce dipende dal giorno
   const daylight = 1 - night;
   underCol.setRGB(0.025, 0.2, 0.25).multiplyScalar(0.12 + 0.88 * daylight).lerp(tmpC.copy(pal.sun).multiplyScalar(0.12 * daylight), 0.15);
@@ -1724,7 +1757,7 @@ function frame() {
   drops = 0;
   wings.visible = false; // niente ali in prima persona: solo l'ombra sul mare e sulla terra
   waterSpray.update(dt);
-  document.getElementById('bodyBtn').classList.toggle('hidden', !body || !isTouch);
+  document.getElementById('bodyBtn').classList.add('hidden');
 
   waterUniforms.uCam.value.copy(camera.position);
   waterUniforms.uLightDir.value.copy(lightDir);
@@ -1790,6 +1823,7 @@ function frame() {
     if (tg) signal.update(tg, signalOp, elapsed, renderer.domElement.height, (tg.y ?? 0) - 0.03); else signal.update({ x: 0, y: 0, z: 0 }, 0, elapsed, 1, 0);
   }
   burst.update(dt, wind.dir);
+  flocks.update(dt, elapsed, camera.position, night, tmpC.copy(pal.hor).multiplyScalar(0.18));
   {
     cLit.copy(pal.sun).multiplyScalar(0.55 * (1 - night * 0.85)).add(tmpC.copy(pal.hor).multiplyScalar(0.6)).multiplyScalar(1 - wx.dark * 0.55);
     cShade.copy(pal.hor).lerp(pal.zen, 0.4).multiplyScalar(0.62 * (1 - wx.dark * 0.5));
@@ -1879,7 +1913,7 @@ function frame() {
   // post
   const P = post.uniforms;
   P.uTime.value = elapsed;
-  P.uExposure.value = pal.exp * (1 - 0.25 * wx.dark * (1 - night)) * (1 + 0.35 * wx.dark * night);
+  P.uExposure.value = pal.exp * (1 - 0.05 * wx.dark * (1 - night)) * (1 + 0.45 * wx.dark * night);
   P.uGrade.value.copy(pal.grade).lerp(tmpV3.set(0.97, 1.0, 1.04), Math.min(1, wx.dark * 1.6));
   P.uSunCol.value.copy(pal.sun);
   tmp.copy(camera.position).addScaledVector(sunDir, 1000).project(camera);

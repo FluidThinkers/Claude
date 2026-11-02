@@ -12,7 +12,7 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - WASD / frecce: cammina, nuota, pagaia · Mouse: guarda · Shift: corri / nuota più forte
 - Spazio: salta, o risali quando sei sott'acqua · C: immergiti
 - E: azione (moto, SUP, barchino, deltaplano, sali a bordo, scalette, maschera e pinne, panchine)
-- F: fluire (quando la storia te lo concede) · Q: piovi, quando sei nuvola · B: torna corpo, lì dove sei
+- Q: trasformati, quando un ricordo te lo chiede (e da nuvola: piovi) · G: cielo, dal sereno alla tempesta · X: vento, dalla calma all'uragano
 - N: mappa (piccola / grande)
 - T: un'ora avanti · G: meteo (sereno → velato → nuvoloso → tempesta → automatico) · J: diario · M: audio on/off
 - Touch: metà sinistra per muoverti, metà destra per guardare, tasti SU / GIÙ / AZIONE / ORA / DIARIO
@@ -67,7 +67,11 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 **Le forme: trasferirsi nelle cose, in un pensiero**
 - **Le forme le decide la storia**: ogni ricordo trovato ti trasforma nella cosa giusta per arrivare al successivo, sempre nel punto in cui sei. Non ci sono cambi di forma a caso.
 - **Gabbiano**: lo sguardo guida la quota, A e D virano, Spazio batte le ali. **Sabbia**: scivoli dove va il vento; se tocchi l'acqua diventi acqua. **Onda**: corri verso riva e ti rompi sulla sabbia, dove arrivi. **Nuvola**: Q per scendere come pioggia.
-- B (su telefono CORPO) ti fa tornare umano proprio dove sei, mai nel punto da cui eri partito.
+- Dopo ogni ricordo compare «Premi Q per diventare …»: la trasformazione parte quando sei pronto, con la voce che la racconta.
+- **Cielo e vento separati**: G cambia il cielo (sereno, velato, nuvoloso, tempesta), X il vento (calma, brezza, medio, forte, uragano). Il vento muove la sabbia, gonfia il mare, spinge le nuvole e le vele. Ogni tappa suggerisce il tempo giusto.
+- **Stormi**: centinaia di uccelli danzano in cielo, si stringono, si allargano, girano insieme.
+- **Fondale**: affioramenti di roccia sparsi sul fondo sabbioso; più banchi di pesci.
+- **Il mare dall'alto**: increspature vere che scorrono in direzioni diverse, correnti e chiazze lente, scie del vento.
 
 **Al largo**
 - Una zattera ancorata (si sale con la scaletta), una boa di segnalazione che lampeggia di notte, meduse che pulsano a mezz'acqua, delfini che ti nuotano accanto quando sei in mare.
