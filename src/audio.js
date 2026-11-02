@@ -117,7 +117,7 @@ export class Sound {
     this.leafG.gain.setTargetAtTime((s.trees || 0) * (0.01 + 0.05 * w) * (0.5 + 0.5 * flutter), t, 0.1);
     this.rushG.gain.setTargetAtTime(Math.min(0.12, s.speed * s.speed * 0.00018), t, 0.2);
     this.rushF.frequency.setTargetAtTime(500 + s.speed * 40, t, 0.3);
-    this.droneG.gain.setTargetAtTime(0.02 * s.night, t, 1.0);
+    this.droneG.gain.setTargetAtTime(0, t, 1.0); // niente ronzio
     this.verbSend.gain.setTargetAtTime(s.reverb ?? 0.04, t, 0.4);
     this._beds(s, t, near, far);
     this._form(s, t);
@@ -221,7 +221,7 @@ export class Sound {
       }
     }
     this.narrG.gain.cancelScheduledValues(t); this.narrG.gain.setValueAtTime(this.narrG.gain.value, t);
-    this.narrG.gain.linearRampToValueAtTime(on ? 0.05 : 0, t + (on ? 2.5 : 4));
+    this.narrG.gain.linearRampToValueAtTime(0, t + 0.5); // niente accordo sintetico sotto la voce
     this.duck(on);
   }
 
@@ -399,7 +399,7 @@ export class Sound {
       const s = this._src('brown', 0.6); s.loop = true;
       const f = lp(160);
       const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 38;
-      s.connect(f); f.connect(this.underG); o.connect(this.underG); this.underG.connect(this.comp);
+      s.connect(f); f.connect(this.underG); this.underG.connect(this.comp);
       o.start();
     }
     this.underG.gain.setTargetAtTime(k > 0.5 ? 0.2 : 0, t, 0.15);
