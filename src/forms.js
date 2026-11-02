@@ -103,17 +103,32 @@ export function moveForm(form, P, ctx) {
   const ground = Math.max(heightAt(P.pos.x, P.pos.z), lvl);
   let eye = 0, roll = 0, out = {};
 
-  if (form === 'gull') {
+  if (form === 'gull' && P.landed) {
+    // posato: cammina a piccoli passi su sabbia, legno, ferro, scogli; galleggia sull'acqua. Spazio: riprende il volo
+    const sp = fz > 0 ? 1.3 : fz < 0 ? -0.5 : 0;
+    P.yaw -= fx * 1.8 * dt;
+    const nx = P.pos.x - ys * sp * dt, nz = P.pos.z - yc * sp * dt;
+    const gN = Math.max(ctx.groundAt(nx, nz, P.pos.y + 0.4), lvl);
+    if (gN < P.pos.y + 0.6) { P.pos.x = nx; P.pos.z = nz; }
+    const gr = Math.max(ctx.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.4), lvl);
+    P.pos.y += (gr + 0.28 + Math.abs(Math.sin(ctx.time * 9)) * 0.02 * Math.abs(sp) - P.pos.y) * Math.min(1, dt * 8);
+    roll = Math.sin(ctx.time * 9) * 0.03 * Math.abs(sp);
+    out.speed = Math.abs(sp); out.flap = 0;
+    if (ctx.up) { P.landed = false; P.gs = 9; P.pos.y += 0.8; P.pitch = 0.25; out.takeoff = true; }
+  } else if (form === 'gull') {
     // volo: lo sguardo guida la quota, A/D virano, Spazio batte le ali
     P.gs = P.gs ?? 11;
-    const target = fz > 0 ? (run ? 20 : 15) : fz < 0 ? 7 : 11;
-    P.gs += (target - P.gs) * Math.min(1, dt * 0.8);
+    const target = fz > 0 ? (run ? 20 : 15) : fz < 0 ? 6 : 11;
+    P.gs += (target - P.gs) * Math.min(1, dt * (fz < 0 ? 2.2 : 0.8));
     P.bank = (P.bank || 0) + ((fx * 0.6) - (P.bank || 0)) * Math.min(1, dt * 2.5);
     P.yaw -= Math.tan(P.bank) * 9.8 / Math.max(P.gs, 6) * dt;
     const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
     let vy = sp * P.gs - 0.6 + (ctx.up ? 3.5 : 0);
     P.pos.x += -ys * cp * P.gs * dt; P.pos.z += -yc * cp * P.gs * dt; P.pos.y += vy * dt;
-    if (P.pos.y < ground + 0.8) { P.pos.y = ground + 0.8; }
+    const surf = ctx.groundAt ? Math.max(ctx.groundAt(P.pos.x, P.pos.z, P.pos.y), lvl) : ground;
+    if (P.pos.y < surf + 0.8) { P.pos.y = surf + 0.8; }
+    // indietro vicino a una superficie: frena e si posa
+    if (fz < 0 && P.pos.y - surf < 3 && P.gs < 8.5) { P.landed = true; out.landed = true; }
     P.pos.y = Math.min(P.pos.y, 400);
     P.flap = (P.flap || 0) + dt * (ctx.up || fz > 0 ? 10 : 2.5);
     // a pelo d'acqua in picchiata: tocchi il mare (per pescare)

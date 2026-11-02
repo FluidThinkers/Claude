@@ -132,6 +132,13 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 - **Il mare di notte** specchia il cielo: la scia d'argento della luna e qualche stella che trema sull'acqua.
 - **La sabbia**: brilla solo controsole, come davvero; dove l'onda si è appena ritirata, mille piccoli soli tremano sul velo d'acqua. È irregolare, con piccole gobbe, e si liscia quando il vento soffia forte.
 - **Montagne lontane**: cinque piani di crinali, come le coste del Mediterraneo viste dal mare, ognuno più azzurro e più chiaro, con la nebbia stesa nelle valli.
+- **Barca a vela, navigazione vera**: A e D timone, W cazza la randa, S la lasca. Conta il vento apparente: controvento la vela sbatte e ti fermi, al traverso corri, in poppa vai più piano; troppo cazzata stalla, troppo lascata sbatte. Due nastrini rossi (in testa d'albero e a prua) mostrano il vento. La barca sale e scende sulle onde, beccheggia e sbanda senza ribaltarsi; la randa gira col boma, il fiocco con la scotta.
+- **L'onda enorme**: quando arriva a riva risale lontano sulla spiaggia, sommerge, poi si ritira.
+- **Tempesta**: colori cupi verde-piombo e contrasto forte, onde alte anche al largo, la pioggia disegna cerchi sul mare e schizza sulla coperta.
+- **Gabbiano**: nessuna ala in prima persona, solo la sua ombra ad ali aperte che scorre sul mare e sulla terra; indietro vicino a una superficie si posa, cammina, e riparte con Spazio.
+- **Pesci**: salpe affusolate e argentate, con la coda che batte e il fianco che lampeggia.
+- **Uscire dall'acqua**: uno spruzzo vero attorno a te, che ricade.
+- **Tutto è solido**: pali, scogli, relitto, rovina, piattaforma e scafi fermano ogni forma, e anche la barca.
 - **Ricomincia**: il pulsante in basso al centro (e nel diario) riparte da capo.
 - **Cielo di notte**: migliaia di stelle di luminosità e colore diversi (bianco-azzurre, gialle, arancio), che scintillano vicino all'orizzonte, e la Via Lattea con le sue corsie scure.
 - **Erba**: le raffiche corrono sul prato nella direzione del vento; ogni filo si piega curvo e trema per conto suo.

@@ -202,6 +202,8 @@ export function buildExplore(scene, platform, glowTex) {
     shadowAll(g); scene.add(g);
     E.discover.push({ id: 'relitto', pos: new THREE.Vector3(x, y + 1, z), r: 7, under: true });
     E.wreck = { x, z };
+    // il relitto è solido: non ci si passa attraverso
+    E.blocks.push({ x, z, hx: 4.6, hz: 1.7, top: y + 2.4, rot: 0.6 });
   }
 
   // ---- Delfini al largo: saltano a gruppi, ogni tanto

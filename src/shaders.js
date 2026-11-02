@@ -50,6 +50,7 @@ float cloudShadow(vec3 wp, vec3 L){
 `;
 
 export const SURF_GLSL = /* glsl */`
+uniform float uFloodF, uStorm;
 // ---- risacca: onde che si gonfiano, si rompono e risalgono la sabbia
 const float SURF_OM = 6.2831853 / 7.5;
 float surfJit(float x){ return vn(vec2(x * 0.018, 3.0)) * 2.2 + vn(vec2(x * 0.005, 7.0)) * 3.5; }
@@ -68,7 +69,8 @@ float swash(float x, float t, float windK, out float u, out float R, out float a
   float up = 0.34;
   adv = 1.0 - smoothstep(up * 0.8, up, u);
   float f = u < up ? R * (1.0 - pow(1.0 - u / up, 2.2)) : R - (R + 1.2) * pow(smoothstep(up, 1.0, u), 1.4);
-  return f;
+  // l'onda enorme: risale lontano sulla spiaggia, sommerge, poi si ritira
+  return max(f, uFloodF + (vn(vec2(x * 0.08, 2.0)) - 0.5) * uFloodF * 0.25);
 }
 // h: quota dell'acqua; s: fase (0 = cresta); brk: frangimento; bore: schiuma; film: lama sulla sabbia; front: fin dove risale
 float surfY(float x, float d, float t, float lvl, float windK, out float s, out float brk, out float bore, out float film, out float front){
@@ -84,7 +86,7 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
   bore = smoothstep(1.4, 0.5, depth) * smoothstep(-0.2, 0.3, depth) * setMod;
   float seaY = lvl + A * (prof - 0.32);
   // mare aperto: con il mare mosso salgono onde lunghe anche al largo; con la calma restano appena accennate
-  float sw = windK * windK;
+  float sw = windK * windK * (1.0 + 1.8 * uStorm);
   seaY += sw * (0.55 * sin(x * 0.045 + d * 0.16 - t * 0.9) + 0.32 * sin(x * -0.09 + d * 0.23 - t * 1.35 + 1.7) + 0.15 * sin(x * 0.21 - d * 0.11 - t * 2.1)) * smoothstep(1.0, 6.0, depth);
   // risalita: la lama d'acqua sulla sabbia (vedi swash). La mesh copre tutta la fascia
   // che la risacca può raggiungere; il bordo vero lo disegna il frammento, pixel per pixel.
@@ -92,7 +94,7 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
   front = swash(x, t, windK, u, R, adv);
   film = 0.0;
   if (d < -1.5) return seaY;
-  float Rmax = 1.0 + 6.0 * setMod;
+  float Rmax = max(1.0 + 6.0 * setMod, uFloodF * 1.15 + 1.5);
   if (d > Rmax) return min(lvl, baseH(d) - 0.25);
   film = 0.02 + 0.06 * smoothstep(front, front - 2.5, d);
   return max(seaY, baseH(d) + film);
@@ -232,6 +234,7 @@ export const waterUniforms = {
   uTrailBox: { value: new THREE.Vector3(0, 0, -1) },
   uRingBox: { value: new THREE.Vector3(0, 0, -1) },
   uPiles: { value: Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+  uFloodF: { value: 0 }, uStorm: { value: 0 }, uRain: { value: 0 },
   uRings: { value: [new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0)] },
   uWindDir: { value: new THREE.Vector2(0.6, -0.8) },
   uUnderFog: { value: 0.06 },
@@ -330,6 +333,7 @@ export function makeWater() {
       uniform float uFog, uUnderFog, uWindK;
       uniform vec2 uWindDir;
       uniform vec4 uPiles[16];
+      uniform float uRain;
       varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing; varying float vTrail;
       vec2 wv(vec2 p, vec2 dir, float fr, float amp, float spd){ float ph = dot(p, dir)*fr + uTime*spd; return dir*fr*amp*cos(ph); }
       void main(){
@@ -381,6 +385,20 @@ export function makeWater() {
           // schiuma attaccata al palo, sfilacciata, e una scia che il moto ondoso spinge verso riva
           float wake = exp(-abs(dv.x) * 1.4 / max(P.z, 0.3)) * smoothstep(0.0, 0.5, dv.y) * exp(-dv.y * 0.35);
           pileFoam = max(pileFoam, (exp(-max(dd, 0.0) * 4.0) * 0.85 + wake * 0.5) * (0.45 + 0.55 * vn(p * 5.0 + vec2(0.0, uTime * 0.7))));
+        }
+        // pioggia sul mare: mille cerchi minuscoli che nascono e si allargano
+        if (uRain > 0.01 && dist < 70.0) {
+          vec2 rp = p * 2.2;
+          for (int k = 0; k < 2; k++) {
+            vec2 q = rp + float(k) * vec2(0.37, 0.71);
+            vec2 id = floor(q); vec2 f = fract(q) - 0.5;
+            float h = fract(sin(dot(id, vec2(12.9898, 78.233)) + float(k) * 3.1) * 43758.5453);
+            vec2 o = vec2(fract(h * 7.3), fract(h * 13.1)) - 0.5;
+            float tt = fract(uTime * (1.1 + h * 0.6) + h * 10.0);
+            vec2 dv = f - o * 0.6; float r = length(dv);
+            float rg = sin((r - tt * 0.45) * 55.0) * exp(-tt * 3.5) * smoothstep(tt * 0.45 + 0.08, tt * 0.45, r) * smoothstep(0.0, 0.05, r);
+            g += dv / max(r, 0.001) * rg * 0.35 * uRain * (1.0 - smoothstep(25.0, 70.0, dist));
+          }
         }
         // lo Specchio: acqua perfettamente immobile
         float mir = 0.0;
@@ -483,7 +501,7 @@ export function enhanceSand(material) {
     for (const k of ['uTime', 'uCamPos', 'uCloud', 'uCirrus', 'uMist', 'uSunDir', 'uSunVis', 'uSunCol']) shader.uniforms[k] = skyUniforms[k];
     shader.uniforms.uCaustic = causticUniforms.uCaustic;
     shader.uniforms.uWindK = waterUniforms.uWindK;
-    shader.uniforms.uBloom = islandUniforms.uBloom; shader.uniforms.uWindS = islandUniforms.uWindS;
+    shader.uniforms.uBloom = islandUniforms.uBloom; shader.uniforms.uWindS = islandUniforms.uWindS; shader.uniforms.uFloodF = waterUniforms.uFloodF; shader.uniforms.uStorm = waterUniforms.uStorm;
     shader.vertexShader = 'varying vec3 vWPos;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>',
       '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
@@ -667,7 +685,7 @@ export function makePost(renderer) {
     }`);
 
   const compMat = mk({
-    tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture }, tDepth: { value: rt.depthTexture }, tFar: { value: rtFar.texture }, uNear: { value: 0.1 }, uFar: { value: 9000 }, uFarBlur: { value: 1 },
+    tScene: { value: rt.texture }, tBloom: { value: rtBloom.texture }, tRays: { value: rtRays.texture }, tDepth: { value: rt.depthTexture }, tFar: { value: rtFar.texture }, uNear: { value: 0.1 }, uFar: { value: 9000 }, uFarBlur: { value: 1 }, uStorm: { value: 0 },
     uRes: { value: size.clone() }, uTime: { value: 0 }, uGrade: { value: new THREE.Vector3(1, 1, 1) },
     uFade: { value: 0 }, uFadeCol: { value: new THREE.Color(1, 1, 1) }, uRaysK: { value: 1 },
     uUnder: { value: 0 }, uFlow: { value: 0 }, uForm: { value: new THREE.Vector4(1, 1, 1, 0) }, uDrops: { value: 0 }, uIllum: { value: 0 }, uMask: { value: 0 }, uBlur: { value: 0 }, uDepth: { value: 0 }, uBreath: { value: 0 }, uHaze: { value: 0 }, uUnderCol: { value: new THREE.Color() }, ...shared,
@@ -675,7 +693,7 @@ export function makePost(renderer) {
     uniform sampler2D tScene, tBloom, tRays; uniform vec2 uRes, uSunPos; uniform float uTime, uExposure, uSunVis, uFade, uRaysK;
     uniform vec4 uForm; uniform float uDrops;
     uniform float uUnder, uFlow, uIllum, uMask, uBlur, uBreath, uHaze, uDepth; uniform vec3 uUnderCol;
-    uniform sampler2D tDepth, tFar; uniform float uNear, uFar, uFarBlur;
+    uniform sampler2D tDepth, tFar; uniform float uNear, uFar, uFarBlur, uStorm;
     uniform vec3 uGrade, uSunCol, uFadeCol;
     varying vec2 vUv;
     float hash(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -767,6 +785,13 @@ export function makePost(renderer) {
       }
       col = shoulder(col);
       col *= uGrade;
+      // tempesta: colori cupi, verde-piombo, contrasto forte
+      if (uStorm > 0.0) {
+        float L = lum(col);
+        col = mix(col, vec3(L) * vec3(0.86, 0.95, 1.0), 0.45 * uStorm);
+        col = (col - 0.32) * (1.0 + 0.45 * uStorm) + 0.32 - 0.06 * uStorm;
+        col = max(col, 0.0);
+      }
       float l = lum(col); col = mix(vec3(l), col, 1.1);
       col = pow(max(col, 0.0), vec3(1.0 / 2.2));
       col *= 1.0 - 0.28 * smoothstep(0.25, 0.9, length(c * vec2(1.0, 0.85)) * 1.25);

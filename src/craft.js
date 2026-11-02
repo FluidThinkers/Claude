@@ -43,10 +43,13 @@ export function buildCraft(scene) {
   // ---- Barca a vela: scafo a sezioni, coperta in teak, tientibene in acciaio
   {
     const g = new THREE.Group();
-    const teak = new THREE.MeshStandardMaterial({ map: teakTexture(), roughness: 0.7 });
+    const teak = new THREE.MeshStandardMaterial({ map: teakTexture(), roughness: 0.7, side: THREE.DoubleSide });
     const hg = hullGeometry({ len: 12.2, beam: 3.9, depth: 1.95, sheer: 0.28, bowFine: 1.9, transom: 0.82, deadrise: 0.35, waterline: -0.22, topColor: 0xf6f4ee, bottomColor: 0x1b2e47, stripeY: 0.55, stripeColor: 0x1b2e47 });
-    const hull = new THREE.Mesh(hg, mat.gelcoat()); hull.position.y = 0.25; g.add(hull);
-    const deck = new THREE.Mesh(deckGeometry(hg.userData.outline, 0.05, 0.08), teak); deck.position.y = 0.25; g.add(deck);
+    const gel = mat.gelcoat(); gel.side = THREE.DoubleSide;
+    const hull = new THREE.Mesh(hg, gel); hull.position.y = 0.25; g.add(hull);
+    // coperta piena: vista da sopra, da sotto e da dentro (prima si vedeva l'acqua attraverso)
+    const deck = new THREE.Mesh(deckGeometry(hg.userData.outline, 0.05, 0.02), teak); deck.position.y = 0.25; g.add(deck);
+    const sole = new THREE.Mesh(deckGeometry(hg.userData.outline, 0.7, 0.25), mat.paint(0x2a2e33, 0.8)); sole.material.side = THREE.DoubleSide; sole.position.y = 0.25; g.add(sole);
     const rail = rubRail(hg.userData.outline.map((p) => p.clone().setY(p.y + 0.02)), 0.035, mat.paint(0xe9e6df, 0.4)); rail.position.y = 0.25; g.add(rail);
     // tientibene: candelieri e cavo in acciaio
     const steel = mat.steel();
@@ -72,8 +75,16 @@ export function buildCraft(scene) {
     const rud = new THREE.Mesh(rbox(0.5, 1.1, 0.08, 0.04), mat.paint(0x1b2e47, 0.4)); rud.position.set(5.0, -0.8, 0); g.add(rud);
     // albero, boma, vele
     const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.085, 15, 24), mat.paint(0xd9dadb, 0.25)); mast.position.set(-1.8, 8.6, 0); g.add(mast);
-    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 5.2, 20), mat.paint(0xd9dadb, 0.25)); boom.rotation.z = Math.PI / 2; boom.position.set(0.8, 2.45, 0); g.add(boom);
-    const sailM = new THREE.MeshStandardMaterial({ color: 0xf7f4ec, roughness: 0.85, side: THREE.DoubleSide, transparent: true, opacity: 0.96 });
+    // il boma ruota attorno all'albero: è la randa che si regola
+    const boomG = new THREE.Group(); boomG.position.set(-1.8, 0, 0); g.add(boomG);
+    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 5.2, 20), mat.paint(0xd9dadb, 0.25)); boom.rotation.z = Math.PI / 2; boom.position.set(2.6, 2.45, 0); boomG.add(boom);
+    const sailTex = (() => { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 512; const c = cv.getContext('2d');
+      c.fillStyle = '#f4f1e8'; c.fillRect(0, 0, 256, 512);
+      for (let y = 0; y < 512; y += 64) { c.fillStyle = 'rgba(120,115,100,0.25)'; c.fillRect(0, y, 256, 2); c.fillStyle = 'rgba(255,255,255,0.5)'; c.fillRect(0, y + 3, 256, 1); }
+      for (let i = 0; i < 2500; i++) { c.fillStyle = `rgba(${200 + Math.random() * 40 | 0},${195 + Math.random() * 40 | 0},${180 + Math.random() * 40 | 0},0.12)`; c.fillRect(Math.random() * 256, Math.random() * 512, 2, 2); }
+      c.fillStyle = 'rgba(40,60,90,0.6)'; c.font = 'bold 40px sans-serif'; c.fillText('ITA', 60, 300);
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    const sailM = new THREE.MeshStandardMaterial({ color: 0xffffff, map: sailTex, roughness: 0.85, side: THREE.DoubleSide, transparent: true, opacity: 0.97 });
     const sailSurf = (ax, ay, bx, by, cx, cy, belly) => {
       const pts = [], idx = [], N = 10;
       for (let i = 0; i <= N; i++) for (let j = 0; j <= N - i; j++) {
@@ -88,13 +99,23 @@ export function buildCraft(scene) {
         idx.push(a, b, c);
         if (j < N - i - 1) idx.push(b, row[i + 1] + j + 1, c);
       }
-      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); gg.setIndex(idx); gg.computeVertexNormals();
+      const uvs = []; for (let k2 = 0; k2 < pts.length; k2 += 3) uvs.push((pts[k2] - Math.min(ax, bx, cx)) / 8, (pts[k2 + 1] - 1.5) / 14);
+      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); gg.setIndex(idx); gg.computeVertexNormals();
       return new THREE.Mesh(gg, sailM);
     };
-    g.add(sailSurf(-1.75, 2.6, 3.3, 2.6, -1.75, 15.6, 0.45));
-    g.add(sailSurf(-1.9, 14.2, -6.0, 1.6, -1.9, 2.2, -0.35));
+    // randa (sul boma, relativa all'albero) e fiocco (sullo strallo, ruota attorno alla mura)
+    const main = sailSurf(0.05, 2.6, 5.1, 2.6, 0.05, 15.6, 0.45); boomG.add(main);
+    const jibG = new THREE.Group(); jibG.position.set(-6.0, 0, 0); g.add(jibG);
+    const jib = sailSurf(4.1, 14.2, 0, 1.6, 4.1, 2.2, -0.35); jibG.add(jib);
+    // nastrini segnavento: in testa d'albero e sul pulpito di prua
+    const ribM = new THREE.MeshBasicMaterial({ color: 0xd8342a, side: THREE.DoubleSide });
+    const ribbon = (x, y, len) => { const geo = new THREE.PlaneGeometry(len, 0.07, 10, 1); geo.translate(len / 2, 0, 0); const m = new THREE.Mesh(geo, ribM); m.position.set(x, y, 0); m.userData.base = geo.attributes.position.array.slice(); g.add(m); return m; };
+    const ribbons = [ribbon(-1.8, 16.15, 0.9), ribbon(-6.1, 2.15, 0.6)];
+    const stay = tube([new THREE.Vector3(-6.0, 1.6, 0), new THREE.Vector3(-1.8, 15.9, 0)], 0.008, steel, 8); g.add(stay);
+    for (const sd of [1, -1]) g.add(tube([new THREE.Vector3(-1.4, 1.5, sd * 1.75), new THREE.Vector3(-1.8, 15.6, 0)], 0.006, steel, 8));
+    var rig = { boomG, jibG, main, jib, ribbons };
     shadowAll(g); scene.add(g);
-    C.ships.push({ name: 'Barca a vela', g, kind: 'sail', speed: 1.4, s: 0, anchored: false,
+    C.ships.push({ name: 'Barca a vela', g, kind: 'sail', speed: 1.4, s: 0, anchored: false, rig,
       deck: { hx: 5.2, hz: 1.45, y: 1.18 }, blocks: [{ x: -0.6, z: 0, hx: 1.9, hz: 1.15, top: 1.75 }],
       path: (s) => { const x = 220 + 520 * Math.sin(s * 0.0022); return { x, z: shoreZ(x) - 620 + 60 * Math.sin(s * 0.004), yaw: 0 }; },
     });
@@ -255,7 +276,7 @@ export function boardable(C, x, z) {
 export function updateCraft(C, dt, time, ctx) {
   // navi: avanzano sulla loro rotta, gettano l'ancora quando ti avvicini
   for (const S of C.ships) {
-    if (S.manual) { S.g.position.y = ctx.water + Math.sin(time * 0.8) * 0.06; continue; }
+    if (S.manual) continue;
     const near = S.g.position.distanceTo(ctx.player) < (S.kind === 'ferry' ? 320 : 180);
     S.anchored = near;
     if (S.blown > 0) S.blown -= dt;
@@ -270,7 +291,7 @@ export function updateCraft(C, dt, time, ctx) {
     // foschia manuale: da lontano le navi si sciolgono nell'orizzonte
     const d = S.g.position.distanceTo(ctx.camera);
     const f = Math.min(0.85, 1 - Math.exp(-Math.pow(d * ctx.fog * 0.55, 2)));
-    S.g.traverse((o) => { if (o.isMesh) { o.material.fog = false; o.material.emissive.copy(ctx.hor).multiplyScalar(f); if (!o.userData.c0) o.userData.c0 = o.material.color.clone(); o.material.color.copy(o.userData.c0).multiplyScalar(1 - f); } });
+    S.g.traverse((o) => { if (o.isMesh && o.material.emissive) { o.material.fog = false; o.material.emissive.copy(ctx.hor).multiplyScalar(f); if (!o.userData.c0) o.userData.c0 = o.material.color.clone(); o.material.color.copy(o.userData.c0).multiplyScalar(1 - f); } });
   }
   // barchino fermo: dondola
   const B = C.boat;

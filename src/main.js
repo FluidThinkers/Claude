@@ -212,6 +212,26 @@ function roundLights(root) {
     }
   });
 }
+// l'ombra del gabbiano: la sagoma ad ali aperte, disegnata nello shader, morbida quanto più sei in alto
+const gullShadow = (() => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), new THREE.ShaderMaterial({
+    uniforms: { uOp: { value: 0 }, uBlur: { value: 0.05 }, uFlap: { value: 0 } },
+    vertexShader: 'varying vec2 vU; void main(){ vU = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform float uOp, uBlur, uFlap; varying vec2 vU;
+      float sd(vec2 p){
+        float ax = abs(p.x);
+        float body = length(vec2(p.x / 0.09, (p.y + 0.05) / 0.36)) - 1.0;
+        float yc = 0.02 + (0.32 - 0.22 * uFlap) * ax - 0.42 * ax * ax;
+        float wing = (abs(p.y - yc) - 0.13 * (1.0 - pow(ax, 1.6))) / 0.13;
+        wing = max(wing, (ax - 0.98) / 0.05);
+        float tail = length(vec2(p.x / 0.1, (p.y + 0.42) / 0.1)) - 1.0;
+        return min(min(body, wing), tail);
+      }
+      void main(){ float a = 1.0 - smoothstep(-uBlur * 10.0, uBlur * 10.0 + 0.05, sd(vU)); gl_FragColor = vec4(0.02, 0.03, 0.05, a * uOp); }`,
+    transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+  }));
+  m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m); return m;
+})();
 const ants = buildAnts(scene, COLONY, { x: BARCA.x + 3.5, z: BARCA.z - 1.5 });
 // la cresta dell'onda che sei: un muro d'acqua verde-azzurro con la schiuma in cima, sotto e ai lati dello sguardo
 const crest = (() => {
@@ -585,7 +605,7 @@ function memoryEvent(t) {
   if (k === 'binoculars') { zoomPulse = 1; }
   if (p.y < lvl + 0.3 && k !== 'watch') spawnRipple(W, p.x, p.z, false);
 }
-let zoomPulse = 0, pileTick = 0, lastSea = -1, lastBreak = null;
+let zoomPulse = 0, pileTick = 0, lastSea = -1, lastBreak = null, floodT = -99;
 // meteo a comando (G): sereno → velato → nuvoloso → tempesta → automatico
 const WEATHER = [
   { name: 'Sereno', txt: 'Sereno. Il vento cala, il mare diventa una lastra.', cloud: 0.02, sea: 0.04, wind: 0.15, rain: 0, dark: 0 },
@@ -604,6 +624,7 @@ function nextWeather() {
 const ACT_FORM = { land: 'gull', friends: 'fish', bigwave: 'wave', sails: 'wind', moor: 'sail', rain: 'cloud', nap: 'cat', carry: 'ant' };
 const FORM_NAME = { walk: 'umano', swim: 'umano, in acqua', dive: 'umano, sott\'acqua', sup: 'umano, sul SUP', bike: 'umano, in moto', boat: 'umano, in barca', glide: 'in volo, sul deltaplano', flow: 'acqua', gull: 'gabbiano', fish: 'pesce', wave: 'onda', cloud: 'nuvola', rain: 'pioggia', sand: 'sabbia', tree: 'albero', light: 'luce', petal: 'petalo', wind: 'vento', cat: 'gatto', ant: 'formica', sail: 'barca a vela, spinta dal vento' };
 function curForm() { return player.cat && player.mode === 'walk' ? 'cat' : player.mode; }
+function formLabel() { const f = curForm(); return f === 'gull' && player.landed ? 'gabbiano, posato' : FORM_NAME[f] || ''; }
 let hasKey = false, preDone = false, friendT = 0, napT = 0;
 function stepNeed() { const F = FRAGMENTS[active]; if (!F) return null; if (F.pre && !preDone) return ACT_FORM[F.pre]; return ACT_FORM[F.act] || null; }
 function collectTrace(t) {
@@ -703,7 +724,25 @@ function checkAct(jump, downK, night, dt) {
   if (ok) { actPrompt = false; promptEl.classList.remove('on'); collectTrace(t); }
 }
 let actPrompt = false, baseFov = 72, formLblTxt = null;
-const sailState = { yaw: 0, v: 0 };
+const sailState = { yaw: 0, v: 0, trim: 0.5, boom: 0.4, side: 1, luff: 0 };
+// altezza del mare aperto (stessa formula dello shader): serve alle barche per salire e scendere sulle onde
+function swellAt(x, z, t) {
+  const d = z - shoreZ(x), depth = -heightAt(x, z) + waterUniforms.uLevel.value;
+  const wk = waterUniforms.uWindK.value, sw = wk * wk * (1 + 1.8 * waterUniforms.uStorm.value);
+  const k = THREE.MathUtils.smoothstep(depth, 1, 6);
+  return sw * (0.55 * Math.sin(x * 0.045 + d * 0.16 - t * 0.9) + 0.32 * Math.sin(x * -0.09 + d * 0.23 - t * 1.35 + 1.7) + 0.15 * Math.sin(x * 0.21 - d * 0.11 - t * 2.1)) * k;
+}
+// la barca sull'onda: sale, scende, beccheggia e rolla senza ribaltarsi
+function rideWaves(g, yaw, heel, t) {
+  const p = g.position, lvl = waterUniforms.uLevel.value;
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), sx = -fz, sz = fx;
+  const hc = swellAt(p.x, p.z, t), hb = swellAt(p.x + fx * 5, p.z + fz * 5, t), hs = swellAt(p.x - fx * 5, p.z - fz * 5, t);
+  const hl = swellAt(p.x + sx * 1.8, p.z + sz * 1.8, t), hr = swellAt(p.x - sx * 1.8, p.z - sz * 1.8, t);
+  p.y += (lvl + hc * 0.9 - p.y) * 0.25;
+  const pitch = Math.atan2(hb - hs, 10) * 0.9, roll = THREE.MathUtils.clamp(Math.atan2(hl - hr, 3.6) * 0.8 + heel, -0.5, 0.5);
+  g.rotation.set(0, Math.atan2(fz, -fx), 0);
+  g.rotateX(roll); g.rotateZ(-pitch);
+}
 const formLblEl = document.getElementById('formLbl');
 // gesti delle forme: ognuno si racconta la prima volta
 const acts = new Set();
@@ -923,7 +962,7 @@ function applyForm(form) {
   const lvl = waterUniforms.uLevel.value;
   if (FORMS.includes(player.mode) || player.mode === 'flow') { body = null; }
   if (['bike', 'boat', 'sup', 'glide'].includes(player.mode)) { player.mode = 'walk'; bike.fp.visible = false; bike.on = false; sea.fpPaddle.visible = false; craft.boat.on = false; }
-  player.cat = false; wings.visible = false; body = null; player.waveRest = false;
+  player.cat = false; wings.visible = false; body = null; player.waveRest = false; player.landed = false;
   illum = Math.max(illum, 0.7);
   if (form === 'sand') { flowUnlocked = true; player.mode = 'sand'; player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.4; player.pitch = -0.06; }
   else if (form === 'cat') { player.mode = 'walk'; player.cat = true; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 1); }
@@ -940,7 +979,8 @@ function applyForm(form) {
   else if (form === 'wind') { player.mode = 'wind'; player.vs = 14; player.pos.y = Math.max(player.pos.y, heightAt(player.pos.x, player.pos.z), lvl) + 6; player.pitch = -0.08; }
   else if (form === 'sail') {
     const S = craft.ships[0]; S.manual = true;
-    const r = S.g.rotation.y; sailState.yaw = Math.atan2(Math.cos(r), -Math.sin(r)) ; sailState.v = 2;
+    const r = S.g.rotation.y; sailState.yaw = Math.atan2(Math.cos(r), -Math.sin(r)); sailState.v = 2; sailState.trim = 0.5;
+    setTimeout(() => showMsg(isTouch ? 'Ai lati timoni. Avanti cazzi la randa, indietro la lasci. Guarda il nastro rosso: ti dice da dove arriva il vento.' : 'A e D: timone. W: cazza la randa · S: lascala. Il nastro rosso in testa d\'albero e a prua ti dice il vento.', 8), 4500);
     player.mode = 'sail'; player.yaw = sailState.yaw; player.pitch = -0.08;
   }
   else if (form === 'ant') { player.mode = 'ant'; player.carry = false; player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.05; player.pitch = -0.05; }
@@ -1112,13 +1152,20 @@ function frame() {
     }
   } else if (FORMS.includes(M)) {
     const qt = places.traces[active];
-    const r = moveForm(M, player, { waveMin: FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave' ? 1.9 : 0, dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
+    const r = moveForm(M, player, { groundAt, waveMin: FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave' ? 1.9 : 0, dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
       target: M === 'petal' ? craft.ships[0].g.position : M === 'cloud' && isleQ === 1 ? ISLAND : (M === 'sand' || M === 'cloud' || (M === 'wave' && player.questWave)) && qt ? qt.pos : null });
     if (M === 'wind' && player.pos.y < lvl + 10) { const T = waterUniforms.uTrail.value; if (Math.random() < dt * 8) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, 0.5); }
     eyeH = 0;
     player.formRoll = r.roll;
+    if (!['cloud', 'light', 'tree'].includes(M) && !(M === 'gull' && player.pos.y > 40)) {
+      const rad = M === 'ant' ? 0.03 : M === 'wave' ? 0.8 : M === 'fish' ? 0.25 : 0.3;
+      collide(player.pos); shipCollide(craft, player.pos); exploreCollide(explore, player.pos);
+      phys.resolve(player.pos, rad, player.pos.y - 0.4, player.pos.y + 0.4);
+    }
     if (r.timeScale && !todAnim && running) tod += dt * r.timeScale / CYCLE;
-    if (M === 'gull') { flapWings(wings, r.flap, player.bank || 0, fz > 0 || upK ? 0 : 1); sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.03) sound.gull((Math.random() - 0.5) * 0.4, 7); }
+    if (M === 'gull' && r.landed) { sound.flap && sound.flap(0.6); if (!acts.has('landed')) { acts.add('landed'); showMsg('Ti posi. Puoi camminare; Spazio per ripartire.', 4); } }
+    if (M === 'gull' && r.takeoff) { sound.flap && sound.flap(1); }
+    if (M === 'gull') { flapWings(wings, r.flap || 0, player.bank || 0, fz > 0 || upK ? 0 : 1); sound.wind(Math.min(1, 0.3 + r.speed / 25)); if (Math.random() < dt * 0.03) sound.gull((Math.random() - 0.5) * 0.4, 7); }
     if (M === 'tree') sound.wind(Math.min(1, wind.strength.value + 0.3));
     if (M === 'fish' && r.leapStart) { sound.splash('stroke', 1); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl, player.pos.z), 40, 2); actOnce('leap', 'Salti fuori dall\'acqua: per un attimo vedi il cielo, poi torni giù.'); }
     if (M === 'fish' && r.reentry) { sound.splash('dive', 0.7); spawnRipple(W, player.pos.x, player.pos.z, night > 0.5); waterSpray.burst(new THREE.Vector3(player.pos.x, lvl, player.pos.z), 30, 1.6); }
@@ -1168,7 +1215,7 @@ function frame() {
       if (r.broke) lastBreak = { x: player.pos.x, z: player.pos.z, t: elapsed, size: player.wsize || 1 };
       if (r.broke && player.questWave && FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave') {
         // l'onda grande si rompe: resti onda, schiuma che si stende sulla sabbia, finché la storia non ti trasforma
-        player.questWave = false; player.waveRest = true;
+        player.questWave = false; player.waveRest = true; if ((player.wsize || 1) >= 1.9) floodT = elapsed;
         addRing(player.pos.x, player.pos.z - 2, 0.6 * (player.wsize || 1)); sound.splash('dive', 1.6); camDip = 0.3;
         waterSpray.burst(new THREE.Vector3(player.pos.x, lvl + 0.3, player.pos.z), 160, 3.5);
       } else if (r.broke && player.questWave) {
@@ -1184,24 +1231,61 @@ function frame() {
       }
     }
   } else if (M === 'sail') {
-    // la barca a vela: va dove la porta il vento. Di bolina rallenta, al traverso corre
+    // navigazione vera: il vento apparente decide tutto. A e D timone, W cazza la randa, S la lasca.
     const S = craft.ships[0];
-    sailState.yaw -= fx * 0.5 * dt;
     const hx = -Math.sin(sailState.yaw), hz = -Math.cos(sailState.yaw);
-    const cw = hx * wind.dir.x + hz * wind.dir.y;
-    const eff = cw < -0.55 ? 0.12 : 0.55 + 0.45 * (1 - Math.abs(cw)) + 0.25 * Math.max(cw, 0);
-    const target = (2.5 + 7 * wind.strength.value) * eff * (fz < 0 ? 0.3 : fz > 0 ? 1.15 : 0.85);
-    sailState.v += (target - sailState.v) * Math.min(1, dt * 0.35);
+    const ws = 3 + 9 * wind.strength.value;                       // vento reale, m/s
+    const awx = wind.dir.x * ws - hx * sailState.v, awz = wind.dir.y * ws - hz * sailState.v; // vento apparente (verso dove soffia)
+    const aws = Math.hypot(awx, awz) || 1;
+    const awa = Math.acos(THREE.MathUtils.clamp(-(awx * hx + awz * hz) / aws, -1, 1));    // 0 = vento in prua, π = in poppa
+    const side = (awx * -hz + awz * hx) > 0 ? 1 : -1;            // da che lato soffia: la vela va sottovento
+    sailState.trim = THREE.MathUtils.clamp(sailState.trim + (fz < 0 ? 0.35 : fz > 0 ? -0.35 : 0) * dt, 0, 1);
+    const want = THREE.MathUtils.clamp((awa - 0.35) * 0.62, 0.08, 1.45); // angolo giusto del boma
+    let boom = Math.min(sailState.trim * 1.45, awa * 0.95);       // la vela non va oltre il vento
+    sailState.boom += (boom - sailState.boom) * Math.min(1, dt * 1.5);
+    const err = sailState.boom - want;
+    let drive = awa < 0.62 ? 0 : 1;                                // controvento: niente spinta
+    let state = awa < 0.62 ? 'controvento: la vela sbatte, poggia (A o D)' : 'vela a segno';
+    if (drive && err > 0.14) { drive *= Math.max(0.1, 1 - (err - 0.14) * 2.5); state = 'la vela sbatte: cazza (W)'; }
+    else if (drive && err < -0.16) { drive *= Math.max(0.35, 1 + (err + 0.16) * 2); state = 'troppo cazzata: lasca (S)'; }
+    sailState.luff += ((drive < 0.7 ? 1 : 0) - sailState.luff) * Math.min(1, dt * 3);
+    const polar = awa < 0.62 ? 0 : awa < 1.1 ? 0.55 + (awa - 0.62) / 0.48 * 0.4 : awa < 2.3 ? 1 : 1 - (awa - 2.3) * 0.25;
+    const target = ws * 0.6 * polar * drive;
+    sailState.v += (target - sailState.v) * Math.min(1, dt * 0.25);
+    sailState.yaw -= fx * (0.18 + 0.07 * Math.min(sailState.v, 6)) * dt;
     const nx = S.g.position.x + hx * sailState.v * dt, nz = S.g.position.z + hz * sailState.v * dt;
     if (heightAt(nx, nz) < lvl - 2.2) { S.g.position.x = nx; S.g.position.z = nz; } else sailState.v *= -0.2;
-    S.g.rotation.set(0, Math.atan2(hz, -hx), -(1 - Math.abs(cw)) * 0.12 * wind.strength.value * Math.sign(fx || 1) - 0.05);
+    { const bp = S.g.position; const ox = bp.x, oz = bp.z; const hit = phys.resolve(bp, 2.4, lvl - 1, lvl + 4); exploreCollide(explore, bp); if (hit || bp.x !== ox || bp.z !== oz) { if (sailState.v > 2) { sound.splash('dive', 0.6); camDip = 0.15; } sailState.v *= -0.3; } }
+    const heel = -side * Math.sin(awa) * drive * (0.12 + 0.2 * wind.strength.value) * (1 - sailState.trim * 0.4);
+    rideWaves(S.g, sailState.yaw, heel, elapsed);
+    // la vela e i nastrini
+    const R = S.rig;
+    if (R) {
+      const fl = sailState.luff * Math.sin(elapsed * 17) * 0.12;
+      R.boomG.rotation.y = side * (sailState.boom + fl);
+      R.main.scale.z = side * (1 - sailState.luff * 0.6 + fl * 2);
+      const ax = new THREE.Vector3(4.2, 12.7, 0).normalize();
+      R.jibG.quaternion.setFromAxisAngle(ax, side * (sailState.boom * 0.75 + fl));
+      R.jib.scale.z = -side * (1 - sailState.luff * 0.6);
+      const loc = Math.atan2(awz, awx) + S.g.rotation.y; // direzione del vento apparente nel riferimento della barca
+      for (const rb of R.ribbons) {
+        rb.rotation.set(0, -loc, 0);
+        const pa = rb.geometry.attributes.position, b0 = rb.userData.base;
+        for (let k = 0; k < pa.count; k++) { const x = b0[k * 3]; pa.setY(k, b0[k * 3 + 1] - x * 0.08 * (1 - wind.strength.value)); pa.setZ(k, Math.sin(x * 9 - elapsed * (8 + 10 * wind.strength.value)) * 0.05 * x); }
+        pa.needsUpdate = true;
+      }
+    }
+    if (!actPrompt) { promptEl.textContent = state + ' · velocità ' + sailState.v.toFixed(1) + ' nodi'; promptEl.classList.add('on'); }
     tmp.set(3.4, 2.3, 0).applyEuler(S.g.rotation).add(S.g.position);
     player.pos.set(tmp.x, tmp.y - 1.6, tmp.z);
     let dy = sailState.yaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); player.yaw += dy * Math.min(1, dt * 1.5);
     player.vel.set(hx * sailState.v, 0, hz * sailState.v);
+    player.boatRoll = heel;
     eyeH = 1.6;
     if (sailState.v > 1.5 && Math.random() < dt * 3) spawnRipple(W, S.g.position.x, S.g.position.z, night > 0.5);
     { const T = waterUniforms.uTrail.value; if (sailState.v > 1 && Math.random() < dt * 4) T[trailI++ % T.length].set(S.g.position.x - hx * 5, S.g.position.z - hz * 5, elapsed, 0.6); }
+    // pioggia sulla coperta
+    if (wx.rain > 0.5 && Math.random() < dt * 25) waterSpray.burst(new THREE.Vector3(S.g.position.x + (Math.random() - 0.5) * 6, S.g.position.y + 1.3, S.g.position.z + (Math.random() - 0.5) * 2.5), 2, 0.6);
   } else if (M === 'boat') {
     const B = craft.boat;
     driveBoat(B, dt, { fx, fz, run }, { water: lvl, time: elapsed });
@@ -1384,7 +1468,13 @@ function frame() {
   const seaState = THREE.MathUtils.clamp(0.08 + 1.1 * Math.max(0, skyUniforms.uCloud.value - 0.15) + 0.45 * (windK - 0.3) + 0.12 * Math.sin(elapsed * 0.009 + 1.3), 0, 1);
   if (lastSea < 0) lastSea = seaState;
   if (!Q.has('sea') && weatherI < 0 && Math.abs(seaState - lastSea) > 0.25) { lastSea = seaState; if (started && !under) { msgEl.classList.remove('thought'); showMsg(seaState > 0.6 ? 'Il cielo si chiude e il vento rinforza: il mare si alza, le onde arrivano lunghe e forti.' : 'Le nuvole si aprono, il vento cala: il mare si calma e torna liscio.', 4); } }
-  waterUniforms.uWindK.value = Q.has('sea') ? num('sea', 0.5) : seaState + (wx.sea - seaState) * wx.k; waterUniforms.uWindDir.value.copy(wind.dir);
+  waterUniforms.uWindK.value = Q.has('sea') ? num('sea', 0.5) : seaState + (wx.sea - seaState) * wx.k;
+  waterUniforms.uStorm.value = THREE.MathUtils.clamp(wx.dark * 1.6, 0, 1); waterUniforms.uRain.value = wx.rain;
+  post.uniforms.uStorm.value = waterUniforms.uStorm.value;
+  { // l'onda enorme che arriva a riva: sale lontano, sommerge, si ritira
+    const ft = elapsed - floodT, F = 34;
+    waterUniforms.uFloodF.value = ft < 0 || ft > 12 ? 0 : ft < 2.5 ? F * THREE.MathUtils.smoothstep(ft, 0, 2.5) : ft < 4 ? F : F * (1 - THREE.MathUtils.smoothstep(ft, 4, 12));
+  } waterUniforms.uWindDir.value.copy(wind.dir);
   updateSea(sea, dt, elapsed, { player: player.pos, water: lvl, friend: player.mode === 'fish' });
   // scia: chi si muove sull'acqua lascia punti che si allargano in onde e schiuma
   {
@@ -1435,6 +1525,10 @@ function frame() {
     onDiscover,
   });
   updateCraft(craft, dt, elapsed, { player: player.pos, camera: camera.position, water: lvl, fog: pal.fog * 2.2, hor: pal.hor });
+  for (const S of craft.ships) {
+    if (S.manual) { if (player.mode !== 'sail') rideWaves(S.g, sailState.yaw, 0, elapsed); }
+    else { const h = swellAt(S.g.position.x, S.g.position.z, elapsed); S.g.position.y += h * 0.9; S.g.rotation.z += Math.sin(elapsed * 0.7) * 0.02 * waterUniforms.uWindK.value * (1 + waterUniforms.uStorm.value); }
+  }
   gulls.update(dt, elapsed, camera.position, (p, takeoff) => {
     const rel = tmp.copy(p).sub(camera.position);
     const pan = rel.x * Math.cos(player.yaw) - rel.z * Math.sin(player.yaw);
@@ -1532,11 +1626,16 @@ function frame() {
   hemi.intensity = pal.hI * 0.7;
   if (under !== lastUnder) {
     lastUnder = under; sound.setUnder(under ? 1 : 0);
-    if (!under) drops = 1; // riemergi: gocce sull'obiettivo
+    if (!under) { // riemergi: uno spruzzo vero attorno a te, che ricade; niente gocce sull'obiettivo
+      const lv = waterUniforms.uLevel.value;
+      waterSpray.burst(new THREE.Vector3(camera.position.x, lv + 0.05, camera.position.z), 90, 2.8);
+      setTimeout(() => waterSpray.burst(new THREE.Vector3(camera.position.x, lv + 0.05, camera.position.z), 40, 1.6), 120);
+      sound.splash('stroke', 0.9); spawnRipple(W, camera.position.x, camera.position.z, night > 0.5);
+    }
     else waterSpray.burst(new THREE.Vector3(camera.position.x, waterUniforms.uLevel.value + 0.05, camera.position.z), 25, 1.6);
   }
-  drops = Math.max(0, drops - dt * 0.4);
-  wings.visible = player.mode === 'gull';
+  drops = 0;
+  wings.visible = false; // niente ali in prima persona: solo l'ombra sul mare e sulla terra
   waterSpray.update(dt);
   document.getElementById('bodyBtn').classList.toggle('hidden', !body || !isTouch);
 
@@ -1604,6 +1703,23 @@ function frame() {
   }
   burst.update(dt, wind.dir);
   crest.visible = false;
+  {
+    const on = player.mode === 'gull';
+    gullShadow.visible = on;
+    if (on) {
+      const sd = sunDir.y > 0.08 ? sunDir : null;
+      const surf = Math.max(groundAt(player.pos.x, player.pos.z, player.pos.y), waterUniforms.uLevel.value);
+      const alt = Math.max(0, player.pos.y - surf);
+      const ox = sd ? -sd.x / sd.y * alt : 0, oz = sd ? -sd.z / sd.y * alt : 0;
+      gullShadow.position.set(player.pos.x + ox, surf + 0.04, player.pos.z + oz);
+      gullShadow.rotation.set(-Math.PI / 2, 0, player.yaw);
+      gullShadow.scale.setScalar(1 + alt * 0.012);
+      const U2 = gullShadow.material.uniforms;
+      U2.uOp.value = (sd ? 0.55 : 0.15) * Math.exp(-alt / 60) * (1 - wx.dark * 0.8);
+      U2.uBlur.value = 0.01 + alt * 0.0025;
+      U2.uFlap.value = player.landed ? 0.9 : 0.5 + 0.5 * Math.sin(player.flap || 0);
+    }
+  }
   if (crest.visible) {
     const ws = player.wsize || 1;
     // attaccata allo sguardo: la cresta è sotto e davanti a te, sale con la tua grandezza
@@ -1684,7 +1800,7 @@ function frame() {
     const zf = zoomPulse > 0 ? 1 - 0.55 * Math.sin(Math.PI * (1 - zoomPulse)) : 1;
     const fv = baseFov * zf;
     if (Math.abs(camera.fov - fv) > 0.01) { camera.fov = fv; camera.updateProjectionMatrix(); }
-    const lbl = FORM_NAME[curForm()] || '';
+    const lbl = formLabel();
     if (lbl !== formLblTxt) { formLblTxt = lbl; formLblEl.textContent = lbl ? 'sei · ' + lbl : ''; formLblEl.classList.toggle('on', !!lbl && started); }
   }
   P.uUnderCol.value.copy(underDeep);

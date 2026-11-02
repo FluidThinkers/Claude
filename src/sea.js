@@ -95,11 +95,22 @@ export function buildSea(scene, skyUniforms) {
 
   // ---- Banchi di pesci (salpe argentate)
   {
-    const geo = new THREE.SphereGeometry(1, 10, 6);
-    geo.scale(0.05, 0.08, 0.22);
-    const tail = new THREE.ConeGeometry(0.05, 0.1, 4); tail.rotateX(-Math.PI / 2); tail.translate(0, 0, 0.26);
-    const merged = mergeGeos([geo, tail]);
-    const mat = std(0xb8c4c8, 0.3, 0.6);
+    // salpa: corpo affusolato e un po' schiacciato, coda a forbice; argento che lampeggia quando si gira
+    const prof = [];
+    for (let i = 0; i <= 16; i++) { const t = i / 16; prof.push(new THREE.Vector2(Math.max(0.002, 0.058 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.75)), 0.9) * (1 - 0.55 * t * t)), -0.24 + t * 0.48)); }
+    const body = new THREE.LatheGeometry(prof, 14); body.rotateX(Math.PI / 2); body.scale(0.6, 1, 1);
+    const tshape = new THREE.Shape(); tshape.moveTo(0, 0); tshape.lineTo(0.07, 0.1); tshape.lineTo(0.02, 0.05); tshape.lineTo(0, 0.07); tshape.lineTo(-0.02, 0.05); tshape.lineTo(-0.07, 0.1); tshape.lineTo(0, 0);
+    const tail = new THREE.ShapeGeometry(tshape); tail.rotateX(Math.PI / 2); tail.rotateZ(Math.PI / 2); tail.translate(0, 0, 0.235);
+    const fin = new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.09, 0), new THREE.Vector2(0.02, 0.035)])); fin.rotateY(-Math.PI / 2); fin.translate(0, 0.03, -0.04);
+    const merged = mergeGeos([body, tail, fin]);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xc9d3d6, roughness: 0.18, metalness: 0.85, emissive: 0x0b1416, side: THREE.DoubleSide });
+    // il corpo ondeggia: la coda batte, e il fianco riflette il cielo a lampi
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uT = S.fishT = { value: 0 };
+      sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  float ph = float(gl_InstanceID) * 1.37;\n  float k = smoothstep(-0.1, 0.3, position.z);\n  transformed.x += sin(uT * 9.0 + ph - position.z * 9.0) * 0.035 * k;')
+        .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(0.75, 0.85, 0.9) * pow(max(dot(normal, vec3(0.0, 0.0, 1.0)), 0.0), 8.0) * 0.6;');
+    };
     const N = 3, per = 36;
     const im = new THREE.InstancedMesh(merged, mat, N * per);
     im.frustumCulled = false;
@@ -233,6 +244,7 @@ export function updateSea(S, dt, time, ctx) {
     }
     F.im.count = n;
     F.im.instanceMatrix.needsUpdate = true;
+    if (S.fishT) S.fishT.value = time;
   }
 
   // SUP alla deriva quando non ci sei sopra
