@@ -127,7 +127,8 @@ export function buildCraft(scene) {
     shadowAll(g); scene.add(g);
     C.ships.push({ name: 'Barca a vela', g, kind: 'sail', speed: 1.4, s: 0, anchored: false, rig,
       deck: { hx: 5.2, hz: 1.45, y: 1.18 }, blocks: [{ x: -0.6, z: 0, hx: 1.9, hz: 1.15, top: 1.75 }],
-      path: (s) => { const x = 220 + 520 * Math.sin(s * 0.0022); return { x, z: shoreZ(x) - 620 + 60 * Math.sin(s * 0.004), yaw: 0 }; },
+      // un giro largo e chiuso: la barca vira dolcemente, non si gira su se stessa
+      path: (s) => { const a = s * 0.0016; const x = 220 + 480 * Math.sin(a); return { x, z: shoreZ(x) - 640 + 140 * Math.cos(a), yaw: 0 }; },
     });
   }
 
@@ -149,6 +150,18 @@ export function buildCraft(scene) {
       for (let x = 12; x < 70; x += 2.5) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 16), steel); st.position.set(x, 8.8, sd * 11.8); g.add(st); }
       g.add(tube([new THREE.Vector3(11, 9.35, sd * 11.8), new THREE.Vector3(40, 9.35, sd * 11.8), new THREE.Vector3(71, 9.35, sd * 11.8)], 0.05, steel, 20));
     }
+    // dettagli che lo rendono una nave vera: file di oblò, scialuppe arancioni, antenne, ancore, nome a prua
+    const porthole = new THREE.Mesh(new THREE.CircleGeometry(0.35, 14), mat.dark(0.1));
+    const ph = new THREE.InstancedMesh(porthole.geometry, porthole.material, 120); let pk = 0; const dm = new THREE.Object3D();
+    for (const sd of [1, -1]) for (let x = -60; x < 55 && pk < 120; x += 2) { dm.position.set(x, 4.2, sd * 12.9); dm.rotation.set(0, sd > 0 ? 0 : Math.PI, 0); dm.updateMatrix(); ph.setMatrixAt(pk++, dm.matrix); }
+    ph.count = pk; g.add(ph);
+    const orange = mat.paint(0xe2661c, 0.4);
+    for (const sd of [1, -1]) for (const x of [-50, -36, -14, 0]) { const lb = new THREE.Mesh(rbox(8, 2, 3, 0.9), orange); lb.position.set(x, 18.2, sd * 12.3); g.add(lb); const dv = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), steel); dv.position.set(x - 3, 19, sd * 11.6); g.add(dv); }
+    for (const [x, h] of [[-40, 9], [-46, 6]]) { const an = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, h, 16), steel); an.position.set(x, 25 + h / 2, 0); g.add(an); }
+    const radar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 5), mat.dark(0.3)); radar.position.set(-40, 26, 0); g.add(radar); C.radar = radar;
+    for (const sd of [1, -1]) { const anc = new THREE.Mesh(rbox(1.6, 2.2, 0.4, 0.3), mat.dark(0.5)); anc.position.set(68, 4, sd * 12.4); g.add(anc); }
+    const nameTex = (() => { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const c = cv.getContext('2d'); c.fillStyle = 'rgba(0,0,0,0)'; c.clearRect(0, 0, 512, 96); c.fillStyle = '#1d3f6a'; c.font = 'bold 64px Georgia, serif'; c.textAlign = 'center'; c.fillText('LIBERTÀ', 256, 72); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    for (const sd of [1, -1]) { const nm = new THREE.Mesh(new THREE.PlaneGeometry(14, 2.6), new THREE.MeshBasicMaterial({ map: nameTex, transparent: true })); nm.position.set(52, 7.5, sd * 13.0); nm.rotation.y = sd > 0 ? 0 : Math.PI; g.add(nm); }
     shadowAll(g); scene.add(g);
     C.ships.push({ name: 'Traghetto', g, kind: 'ferry', speed: 5, s: 300, anchored: false,
       deck: { hx: 29, hz: 11.6, y: 8.25, cx: 41 }, blocks: [{ x: -25, z: 0, hx: 41, hz: 11, top: 20 }],
@@ -284,9 +297,10 @@ export function boardable(C, x, z) {
 }
 
 export function updateCraft(C, dt, time, ctx) {
+  if (C.radar) C.radar.rotation.y = time * 1.6;
   // navi: avanzano sulla loro rotta, gettano l'ancora quando ti avvicini
   for (const S of C.ships) {
-    if (S.manual) continue;
+    if (S.manual) { S.g.traverse((o) => { if (o.isMesh && o.material.emissive) { o.material.fog = true; o.material.emissive.setRGB(0, 0, 0); if (o.userData.c0) o.material.color.copy(o.userData.c0); } }); continue; }
     const near = S.g.position.distanceTo(ctx.player) < (S.kind === 'ferry' ? 320 : 180);
     S.anchored = near;
     if (S.blown > 0) S.blown -= dt;

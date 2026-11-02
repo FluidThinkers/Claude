@@ -208,6 +208,8 @@ export function makeSky() {
         }
         vec4 cl = skyClouds(d, c, 5);
         c = cl.rgb + lights * (1.0 - cl.a * 0.92);
+        // la luna dietro le nuvole: un alone che le illumina da dietro e ne disegna i bordi
+        c += vec3(0.32, 0.36, 0.45) * (pow(max(md, 0.0), 18.0) * 0.55 + pow(max(md, 0.0), 4.0) * 0.12) * uNight * cl.a * step(0.0, uMoonDir.y);
         gl_FragColor = vec4(c, 1.0);
       }`,
   });

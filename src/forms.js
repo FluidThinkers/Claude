@@ -240,7 +240,7 @@ export function moveForm(form, P, ctx) {
     // l'onda va dove la porti: avanti corre, indietro rallenta e torna al largo, A e D piegano.
     // Non sale mai sulla sabbia asciutta; da piccola non riesce ad arrivare a riva.
     P.wsize = P.wsize || 1;
-    const tsp = fz > 0 ? 7.5 : fz < 0 ? -3 : 2.2;
+    const tsp = (fz > 0 ? 7.5 : fz < 0 ? -3 : 2.2) * (1 + 0.8 * (ctx.storm || 0));
     P.ws = (P.ws ?? 2) + (tsp - (P.ws ?? 2)) * Math.min(1, dt * 1.5);
     P.yaw -= fx * 1.3 * dt;
     const nx = P.pos.x - ys * P.ws * dt, nz = P.pos.z - yc * P.ws * dt;

@@ -519,6 +519,8 @@ document.getElementById('journal').addEventListener('click', () => journal.toggl
 // ---------- HUD
 const phaseEl = document.getElementById('phase'), countEl = document.getElementById('count'), msgEl = document.getElementById('msg'), promptEl = document.getElementById('prompt'), clockEl = document.getElementById('clock'), invEl = document.getElementById('inv');
 let lastLabel = '', msgTimer = 0, phaseTimer = 0;
+let storyBusy = 0;
+function ambientMsg(text, dur) { if (performance.now() < storyBusy) return; showMsg(text, dur); }
 function showMsg(text, dur = 5) { msgEl.textContent = text; msgEl.classList.add('on'); msgTimer = dur; }
 function sequence(lines, every = 4, delay = 0) {
   lines.forEach((l, i) => setTimeout(() => showMsg(l, every - 0.6), (delay + i * every) * 1000));
@@ -756,19 +758,20 @@ function rideWaves(g, yaw, heel, t) {
 const formLblEl = document.getElementById('formLbl');
 // gesti delle forme: ognuno si racconta la prima volta
 const acts = new Set();
-function actOnce(id, txt, t = 5) { if (acts.has(id)) return; acts.add(id); illum = Math.max(illum, 0.4); msgEl.classList.add('thought'); showMsg(txt, t); setTimeout(() => msgEl.classList.remove('thought'), t * 1000); }
+function actOnce(id, txt, t = 5) { if (acts.has(id) || performance.now() < storyBusy) return; acts.add(id); illum = Math.max(illum, 0.4); msgEl.classList.add('thought'); showMsg(txt, t); setTimeout(() => msgEl.classList.remove('thought'), t * 1000); }
 let lastDune = -9, cloudBias = 0, swell = null;
 function onFind(t) {
+  storyBusy = performance.now() + 42000; if (window.speechSynthesis) speechSynthesis.cancel();
   if (t.kind === 'letter') { hasKey = true; invEl.textContent = 'chiave arrugginita' + (hasGear ? ' · maschera · pinne' : ''); invEl.classList.add('on'); }
   preDone = false; friendT = 0; napT = 0; fishLead = false;
   sound.chime(t.i); setTimeout(() => sound.chord(), 400);
   memoryEvent(t);
   say(FRAGMENTS[t.i].text, 900);
-  setTimeout(() => say(FRAGMENTS[t.i].thought), 9600);
+  setTimeout(() => say(FRAGMENTS[t.i].thought), 12600);
   const f = FRAGMENTS[t.i];
   journal.add(t.i);
   illum = 1;
-  showMsg(f.text, 9);
+  showMsg(f.text, 12);
   active = t.i + 1;
   setZone(active);
   // il pensiero arriva dopo il ricordo, e indica la strada
@@ -776,7 +779,7 @@ function onFind(t) {
     msgEl.classList.add('thought');
     showMsg(f.thought, 8);
     if (zone) launchWisp(t.pos, zone);
-    if (f.form) setTimeout(() => storyForm(f.form, f.become, f.why), 8600);
+    if (f.form) setTimeout(() => storyForm(f.form, f.become, f.why), 11500);
     setTimeout(() => msgEl.classList.remove('thought'), 8000);
     const nf = FRAGMENTS[active];
     if (nf) {
@@ -787,7 +790,7 @@ function onFind(t) {
       setGoal(f.goal);
       if (f.needsHint) setTimeout(() => showMsg(f.needsHint, 6), 9000);
     }
-  }, 9500);
+  }, 12500);
   if (active >= places.traces.length) {
     zone = { x: 18, z: shoreZ(18) + 1, r: 30 };
     // ti aspetta sul bagnasciuga, vicino alla bandiera
@@ -1273,11 +1276,11 @@ function frame() {
     sailState.luff += ((awa < 0.62 || err > 0.14 ? 1 : 0) - sailState.luff) * Math.min(1, dt * 3);
     sailState.fill = drive * Math.min(1, ws / 6);
     const polar = awa < 0.62 ? 0 : awa < 1.1 ? 0.55 + (awa - 0.62) / 0.48 * 0.4 : awa < 2.3 ? 1 : 1 - (awa - 2.3) * 0.25;
-    const target = ws * 0.6 * polar * drive;
+    const target = ws * (0.6 + 0.25 * storm) * polar * drive;
     sailState.v += (target - sailState.v) * Math.min(1, dt * 0.18);
     sailState.yaw -= fx * (0.16 + 0.05 * Math.min(sailState.v, 6)) * dt;
     // tempesta: raffiche che strappano il timone e fanno orzare
-    if (storm > 0.3) { sailState.gust = (sailState.gust || 0) * 0.97 + (Math.random() - 0.5) * storm * 0.08; sailState.yaw += sailState.gust * dt * 4; if (Math.abs(sailState.heel || 0) > 0.32) { sailState.yaw += side * 0.25 * dt; sailState.v *= 1 - dt * 0.4; } }
+    if (storm > 0.3) { sailState.gust = (sailState.gust || 0) * 0.985 + (Math.random() - 0.5) * storm * 0.12; sailState.yaw += (sailState.gust * 5 + side * 0.18 * storm * Math.min(1, sailState.v / 4)) * dt; if (Math.abs(sailState.heel || 0) > 0.32) { sailState.yaw += side * 0.25 * dt; sailState.v *= 1 - dt * 0.4; } }
     const nx = S.g.position.x + hx * sailState.v * dt, nz = S.g.position.z + hz * sailState.v * dt;
     // ostacoli: fondale basso, pali, piloni, rovina, piattaforma. La barca si ferma, non rimbalza
     let blocked = heightAt(nx, nz) > lvl - 2.2 || exploreHeight(explore, nx, nz, 99) > lvl - 1;
@@ -1503,7 +1506,7 @@ function frame() {
   // il mare segue il tempo: cielo coperto e vento forte → mare grosso; sereno e brezza → calma piatta
   const seaState = THREE.MathUtils.clamp(0.08 + 1.1 * Math.max(0, skyUniforms.uCloud.value - 0.15) + 0.45 * (windK - 0.3) + 0.12 * Math.sin(elapsed * 0.009 + 1.3), 0, 1);
   if (lastSea < 0) lastSea = seaState;
-  if (!Q.has('sea') && weatherI < 0 && Math.abs(seaState - lastSea) > 0.25) { lastSea = seaState; if (started && !under) { msgEl.classList.remove('thought'); showMsg(seaState > 0.6 ? 'Il cielo si chiude e il vento rinforza: il mare si alza, le onde arrivano lunghe e forti.' : 'Le nuvole si aprono, il vento cala: il mare si calma e torna liscio.', 4); } }
+  if (!Q.has('sea') && weatherI < 0 && Math.abs(seaState - lastSea) > 0.25) { lastSea = seaState; if (started && !under && performance.now() > storyBusy) { msgEl.classList.remove('thought'); showMsg(seaState > 0.6 ? 'Il cielo si chiude e il vento rinforza: il mare si alza, le onde arrivano lunghe e forti.' : 'Le nuvole si aprono, il vento cala: il mare si calma e torna liscio.', 4); } }
   waterUniforms.uWindK.value = Q.has('sea') ? num('sea', 0.5) : seaState + (wx.sea - seaState) * wx.k;
   waterUniforms.uStorm.value = THREE.MathUtils.clamp(wx.dark * 1.6, 0, 1); waterUniforms.uRain.value = wx.rain;
   post.uniforms.uStorm.value = waterUniforms.uStorm.value;
@@ -1565,7 +1568,7 @@ function frame() {
   updateCraft(craft, dt, elapsed, { player: player.pos, camera: camera.position, water: lvl, fog: pal.fog * 2.2, hor: pal.hor });
   for (const S of craft.ships) {
     if (S.manual) { if (player.mode !== 'sail') rideWaves(S.g, sailState.yaw, 0, elapsed); }
-    else { const h = swellAt(S.g.position.x, S.g.position.z, elapsed); S.g.position.y += h * 0.9; S.g.rotation.z += Math.sin(elapsed * 0.7) * 0.02 * waterUniforms.uWindK.value * (1 + waterUniforms.uStorm.value); }
+    else { const h = swellAt(S.g.position.x, S.g.position.z, elapsed); S.g.position.y += h * 0.9; const rk = (S.kind === 'ferry' ? 0.012 : 0.05) * waterUniforms.uWindK.value * (1 + waterUniforms.uStorm.value); S.g.rotation.z = (S.kind === 'sail' ? S.g.rotation.z : 0) + Math.sin(elapsed * 0.7) * rk; S.g.rotation.x = Math.sin(elapsed * 0.53 + 1) * rk * 0.6; }
   }
   gulls.update(dt, elapsed, camera.position, (p, takeoff) => {
     const rel = tmp.copy(p).sub(camera.position);
@@ -1608,7 +1611,7 @@ function frame() {
   U.uCloud.value = Q.has('clouds') ? num('clouds', 0.4) : THREE.MathUtils.clamp(0.18 + 0.42 * slow + 0.2 * Math.max(0, Math.sin(elapsed * 0.0031 + 2.2)) + cloudBias, 0.0, 0.95);
   U.uCloud.value += (wx.cloud - U.uCloud.value) * wx.k;
   // cielo di tempesta: tutto più grigio e più buio
-  if (wx.dark > 0.01) { const gk = Math.min(1, wx.dark * 1.6); for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = Math.max((c.r + c.g + c.b) / 3, 0.035 * night); c.lerp(tmpC.setRGB(l * 0.96, l, l * 1.06), gk).multiplyScalar(1 - wx.dark * 0.5 * (1 - night * 0.6)); } U.uSunVis.value *= 1 - wx.dark; }
+  if (wx.dark > 0.01) { const gk = Math.min(1, wx.dark * 1.6); for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = Math.max((c.r + c.g + c.b) / 3, 0.06 * night); c.lerp(tmpC.setRGB(l * 0.96, l, l * 1.06), gk).multiplyScalar(1 - wx.dark * 0.5 * (1 - night * 0.6)); } U.uSunVis.value *= 1 - wx.dark; }
   U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
   const alto = Q.has('alto') ? num('alto', 1) : THREE.MathUtils.clamp(Math.sin(elapsed * 0.0045 + 2.2) * 1.4 - 0.5, 0, 1);
   U.uAlto.value = alto;
@@ -1617,7 +1620,7 @@ function frame() {
 
   // da molto in alto l'aria è più limpida: si vede il mondo sotto
   const altFog = 1 / (1 + Math.max(0, camera.position.y - 25) / 70);
-  sun.color.copy(pal.sun); sun.intensity = pal.sunI * (1 - alto * 0.55) * (1 - 0.8 * wx.dark);
+  sun.color.copy(pal.sun); sun.intensity = pal.sunI * (1 - alto * 0.55) * (1 - 0.8 * wx.dark * (1 - night * 0.7));
   {
     // ombre: la zona d'ombra segue lo sguardo; in volo si allarga
     const alt = camera.position.y - Math.max(heightAt(camera.position.x, camera.position.z), waterUniforms.uLevel.value);
@@ -1662,6 +1665,13 @@ function frame() {
   }
   scene.environmentIntensity = under ? 0.15 : 0.35 + 0.4 * (1 - night);
   hemi.intensity = pal.hI * 0.7;
+  // tempesta di notte: la luna dietro le nuvole dà il minimo per leggere le sagome di onde, riva e colline
+  if (night > 0.3 && wx.dark > 0.05) {
+    const k = night * Math.min(1, wx.dark * 1.6);
+    hemi.intensity = Math.max(hemi.intensity, 0.55 * k); hemi.color.lerp(tmpC.setRGB(0.55, 0.62, 0.78), k * 0.6); hemi.groundColor.lerp(tmpC.setRGB(0.12, 0.13, 0.15), k);
+    sun.intensity = Math.max(sun.intensity, 0.45 * k); sun.color.lerp(tmpC.setRGB(0.7, 0.78, 0.95), k);
+    if (!under) { const f = scene.fog.color; f.setRGB(Math.max(f.r, 0.045 * k), Math.max(f.g, 0.05 * k), Math.max(f.b, 0.065 * k)); scene.fog.density *= 1 - 0.4 * k; }
+  }
   if (under !== lastUnder) {
     lastUnder = under; sound.setUnder(under ? 1 : 0);
     if (!under) { // riemergi: uno spruzzo vero attorno a te, che ricade; niente gocce sull'obiettivo
@@ -1681,6 +1691,7 @@ function frame() {
   waterUniforms.uLightDir.value.copy(lightDir);
   waterUniforms.uLightCol.value.copy(pal.sun).multiplyScalar(pal.sunI * 0.5);
   waterUniforms.uAmb.value.copy(pal.hs).multiplyScalar(pal.hI * 0.75).add(tmpC.copy(pal.sun).multiplyScalar(pal.sunI * Math.max(sunDir.y, 0) * 0.18));
+  if (night > 0.3 && wx.dark > 0.05) { const k = night * Math.min(1, wx.dark * 1.6), A = waterUniforms.uAmb.value; A.setRGB(Math.max(A.r, 0.1 * k), Math.max(A.g, 0.12 * k), Math.max(A.b, 0.16 * k)); }
   waterUniforms.uFog.value = pal.fog * altFog;
   water.position.set(Math.round(player.pos.x / 4) * 4, 0, Math.round(player.pos.z / 4) * 4);
   sky.position.copy(camera.position);
@@ -1824,7 +1835,7 @@ function frame() {
   // post
   const P = post.uniforms;
   P.uTime.value = elapsed;
-  P.uExposure.value = pal.exp * (1 - 0.25 * wx.dark);
+  P.uExposure.value = pal.exp * (1 - 0.25 * wx.dark * (1 - night)) * (1 + 0.35 * wx.dark * night);
   P.uGrade.value.copy(pal.grade).lerp(tmpV3.set(0.97, 1.0, 1.04), Math.min(1, wx.dark * 1.6));
   P.uSunCol.value.copy(pal.sun);
   tmp.copy(camera.position).addScaledVector(sunDir, 1000).project(camera);
