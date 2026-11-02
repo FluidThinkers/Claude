@@ -273,15 +273,17 @@ function ridgeLayer(R, a0, a1, cols, heightFn, depth) {
         vec3 veg = mix(vec3(0.16, 0.2, 0.11), vec3(0.3, 0.3, 0.17), vn(vec2(vAz * 2200.0, vY * 0.05)));
         vec3 rock = vec3(0.52, 0.49, 0.44);
         vec3 alb = mix(veg, rock, rk * 0.75);
-        vec3 amb = uBase * 1.5 + uHaze * 0.25;
+        vec3 amb = uBase * 0.8 + uHaze * 0.1;
         vec3 surf = alb * (amb + uSunCol * lit * 1.4 * uSunVis);
         // prospettiva aerea: lontano tutto diventa cielo; in basso la foschia è più densa
-        float haze = clamp(uDepth + near * (1.0 - smoothstep(0.0, 0.7, t)) * 0.45, 0.0, 1.0);
+        float haze = clamp(uDepth * 0.75 + near * (1.0 - smoothstep(0.0, 0.7, t)) * 0.35, 0.0, 1.0);
         // nebbia di valle: una fascia chiara che si stende alla base di ogni piano
         haze = clamp(haze + (1.0 - smoothstep(0.0, 0.28, t)) * 0.35 * (0.6 + 0.4 * vn(vec2(vAz * 300.0, 1.0))), 0.0, 1.0);
         vec3 c = mix(surf, uHaze, haze);
         // il crinale controluce si accende appena
         c += uSunCol * smoothstep(0.92, 1.0, t) * 0.06 * uSunVis * near;
+        // la sera e la notte: le montagne diventano sagome scure, quasi nere
+        c *= 1.0 - 0.55 * smoothstep(0.0, 1.0, 1.0 - uSunVis) * (1.0 - uDepth * 0.4);
         gl_FragColor = vec4(c, 1.0);
       }`,
   });
@@ -318,7 +320,7 @@ export function buildSkyline(scene) {
 export function updateSkyline(S, camPos, pal, sunDir, sunVis) {
   S.g.position.set(camPos.x, 0, camPos.z);
   const U = skylineUniforms;
-  U.uHaze.value.copy(pal.hor).lerp(pal.sea, 0.25);
+  U.uHaze.value.copy(pal.hor).lerp(pal.sea, 0.25).lerp(pal.zen, 0.3).multiplyScalar(0.85);
   U.uBase.value.copy(pal.hor).lerp(pal.zen, 0.55).multiplyScalar(0.55);
   U.uSunDir.value.copy(sunDir); U.uSunCol.value.copy(pal.sun); U.uSunVis.value = sunVis;
   S.mNear.color.copy(U.uHaze.value).lerp(U.uBase.value, 0.62);

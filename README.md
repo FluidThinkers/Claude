@@ -142,6 +142,11 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 - **Pesci**: salpe affusolate e argentate, con la coda che batte e il fianco che lampeggia.
 - **Uscire dall'acqua**: uno spruzzo vero attorno a te, che ricade.
 - **Tutto è solido**: pali, scogli, relitto, rovina, piattaforma e scafi fermano ogni forma, e anche la barca.
+- **Il meteo conta**: senza vento la barca a vela resta ferma e la vela pende; con vento buono corre; in tempesta è veloce ma le raffiche strappano il timone e la fanno sbandare. Da vento, con la calma quasi non ti muovi e in tempesta corri ma sbandi. L'onda grande nasce solo con il mare mosso: se è calmo, chiama la tempesta (G). Il gabbiano vola meglio con la calma.
+- **La vela si gonfia** quanto il vento la prende e dà spinta: più la prendi bene, più vai veloce.
+- **Torretta del bagnino**: legno bianco scrostato, piattaforma alta con ringhiera, tettuccio a strisce bianche e rosse, scala, cartello SALVATAGGIO, salvagente, bandiera rossa che sventola.
+- **Pali del pontile**: legno scuro, fascia verde di alghe e denti di cozze sulla linea dell'acqua, controventi a croce.
+- **Montagne**: di giorno più scure e profonde, di sera e di notte sagome quasi nere.
 - **Ricomincia**: il pulsante in basso al centro (e nel diario) riparte da capo.
 - **Cielo di notte**: migliaia di stelle di luminosità e colore diversi (bianco-azzurre, gialle, arancio), che scintillano vicino all'orizzonte, e la Via Lattea con le sue corsie scure.
 - **Erba**: le raffiche corrono sul prato nella direzione del vento; ogni filo si piega curvo e trema per conto suo.

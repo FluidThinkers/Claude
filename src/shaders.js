@@ -740,9 +740,10 @@ export function makePost(renderer) {
         dropHL = m * smoothstep(rad, 0.0, length(q + vec2(0.05, -0.06)));
       }
       vec3 col;
-      col.r = texture2D(tScene, uv - c * r2 * 0.012).r;
+      float ca = 0.012 * (1.0 - uStorm);
+      col.r = texture2D(tScene, uv - c * r2 * ca).r;
       col.g = texture2D(tScene, uv).g;
-      col.b = texture2D(tScene, uv + c * r2 * 0.012).b;
+      col.b = texture2D(tScene, uv + c * r2 * ca).b;
       if (uBlur > 0.0) {
         vec3 acc = col;
         for (int i = 0; i < 8; i++) { float a = float(i) * 0.785; acc += texture2D(tScene, uv + vec2(cos(a), sin(a)) * 0.007 * uBlur).rgb; }
@@ -805,7 +806,7 @@ export function makePost(renderer) {
         float L = lum(col);
         col = mix(col, vec3(L) * vec3(0.86, 0.95, 1.0), 0.45 * uStorm);
         col = (col - 0.32) * (1.0 + 0.45 * uStorm) + 0.32 - 0.06 * uStorm;
-        col = max(col, 0.0);
+        col = max(col, vec3(0.018, 0.022, 0.028) * uStorm);
       }
       float l = lum(col); col = mix(vec3(l), col, 1.1);
       col = pow(max(col, 0.0), vec3(1.0 / 2.2));

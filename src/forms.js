@@ -224,7 +224,10 @@ export function moveForm(form, P, ctx) {
     out.speed = w;
   } else if (form === 'wind') {
     // vento: veloce, radente; dove passi l'acqua si increspa e l'erba si piega
-    P.vs = (P.vs || 10) + ((fz > 0 ? (run ? 34 : 24) : fz < 0 ? 6 : 14) - (P.vs || 10)) * Math.min(1, dt * 1.2);
+    // il vento sei tu, ma dipende dal tempo: con la calma quasi non ti muovi, con la tempesta corri e sbandi
+    const wk = 0.15 + 1.1 * ctx.wind;
+    P.vs = (P.vs || 10) + ((fz > 0 ? (run ? 34 : 24) : fz < 0 ? 6 : 14) * wk - (P.vs || 10)) * Math.min(1, dt * 1.2);
+    if (ctx.storm > 0.3) { P.gustW = (P.gustW || 0) * 0.96 + (Math.random() - 0.5) * ctx.storm * 0.12; P.yaw += P.gustW * dt * 6; P.pos.y += Math.sin(ctx.time * 3.1) * ctx.storm * 2 * dt; }
     P.yaw -= fx * 1.1 * dt;
     const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
     P.pos.x += -ys * cp * P.vs * dt; P.pos.z += -yc * cp * P.vs * dt; P.pos.y += (sp * P.vs + (ctx.up ? 6 : 0)) * dt;

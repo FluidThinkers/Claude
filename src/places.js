@@ -102,6 +102,19 @@ function weatheredWood() {
   return { map: mk(col, true), bump: mk(bmp, false) };
 }
 
+function pileTex() {
+  const W = 64, H = 512, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const R = (() => { let s = 99; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
+  const g = c.createLinearGradient(0, 0, 0, H);
+  // v = 1 in alto (canvas y = 0); la linea dell'acqua cade intorno all'82% dell'altezza
+  g.addColorStop(0, '#6d5f50'); g.addColorStop(0.14, '#6a5a4a'); g.addColorStop(0.17, '#3c3a2a'); g.addColorStop(0.2, '#24301f'); g.addColorStop(0.3, '#1a2418'); g.addColorStop(1, '#141a14');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  for (let k = 0; k < 160; k++) { c.fillStyle = `rgba(30,24,18,${0.1 + R() * 0.2})`; c.fillRect(R() * W, R() * H * 0.16, 1, 8 + R() * 40); }
+  for (let k = 0; k < 220; k++) { const y = H * (0.15 + R() * 0.08); c.fillStyle = `rgba(${200 + R() * 40 | 0},${195 + R() * 40 | 0},${180 + R() * 30 | 0},${0.5 + R() * 0.4})`; c.beginPath(); c.arc(R() * W, y, 0.8 + R() * 1.8, 0, 7); c.fill(); }
+  for (let k = 0; k < 120; k++) { c.fillStyle = `rgba(${40 + R() * 30 | 0},${70 + R() * 40 | 0},${30 + R() * 20 | 0},0.4)`; c.fillRect(R() * W, H * (0.17 + R() * 0.2), 2 + R() * 4, 6 + R() * 20); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 const cabinTex = (col) => canvasTex(128, 128, (c, w, h) => {
   c.fillStyle = '#ece8df'; c.fillRect(0, 0, w, h);
   c.fillStyle = col; for (let x = 0; x < w; x += 32) c.fillRect(x, 0, 16, h);
@@ -289,6 +302,7 @@ export function buildPlaces(scene, glowTex, platform) {
   {
     const p = PONTILE, len = p.from - p.to;
     const g = new THREE.Group();
+    const pileM = std(0xffffff, 0.9, 0, { map: pileTex() });
     const n = Math.floor(len / 0.24);
     const plank = new THREE.BoxGeometry(p.half * 2, 0.05, 0.21);
     const ww = weatheredWood();
@@ -312,10 +326,11 @@ export function buildPlaces(scene, glowTex, platform) {
     g.add(im);
     for (let d = 8; d >= p.to; d -= 3) {
       for (const s of [-1, 1]) {
-        const post = mesh(new THREE.CylinderGeometry(0.11, 0.13, 7, 20), darkWood);
+        const post = mesh(new THREE.CylinderGeometry(0.11, 0.13, 7, 20), pileM);
         post.position.set(s * (p.half - 0.1), p.deck - 3.6, d); g.add(post);
       }
       const beam = boxM(p.half * 2 + 0.2, 0.12, 0.14, darkWood); beam.position.set(0, p.deck - 0.13, d); g.add(beam);
+      if (d < 6) for (const sgn of [-1, 1]) { const br = boxM(0.06, 2.6, 0.09, pileM); br.position.set(0, p.deck - 1.4, d); br.rotation.z = sgn * 0.68; g.add(br); }
     }
     for (const s of [-1, 1]) { // corrimano basso solo nell'ultimo tratto
       const r = boxM(0.06, 0.06, 30, darkWood); r.position.set(s * (p.half - 0.05), p.deck + 0.85, p.to + 15); g.add(r);
@@ -413,14 +428,42 @@ export function buildPlaces(scene, glowTex, platform) {
       }
       addCollider(c.x, c.z, 0.4, 1.0, y0 + 0.8);
     }
-    // torretta del bagnino
+    // torretta del bagnino: legno bianco scrostato, piattaforma alta con ringhiera, tettuccio di tela a strisce,
+    // scala, cartello rosso SALVATAGGIO, salvagente con la cima, asta con la bandiera rossa
     const g = new THREE.Group();
     const y0 = heightAt(TORRETTA.x, TORRETTA.z);
-    for (const [x, z] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]]) { const l = boxM(0.1, 2.6, 0.1, whiteWood); l.position.set(x * 0.85, 1.3, z * 0.85); l.rotation.set(z * 0.08, 0, -x * 0.08); g.add(l); }
-    const seat = boxM(1.2, 0.08, 1.0, whiteWood); seat.position.y = 2.6; g.add(seat);
-    const back = boxM(1.2, 0.8, 0.06, whiteWood); back.position.set(0, 3.0, 0.5); g.add(back);
-    for (let i = 0; i < 5; i++) { const st = boxM(0.7, 0.05, 0.12, whiteWood); st.position.set(0, 0.45 + i * 0.45, -0.95 + i * 0.07); g.add(st); }
-    const ring = mesh(new THREE.TorusGeometry(0.3, 0.07, 10, 24), std(0xd2382c, 0.6)); ring.position.set(0.66, 2.0, 0); ring.rotation.y = Math.PI / 2; g.add(ring);
+    const paintTex = (() => { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256; const c = cv.getContext('2d');
+      c.fillStyle = '#ece8df'; c.fillRect(0, 0, 128, 256);
+      for (let k = 0; k < 90; k++) { c.fillStyle = `rgba(${120 + Math.random() * 40 | 0},${100 + Math.random() * 30 | 0},${80 + Math.random() * 20 | 0},${0.35 + Math.random() * 0.4})`; c.fillRect(Math.random() * 128, Math.random() * 256, 2 + Math.random() * 10, 2 + Math.random() * 18); }
+      for (let k = 0; k < 40; k++) { c.fillStyle = 'rgba(90,80,70,0.25)'; c.fillRect(Math.random() * 128, 0, 1, 256); }
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
+    const paint = std(0xffffff, 0.75, 0, { map: paintTex });
+    const red = std(0xc8322a, 0.6);
+    const H = 3.4;
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const l = boxM(0.14, H + 1.6, 0.14, paint); l.position.set(x * 0.8, (H + 1.6) / 2, z * 0.8); l.rotation.set(z * 0.05, 0, -x * 0.05); g.add(l); }
+    for (const y of [0.9, 2.1]) for (const [x, z, w, d] of [[0, -0.82, 1.7, 0.08], [0, 0.82, 1.7, 0.08], [-0.82, 0, 0.08, 1.7], [0.82, 0, 0.08, 1.7]]) { const b = boxM(w, 0.08, d, paint); b.position.set(x, y, z); g.add(b); }
+    for (const sgn of [-1, 1]) { const xb = boxM(0.06, 1.9, 0.06, paint); xb.position.set(0, 1.5, 0.84); xb.rotation.z = sgn * 0.7; g.add(xb); }
+    const deck = boxM(2.0, 0.1, 2.0, paint); deck.position.y = H; g.add(deck);
+    for (const [x, z, w, d] of [[0, 0.95, 2.0, 0.06], [-0.95, 0, 0.06, 2.0], [0.95, 0, 0.06, 2.0]]) { const r = boxM(w, 0.06, d, paint); r.position.set(x, H + 0.9, z); g.add(r); for (let k = -2; k <= 2; k++) { const st = boxM(0.05, 0.9, 0.05, paint); st.position.set(w > 1 ? k * 0.45 : x, H + 0.45, w > 1 ? z : k * 0.45); g.add(st); } }
+    const seat = boxM(1.1, 0.08, 0.5, paint); seat.position.set(0, H + 0.55, 0.55); g.add(seat);
+    // tettuccio di tela a strisce bianche e rosse
+    const roofTex = (() => { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const c = cv.getContext('2d'); for (let k = 0; k < 8; k++) { c.fillStyle = k % 2 ? '#c8322a' : '#f2efe8'; c.fillRect(k * 16, 0, 16, 32); } const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    const roofG = new THREE.PlaneGeometry(2.3, 2.2, 8, 1); { const q = roofG.attributes.position; for (let k = 0; k < q.count; k++) q.setZ(k, -0.12 * Math.cos(q.getX(k) * 1.3)); }
+    const roof = new THREE.Mesh(roofG, std(0xffffff, 0.85, 0, { map: roofTex, side: THREE.DoubleSide })); roof.castShadow = true; roof.rotation.x = -Math.PI / 2 + 0.12; roof.position.set(0, H + 2.15, 0); g.add(roof);
+    for (const [x, z] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) { const pole = boxM(0.05, 2.1, 0.05, paint); pole.position.set(x, H + 1.1, z); g.add(pole); }
+    // scala
+    for (const sx of [-0.32, 0.32]) { const rail = boxM(0.07, H + 0.6, 0.07, paint); rail.position.set(sx, (H + 0.6) / 2 - 0.1, -1.55); rail.rotation.x = -0.32; g.add(rail); }
+    for (let k = 0; k < 9; k++) { const st = boxM(0.62, 0.05, 0.14, paint); st.position.set(0, 0.3 + k * 0.38, -2.05 + k * 0.13); g.add(st); }
+    // cartello SALVATAGGIO
+    const signTex = (() => { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const c = cv.getContext('2d'); c.fillStyle = '#c8322a'; c.fillRect(0, 0, 256, 64); c.fillStyle = '#fff'; c.font = 'bold 34px sans-serif'; c.textAlign = 'center'; c.fillText('SALVATAGGIO', 128, 45); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.42), std(0xffffff, 0.6, 0, { map: signTex })); sign.position.set(0, H - 0.35, -1.0); sign.rotation.y = Math.PI; g.add(sign);
+    // salvagente con la cima
+    const ring = mesh(new THREE.TorusGeometry(0.32, 0.075, 12, 28), red); ring.position.set(0.98, 2.4, 0); ring.rotation.y = Math.PI / 2; g.add(ring);
+    for (let k = 0; k < 4; k++) { const band = mesh(new THREE.TorusGeometry(0.32, 0.078, 12, 4, 0.25), std(0xf2efe8, 0.6)); band.position.copy(ring.position); band.rotation.set(0, Math.PI / 2, k * Math.PI / 2); g.add(band); }
+    // asta e bandiera rossa
+    const mast = mesh(new THREE.CylinderGeometry(0.03, 0.035, 3.2, 12), paint); mast.position.set(-0.95, H + 2.6, -0.95); g.add(mast);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55, 8, 3), std(0xc8322a, 0.7, 0, { side: THREE.DoubleSide })); flag.position.set(-0.5, H + 3.9, -0.95); g.add(flag);
+    P.towerFlag = flag;
     g.position.set(TORRETTA.x, y0, TORRETTA.z);
     g.rotation.y = Math.PI;
     scene.add(g);
@@ -579,6 +622,7 @@ export function buildPlaces(scene, glowTex, platform) {
 const tmp = new THREE.Vector3();
 
 export function updatePlaces(P, dt, time, ctx) {
+  if (P.towerFlag) { const f = P.towerFlag, pa = f.geometry.attributes.position; for (let k = 0; k < pa.count; k++) { const x = pa.getX(k) + 0.45; pa.setZ(k, Math.sin(x * 6 - time * (4 + 6 * (ctx.wind || 0.4))) * 0.08 * x); } pa.needsUpdate = true; }
   const on = ctx.night > 0.1 ? Math.min(1, (ctx.night - 0.1) * 2.2) : 0;
 
   // lungomare che ti segue lungo la costa

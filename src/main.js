@@ -138,7 +138,7 @@ const phys = new Physics();
 {
   const c = Math.cos(0.12), sn = Math.sin(0.12);
   for (const [lx, lz] of [[-4, -3], [4, -3], [-4, 3], [4, 3], [0, -3], [0, 3]]) phys.add(PERGOLA.x + lx * c + lz * sn, PERGOLA.z - lx * sn + lz * c, 0.18, heightAt(PERGOLA.x, PERGOLA.z) + 3.2);
-  phys.add(TORRETTA.x, TORRETTA.z, 0.75, heightAt(TORRETTA.x, TORRETTA.z) + 2.6);
+  phys.add(TORRETTA.x, TORRETTA.z, 1.25, heightAt(TORRETTA.x, TORRETTA.z) + 3.4);
   phys.add(BELVEDERE.x + 3.2, BELVEDERE.z + 2.5, 0.9);
   for (let k = 0; k < 12; k++) { const a = -Math.PI * 0.85 + (k / 11) * Math.PI * 0.7; phys.add(BELVEDERE.x + Math.sin(a) * 4.2, BELVEDERE.z - Math.cos(a) * 4.2 * 0.6 - 1.5, 0.35, heightAt(BELVEDERE.x, BELVEDERE.z) + 0.7); }
   for (let d = 8; d >= PONTILE.to; d -= 3) for (const sx of [-1, 1]) phys.add(PONTILE.x + sx * (PONTILE.half - 0.1), PONTILE.z0 + d, 0.14, PONTILE.deck - 0.15);
@@ -605,6 +605,7 @@ function memoryEvent(t) {
   if (k === 'binoculars') { zoomPulse = 1; }
   if (p.y < lvl + 0.3 && k !== 'watch') spawnRipple(W, p.x, p.z, false);
 }
+const tmpV3 = new THREE.Vector3();
 let zoomPulse = 0, pileTick = 0, lastSea = -1, lastBreak = null, floodT = -99, swellI = 0;
 // meteo a comando (G): sereno → velato → nuvoloso → tempesta → automatico
 const WEATHER = [
@@ -658,7 +659,7 @@ function checkAct(jump, downK, night, dt) {
   const tg = stepTarget();
   const dh = Math.hypot(tg.x - eye.x, tg.z - eye.z), M = curForm();
   let near = false, ok = false, prompt = F.prompt;
-  if (act === 'land') { near = M === 'gull' && dh < 40; ok = near && dh < 8 && eye.y - t.pos.y < 4.5; }
+  if (act === 'land') { near = M === 'gull' && dh < 40; prompt = player.landed ? '' : F.prompt + ' (tieni S per posarti)'; ok = near && player.landed && dh < 7 && Math.abs(player.pos.y - t.pos.y) < 2.5; }
   else if (act === 'friends') {
     // trova il banco; poi il banco si gira e ti guida fino al relitto
     near = M === 'fish';
@@ -1163,7 +1164,7 @@ function frame() {
     }
   } else if (FORMS.includes(M)) {
     const qt = places.traces[active];
-    const r = moveForm(M, player, { groundAt, waveMin: FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave' ? 1.9 : 0, dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
+    const r = moveForm(M, player, { storm: waterUniforms.uStorm.value, groundAt, waveMin: FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave' ? 1.9 : 0, dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
       target: M === 'petal' ? craft.ships[0].g.position : M === 'cloud' && isleQ === 1 ? ISLAND : (M === 'sand' || M === 'cloud' || (M === 'wave' && player.questWave)) && qt ? qt.pos : null });
     if (M === 'wind' && player.pos.y < lvl + 10) { const T = waterUniforms.uTrail.value; if (Math.random() < dt * 8) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, 0.5); }
     eyeH = 0;
@@ -1208,16 +1209,18 @@ function frame() {
     }
     if (M === 'wave' && !player.waveRest) {
       // da dietro arrivano onde più grandi: si vedono, e se ti raggiungono ti unisci a loro
-      if (!swell || elapsed - swell.t0 > 7) {
+      const rough = waterUniforms.uWindK.value > 0.55;
+      if (!rough && FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave') { if (!actPrompt) { promptEl.textContent = 'Il mare è troppo calmo: nessuna onda grande ti raggiungerà. Chiama la tempesta (G).'; promptEl.classList.add('on'); actPrompt = true; } }
+      if (rough && (!swell || elapsed - swell.t0 > 7)) {
         swell = { x: player.pos.x + (Math.random() - 0.5) * 12, z: player.pos.z - 38, t0: elapsed, merged: false };
         const SW = waterUniforms.uSwells.value[(swellI = (swellI + 1) % 2)]; SW.set(swell.x, swell.z, elapsed, 1.0 + 0.3 * (player.wsize || 1));
       }
-      const front = swell.z + (elapsed - swell.t0) * 7, dd = Math.abs(player.pos.z - front) + Math.max(0, Math.abs(player.pos.x - swell.x) - 60);
+      if (swell) { const front = swell.z + (elapsed - swell.t0) * 7, dd = Math.abs(player.pos.z - front) + Math.max(0, Math.abs(player.pos.x - swell.x) - 60);
       if (!swell.merged && dd < 4 && elapsed - swell.t0 > 1.5) {
         swell.merged = true; player.wsize = Math.min(3, (player.wsize || 1) + 0.48); player.ws = Math.min(9, (player.ws || 3) + 1.5);
         sound.splash('dive', 1.3); camDip = 0.25; waterSpray.burst(new THREE.Vector3(player.pos.x, lvl + 0.8 * player.wsize, player.pos.z), 90, 2.6);
         showMsg(player.wsize >= 1.9 ? 'Sei un\'onda enorme, ora. Corri a riva.' : 'Ti unisci a un\'onda più grande: cresci.', 3);
-      }
+      } }
     }
     if (M === 'fish' && r.blocked && !acts.has('shallow')) actOnce('shallow', 'Più in là l\'acqua è troppo bassa: un pesce resta nel mare.', 4);
     if (M === 'wave' && r.tooSmall && !player.smallTold) { player.smallTold = true; showMsg('Sei troppo piccola per arrivare a riva: cresci (avanti).', 4); }
@@ -1252,7 +1255,8 @@ function frame() {
     // navigazione vera: il vento apparente decide tutto. A e D timone, W cazza la randa, S la lasca.
     const S = craft.ships[0];
     const hx = -Math.sin(sailState.yaw), hz = -Math.cos(sailState.yaw);
-    const ws = 3 + 9 * wind.strength.value;                       // vento reale, m/s
+    const ws = 0.4 + 12 * Math.max(0, wind.strength.value - 0.12); // vento reale, m/s: con la calma la vela pende
+    const storm = waterUniforms.uStorm.value;
     const awx = wind.dir.x * ws - hx * sailState.v, awz = wind.dir.y * ws - hz * sailState.v; // vento apparente (verso dove soffia)
     const aws = Math.hypot(awx, awz) || 1;
     const awa = Math.acos(THREE.MathUtils.clamp(-(awx * hx + awz * hz) / aws, -1, 1));    // 0 = vento in prua, π = in poppa
@@ -1263,23 +1267,26 @@ function frame() {
     sailState.boom += (boom - sailState.boom) * Math.min(1, dt * 1.5);
     const err = sailState.boom - want;
     let drive = awa < 0.62 ? 0 : 1;                                // controvento: niente spinta
-    let state = awa < 0.62 ? 'controvento: la vela sbatte, poggia (A o D)' : 'vela a segno';
+    let state = ws < 2 ? 'non c\'è vento: la vela pende (serve vento, G)' : awa < 0.62 ? 'controvento: la vela sbatte, poggia (A o D)' : storm > 0.5 ? 'tempesta: tieni la barca, lasca nelle raffiche' : 'vela a segno';
     if (drive && err > 0.14) { drive *= Math.max(0.1, 1 - (err - 0.14) * 2.5); state = 'la vela sbatte: cazza (W)'; }
     else if (drive && err < -0.16) { drive *= Math.max(0.35, 1 + (err + 0.16) * 2); state = 'troppo cazzata: lasca (S)'; }
-    sailState.luff += ((drive < 0.7 ? 1 : 0) - sailState.luff) * Math.min(1, dt * 3);
+    sailState.luff += ((awa < 0.62 || err > 0.14 ? 1 : 0) - sailState.luff) * Math.min(1, dt * 3);
+    sailState.fill = drive * Math.min(1, ws / 6);
     const polar = awa < 0.62 ? 0 : awa < 1.1 ? 0.55 + (awa - 0.62) / 0.48 * 0.4 : awa < 2.3 ? 1 : 1 - (awa - 2.3) * 0.25;
     const target = ws * 0.6 * polar * drive;
     sailState.v += (target - sailState.v) * Math.min(1, dt * 0.18);
     sailState.yaw -= fx * (0.16 + 0.05 * Math.min(sailState.v, 6)) * dt;
+    // tempesta: raffiche che strappano il timone e fanno orzare
+    if (storm > 0.3) { sailState.gust = (sailState.gust || 0) * 0.97 + (Math.random() - 0.5) * storm * 0.08; sailState.yaw += sailState.gust * dt * 4; if (Math.abs(sailState.heel || 0) > 0.32) { sailState.yaw += side * 0.25 * dt; sailState.v *= 1 - dt * 0.4; } }
     const nx = S.g.position.x + hx * sailState.v * dt, nz = S.g.position.z + hz * sailState.v * dt;
     // ostacoli: fondale basso, pali, piloni, rovina, piattaforma. La barca si ferma, non rimbalza
     let blocked = heightAt(nx, nz) > lvl - 2.2 || exploreHeight(explore, nx, nz, 99) > lvl - 1;
-    if (!blocked) for (const c of phys._near(nx, nz)) { if (c.top < lvl - 1 || c.bottom > lvl + 3) continue; if (Math.hypot(nx - c.x, nz - c.z) < c.r + 2.2) { blocked = true; break; } }
+    if (!blocked) for (const c of phys.statics) { if (c.top < lvl - 1 || c.bottom > lvl + 3 || Math.abs(c.x - nx) > 30 || Math.abs(c.z - nz) > 30) continue; if (Math.hypot(nx - c.x, nz - c.z) < c.r + 2.2) { blocked = true; break; } }
     if (!blocked) { S.g.position.x = nx; S.g.position.z = nz; }
     else { if (sailState.v > 2.5 && !sailState.bumped) { sound.splash('dive', 0.6); camDip = 0.15; showMsg('Urti. Poggia, allontanati col timone.', 3); } sailState.bumped = true; sailState.v *= 0.3; }
     if (!blocked) sailState.bumped = false;
     sailState.sideS = (sailState.sideS ?? side) + (side - (sailState.sideS ?? side)) * Math.min(1, dt * 1.2);
-    const heelT = -sailState.sideS * Math.sin(awa) * drive * (0.1 + 0.16 * wind.strength.value) * (1 - sailState.trim * 0.4);
+    const heelT = -sailState.sideS * Math.sin(awa) * drive * Math.min(1, ws / 7) * (0.1 + 0.28 * wind.strength.value) * (1 - sailState.trim * 0.4);
     sailState.heel = (sailState.heel || 0) + (heelT - (sailState.heel || 0)) * Math.min(1, dt * 1.2);
     const heel = sailState.heel;
     rideWaves(S.g, sailState.yaw, heel, elapsed);
@@ -1289,10 +1296,11 @@ function frame() {
       const fl = sailState.luff * Math.sin(elapsed * 17) * 0.12;
       const sd = sailState.sideS;
       R.boomG.rotation.y = sd * (sailState.boom + fl);
-      R.main.scale.z = (sd >= 0 ? 1 : -1) * (1 - sailState.luff * 0.6 + fl * 2);
+      // la vela si gonfia quanto il vento la prende; sbatte se è lascata troppo
+      R.main.scale.z = (sd >= 0 ? 1 : -1) * (0.15 + 0.95 * (sailState.fill || 0) + fl * 2.5);
       const ax = new THREE.Vector3(4.2, 12.7, 0).normalize();
       R.jibG.quaternion.setFromAxisAngle(ax, sd * (sailState.boom * 0.75 + fl));
-      R.jib.scale.z = -(sd >= 0 ? 1 : -1) * (1 - sailState.luff * 0.6);
+      R.jib.scale.z = -(sd >= 0 ? 1 : -1) * (0.15 + 0.95 * (sailState.fill || 0) + fl * 2);
       const loc = Math.atan2(awz, awx) + S.g.rotation.y; // direzione del vento apparente nel riferimento della barca
       for (const rb of R.ribbons) {
         rb.rotation.set(0, -loc, 0);
@@ -1600,7 +1608,7 @@ function frame() {
   U.uCloud.value = Q.has('clouds') ? num('clouds', 0.4) : THREE.MathUtils.clamp(0.18 + 0.42 * slow + 0.2 * Math.max(0, Math.sin(elapsed * 0.0031 + 2.2)) + cloudBias, 0.0, 0.95);
   U.uCloud.value += (wx.cloud - U.uCloud.value) * wx.k;
   // cielo di tempesta: tutto più grigio e più buio
-  if (wx.dark > 0.01) { const gk = wx.dark; for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = (c.r + c.g + c.b) / 3; c.lerp(tmpC.setRGB(l, l, l * 1.04), gk * 0.8).multiplyScalar(1 - gk * 0.5); } U.uSunVis.value *= 1 - gk; }
+  if (wx.dark > 0.01) { const gk = Math.min(1, wx.dark * 1.6); for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = Math.max((c.r + c.g + c.b) / 3, 0.035 * night); c.lerp(tmpC.setRGB(l * 0.96, l, l * 1.06), gk).multiplyScalar(1 - wx.dark * 0.5 * (1 - night * 0.6)); } U.uSunVis.value *= 1 - wx.dark; }
   U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
   const alto = Q.has('alto') ? num('alto', 1) : THREE.MathUtils.clamp(Math.sin(elapsed * 0.0045 + 2.2) * 1.4 - 0.5, 0, 1);
   U.uAlto.value = alto;
@@ -1817,7 +1825,7 @@ function frame() {
   const P = post.uniforms;
   P.uTime.value = elapsed;
   P.uExposure.value = pal.exp * (1 - 0.25 * wx.dark);
-  P.uGrade.value.copy(pal.grade);
+  P.uGrade.value.copy(pal.grade).lerp(tmpV3.set(0.97, 1.0, 1.04), Math.min(1, wx.dark * 1.6));
   P.uSunCol.value.copy(pal.sun);
   tmp.copy(camera.position).addScaledVector(sunDir, 1000).project(camera);
   const inFront = tmp.z < 1;
@@ -1872,4 +1880,4 @@ if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4
 frame();
 roundLights(scene);
 places.traces.forEach((t) => { t.sp.visible = false; });
-window.__riva = { swellAt, wx, crest, ants, camera, get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { applyFormT: (f) => applyForm(f), sailState, wind, swellAt, wx, crest, ants, camera, get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
