@@ -801,13 +801,16 @@ function onFind(t) {
   setZone(active);
   // il racconto guida il tempo: ricordo → pensiero → trasformazione, ognuno quando la voce ha finito il precedente
   const minWait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const myGen = voiceGen;
   (async () => {
     msgEl.classList.remove('thought'); showMsg(f.text, 60);
     await Promise.all([say(f.text, 'r' + i + '_ricordo'), minWait(7000)]);
+    if (myGen !== voiceGen) return;
     msgEl.classList.add('thought'); showMsg(f.thought, 60);
     if (zone) launchWisp(t.pos, zone);
     { const na = FRAGMENTS[active] && FRAGMENTS[active].act; const wf = WEATHER_FOR[na]; setGoal(f.goal + (wf && wf !== 'qualsiasi' ? '<span class="wx">tempo giusto · ' + wf + '</span>' : '')); }
     await Promise.all([say(f.thought, 'r' + i + '_pensiero'), minWait(6000)]);
+    if (myGen !== voiceGen) return;
     msgEl.classList.remove('thought');
     if (f.form) {
       // il cambio di forma lo scegli tu, quando sei pronto: compare il tasto
@@ -953,7 +956,7 @@ function returnToBody() {
 function onMeet() {
   zone = null;
   goalEl.classList.remove('on');
-  sound.music('finale'); sequence(ENDING, 4.2, 0.5); ENDING.forEach((l, k) => say(l, 'fine_' + (k + 1)));
+  voiceStop(); sound.music('finale'); sequence(ENDING, 4.2, 0.5); ENDING.forEach((l, k) => say(l, 'fine_' + (k + 1)));
   setTimeout(() => { sound.chord(); const cur = ((tod % 1) + 1) % 1; todAnim = { from: tod, to: tod - cur + (cur < 0.75 ? 0.755 : 1.755), t: 0, dur: 30 }; }, ENDING.length * 4200);
   // finale: ti sciogli in luce sopra l'acqua della sera
   setTimeout(() => {
@@ -984,17 +987,21 @@ const voiceClips = {};
 })();
 const voiceBufs = {};
 let voiceChain = Promise.resolve(), voiceSrc = null;
-function voiceStop() { if (window.speechSynthesis) speechSynthesis.cancel(); try { voiceSrc && voiceSrc.stop(); } catch (e) {} voiceSrc = null; voiceChain = Promise.resolve(); }
-function speakOne(id, text) {
+let voiceGen = 0;
+// ferma tutto e invalida le frasi in coda: una sola voce alla volta, sempre
+function voiceStop() { voiceGen++; if (window.speechSynthesis) speechSynthesis.cancel(); try { voiceSrc && voiceSrc.stop(); } catch (e) {} voiceSrc = null; voiceChain = Promise.resolve(); }
+function speakOne(id, text, gen) {
   return new Promise(async (done) => {
-    if (!voiceOn || !text) return done();
+    if (!voiceOn || !text || gen !== voiceGen) return done();
     if (id && voiceClips[id] && sound.ctx) {
       try {
         if (!voiceBufs[id]) { const b = await (await fetch(voiceClips[id])).arrayBuffer(); voiceBufs[id] = await new Promise((ok, ko) => sound.ctx.decodeAudioData(b, ok, ko)); }
+        if (gen !== voiceGen) return done();
+        try { voiceSrc && voiceSrc.stop(); } catch (e) {}
         const src = sound.ctx.createBufferSource(); src.buffer = voiceBufs[id];
         const g = sound.ctx.createGain(); g.gain.value = 1; src.connect(g); g.connect(sound.comp);
         voiceSrc = src; sound.narr && sound.narr(true);
-        src.onended = () => { sound.narr && sound.narr(false); setTimeout(done, 700); };
+        src.onended = () => { if (voiceSrc === src) voiceSrc = null; sound.narr && sound.narr(false); setTimeout(done, 700); };
         src.start(); return;
       } catch (e) { /* passa alla voce di sistema */ }
     }
@@ -1014,11 +1021,13 @@ function speakOne(id, text) {
 }
 // in fila: ogni frase aspetta la precedente; ritorna quando questa è finita
 function say(text, id = null) {
-  const p = voiceChain.then(() => speakOne(id, text));
+  const gen = voiceGen;
+  const p = voiceChain.then(() => speakOne(id, text, gen));
   voiceChain = p; return p;
 }
 async function storyForm(form, text, why, i = active - 1) {
   if (form === 'fish' && player.mode === 'gull') { player.landed = false; player.forceDive = true; player.gs = 12; player.pitch = -1.0; }
+  voiceStop();
   const ann = 'Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '.';
   showMsg(ann.replace('.', '…'), 60);
   sound.music('trasformazione');

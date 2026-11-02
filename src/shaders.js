@@ -78,7 +78,7 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
   float setMod = 0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0);
   setMod *= (0.25 + 1.5 * windK) * (1.0 + 0.9 * uStorm);
   float jit = surfJit(x);
-  float ph = SURF_OM * t - d * (0.5 + 0.08 * sin(x * 0.013)) + jit + 0.6 * sin(x * 0.031 + d * 0.05);
+  float ph = SURF_OM * t - d * (0.5 + 0.08 * sin(x * 0.013)) + jit + 1.3 * sin(x * 0.031 + d * 0.05) + 0.9 * vn(vec2(x * 0.06, d * 0.04)) + 0.5 * sin(x * 0.11 - d * 0.07);
   s = fract(ph / 6.2831853);
   float prof = max(pow(1.0 - s, 2.6), pow(smoothstep(0.78, 1.0, s), 1.6));
   float A = setMod * (0.08 + 0.62 * smoothstep(5.5, 1.5, depth)) * smoothstep(0.1, 1.1, depth);
@@ -518,6 +518,9 @@ export function makeWater() {
         float lip = brk * smoothstep(0.86, 0.985, sP) * (0.55 + 0.45 * brkUp) * (0.3 + 0.7 * brkMask);
         float white = bore * (smoothstep(0.5, 0.0, sP) + smoothstep(0.88, 1.0, sP)) * (0.5 + 0.5 * brkUp) * (0.35 + 0.65 * brkMask);
         float residual = max(brk, bore) * lace * 0.55;
+        // la schiuma si rompe a pezzi lungo la riva: niente linee continue e regolari
+        float patchF = smoothstep(0.25, 0.7, vn(vec2(vW.x * 0.09, vW.z * 0.2) + vec2(uTime * 0.05, floor(uTime / 7.5) * 1.7)) * 0.65 + vn(vW.xz * 0.6 + uTime * 0.1) * 0.35);
+        lip *= 0.35 + 0.65 * patchF; white *= 0.4 + 0.6 * patchF; residual *= 0.5 + 0.5 * patchF;
         // risacca pixel per pixel: bordo morbido e a lobi, schiuma di bolle sul fronte che avanza,
         // che si apre in chiazze mentre l'acqua si ritira
         float swU, swR, swA;
