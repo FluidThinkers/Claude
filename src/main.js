@@ -616,7 +616,7 @@ function memoryEvent(t) {
   if (p.y < lvl + 0.3 && k !== 'watch') spawnRipple(W, p.x, p.z, false);
 }
 const tmpV3 = new THREE.Vector3();
-let sunShade = 0;
+let sunShade = 0, dayLook = 0;
 let zoomPulse = 0, pileTick = 0, lastSea = -1, lastBreak = null, floodT = -99, swellI = 0;
 // meteo a comando (G): sereno → velato → nuvoloso → tempesta → automatico
 const WEATHER = [
@@ -1093,6 +1093,21 @@ function frame() {
   } else if (running && !freeze) tod += dt / CYCLE;
 
   evalPalette(tod, pal);
+  { // ogni alba e ogni tramonto sono diversi: il giorno sceglie il suo carattere
+    const tn = ((tod % 1) + 1) % 1, dayN = Math.floor(tod + 0.5), low = Math.max(Math.exp(-(((tn - 0.27) / 0.045) ** 2)), Math.exp(-(((tn - 0.755) / 0.045) ** 2)));
+    if (low > 0.01) {
+      const h = (Math.sin(dayN * 12.9898 + (tn > 0.5 ? 7.1 : 0)) * 43758.5453) % 1, v = Math.abs(h);
+      const V = v < 0.25 ? { hor: 0xff3e18, mid: 0x6a2a2a, sun: 0xff4018 }      // rosso fuoco
+        : v < 0.5 ? { hor: 0xf0b45a, mid: 0xa08060, sun: 0xffc070 }             // oro velato
+        : v < 0.75 ? { hor: 0xff8a8a, mid: 0x7a5a86, sun: 0xff9a70 }            // rosa e viola
+        : { hor: 0xff7a2a, mid: 0x3a2a2c, sun: 0xff6a2a };                       // ambra sotto nubi scure
+      const k = low * 0.9;
+      pal.hor.lerp(tmpC.set(V.hor), k); pal.mid.lerp(tmpC.set(V.mid), k * 0.9); pal.sun.lerp(tmpC.set(V.sun), k);
+      if (v >= 0.5 && v < 0.75) pal.zen.lerp(tmpC.set(0x3a3a6a), k * 0.7); else if (v >= 0.25 && v < 0.5) pal.zen.lerp(tmpC.set(0x6a7890), k * 0.6);
+      pal.fog *= 1 - 0.45 * low; // aria limpida: il colore sta nel cielo, non nella foschia
+      dayLook = v;
+    }
+  }
   evalPalette(nextPhaseT(), nextPal);
   const elev = sunDirection(((tod % 1) + 1) % 1, sunDir);
   const dayK = THREE.MathUtils.smoothstep(elev, -0.06, 0.06);
@@ -1684,6 +1699,7 @@ function frame() {
   if (player.mode !== 'wind') cloudBias *= Math.pow(0.97, dt);
   U.uCloud.value = Q.has('clouds') ? num('clouds', 0.4) : THREE.MathUtils.clamp(0.18 + 0.42 * slow + 0.2 * Math.max(0, Math.sin(elapsed * 0.0031 + 2.2)) + cloudBias, 0.0, 0.95);
   U.uCloud.value += (wx.cloud - U.uCloud.value) * wx.k;
+  if (!Q.has('clouds')) { const tn = ((tod % 1) + 1) % 1, lowK = Math.max(Math.exp(-(((tn - 0.27) / 0.06) ** 2)), Math.exp(-(((tn - 0.755) / 0.06) ** 2))); U.uCloud.value += (dayLook > 0.75 ? 0.25 : dayLook < 0.25 ? 0.12 : 0) * lowK * (1 - wx.k); }
   // cielo di tempesta: tutto più grigio e più buio
   if (wx.dark > 0.01) { const gk = Math.min(1, wx.dark * 1.6); for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = Math.max((c.r + c.g + c.b) / 3, 0.06 * night); c.lerp(tmpC.setRGB(l * 0.96, l, l * 1.06), gk * 0.85).multiplyScalar(1 - wx.dark * 0.3 * (1 - night * 0.6)); } U.uSunVis.value *= 1 - wx.dark * 0.6; }
   U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
@@ -1933,7 +1949,7 @@ function frame() {
   P.uSunPos.value.set(tmp.x * 0.5 + 0.5, tmp.y * 0.5 + 0.5);
   const edge = Math.max(Math.abs(tmp.x), Math.abs(tmp.y));
   P.uSunVis.value = inFront && !under ? U.uSunVis.value * (1 - THREE.MathUtils.smoothstep(edge, 0.9, 1.3)) : 0;
-  P.uHaze.value = inFront && !under ? U.uSunVis.value * (0.1 + mist * 0.6) * (1 - U.uCloud.value * 0.5) : 0;
+  P.uHaze.value = inFront && !under ? U.uSunVis.value * (0.06 + mist * 0.35) * (1 - U.uCloud.value * 0.5) : 0;
   P.uUnder.value = under ? 1 : 0;
   P.uBlur.value = under && !clearEyes ? 1 : 0;
   P.uMask.value = under && hasGear && !FORMS.includes(player.mode) && player.mode !== 'flow' ? 1 : 0;

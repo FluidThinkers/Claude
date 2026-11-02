@@ -177,8 +177,8 @@ export function makeSky() {
         // il disco: col sole basso diventa grande, rosso-arancio, e si accende di un alone
         float low = 1.0 - smoothstep(0.02, 0.25, uSunDir.y);
         vec3 discCol = mix(uSunCol, vec3(1.0, 0.55, 0.25) * length(uSunCol), low * 0.6);
-        vec3 lights = discCol * smoothstep(0.99935 - 0.0002 * low, 0.99962 - 0.0002 * low, sd) * 40.0 * uSunVis * above;
-        c += uSunCol * (pow(max(sd, 0.0), 900.0) * 1.2 + pow(max(sd, 0.0), 60.0) * 0.25 * (0.4 + low)) * uSunVis;
+        vec3 lights = discCol * smoothstep(0.99952, 0.99968, sd) * mix(40.0, 12.0, low) * uSunVis * above;
+        c += uSunCol * (pow(max(sd, 0.0), 1400.0) * 0.8 + pow(max(sd, 0.0), 90.0) * 0.12 * (0.4 + low)) * uSunVis;
         lights += vec3(0.95, 0.94, 0.88) * smoothstep(0.99972, 0.99988, md) * 4.0 * uNight;
         c += vec3(0.5, 0.5, 0.46) * pow(max(md, 0.0), 300.0) * 0.6 * uNight;
         c += vec3(0.25, 0.3, 0.45) * pow(max(md, 0.0), 120.0) * 0.4 * uNight;
@@ -479,7 +479,11 @@ export function makeWater() {
           vec3 lc = uSunVis > 0.05 ? uLightCol : vec3(0.85, 0.86, 0.82) * 0.9;
           vec3 Rg = reflect(-V, N);
           float rough = 0.25 + 0.5 * uWindK;
-          float path = pow(max(dot(Rg, Lg), 0.0), mix(160.0, 18.0, rough));          // quanto è larga la strada
+          // la strada è stretta di lato e lunga in profondità: va da sotto il sole (o la luna) fino a chi guarda
+          vec2 rh = normalize(Rg.xz + vec2(1e-5)), lh = normalize(Lg.xz + vec2(1e-5));
+          float az = max(dot(rh, lh), 0.0);
+          float el = exp(-pow((Rg.y - Lg.y) / (0.18 + 0.55 * rough + 0.25 * (1.0 - smoothstep(0.0, 0.3, Lg.y))), 2.0));
+          float path = pow(az, mix(700.0, 90.0, rough)) * el;
           // col mare calmo la strada è fatta di righe orizzontali che tremano: le piccole onde viste di taglio
           vec2 toCam = normalize(uCam.xz - p + vec2(1e-4));
           float bands = 0.45 + 0.55 * smoothstep(0.35, 0.75, vn(vec2(dot(p, toCam) * 1.6 - uTime * 0.6, dot(p, vec2(-toCam.y, toCam.x)) * 0.08)));
