@@ -57,7 +57,7 @@ float surfJit(float x){ return vn(vec2(x * 0.018, 3.0)) * 2.2 + vn(vec2(x * 0.00
 // la lama di risacca: a lobi, ogni onda diversa dall'altra, che sale veloce, rallenta, si ferma e si ritira.
 // u: fase (0 arrivo); R: fin dove arriva quest'onda qui; adv: 1 mentre avanza
 float swash(float x, float t, float windK, out float u, out float R, out float adv){
-  float setMod = (0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0)) * (0.25 + 1.5 * windK);
+  float setMod = (0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0)) * (0.25 + 1.5 * windK) * (1.0 + 0.9 * uStorm);
   float lobe = vn(vec2(x * 0.075, 1.3)) * 1.1 + vn(vec2(x * 0.21, 4.1)) * 0.35;  // i tratti di riva arrivano in tempi diversi
   float ph = (SURF_OM * t + surfJit(x) + lobe) / 6.2831853;
   float n = floor(ph); u = fract(ph);
@@ -76,7 +76,7 @@ float swash(float x, float t, float windK, out float u, out float R, out float a
 float surfY(float x, float d, float t, float lvl, float windK, out float s, out float brk, out float bore, out float film, out float front){
   float depth = -baseH(d);
   float setMod = 0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0);
-  setMod *= 0.25 + 1.5 * windK;
+  setMod *= (0.25 + 1.5 * windK) * (1.0 + 0.9 * uStorm);
   float jit = surfJit(x);
   float ph = SURF_OM * t - d * 0.5 + jit;
   s = fract(ph / 6.2831853);
@@ -86,7 +86,7 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
   bore = smoothstep(1.4, 0.5, depth) * smoothstep(-0.2, 0.3, depth) * setMod;
   float seaY = lvl + A * (prof - 0.32);
   // mare aperto: con il mare mosso salgono onde lunghe anche al largo; con la calma restano appena accennate
-  float sw = windK * windK * (1.0 + 1.8 * uStorm);
+  float sw = windK * windK * (1.0 + 2.2 * uStorm);
   seaY += sw * (0.55 * sin(x * 0.045 + d * 0.16 - t * 0.9) + 0.32 * sin(x * -0.09 + d * 0.23 - t * 1.35 + 1.7) + 0.15 * sin(x * 0.21 - d * 0.11 - t * 2.1)) * smoothstep(1.0, 6.0, depth);
   // risalita: la lama d'acqua sulla sabbia (vedi swash). La mesh copre tutta la fascia
   // che la risacca può raggiungere; il bordo vero lo disegna il frammento, pixel per pixel.
@@ -235,6 +235,7 @@ export const waterUniforms = {
   uRingBox: { value: new THREE.Vector3(0, 0, -1) },
   uPiles: { value: Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 0, 0)) },
   uFloodF: { value: 0 }, uStorm: { value: 0 }, uRain: { value: 0 },
+  uSwells: { value: [new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0)] },
   uRings: { value: [new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0), new THREE.Vector4(0, 0, -100, 0)] },
   uWindDir: { value: new THREE.Vector2(0.6, -0.8) },
   uUnderFog: { value: 0.06 },
@@ -259,6 +260,7 @@ export function makeWater() {
     vertexShader: /* glsl */`
       uniform float uLevel, uTime, uWindK;
       uniform vec4 uRings[4];
+      uniform vec4 uSwells[2];
       varying vec3 vW; varying vec4 vSurf; varying vec2 vSlope; varying float vFront; varying float vRing; varying float vTrail;
       // scia: ogni punto lasciato da chi si muove manda un'onda circolare lenta;
       // l'inviluppo dei cerchi forma la V, al centro resta la schiuma rimescolata
@@ -282,6 +284,7 @@ export function makeWater() {
         return vec2(h, foam);
       }
       // onde ad anello sollevate quando sei il mare
+      float x0(float d){ return d > 0.0 ? 1.6 : 4.5; }
       float rings(vec2 p, out float crest){
         float h = 0.0; crest = 0.0;
         for (int i = 0; i < 4; i++) {
@@ -294,6 +297,18 @@ export function makeWater() {
           float w = exp(-x * x) * a;
           h += w * (1.0 - 0.6 * smoothstep(0.0, 2.0, -x));
           crest = max(crest, w / max(uRings[i].w, 0.01));
+        }
+        // onde lunghe, dritte come quelle vere: una cresta larga che avanza verso riva, ripida davanti
+        for (int i = 0; i < 2; i++) {
+          float age = uTime - uSwells[i].z;
+          if (age < 0.0 || age > 40.0) continue;
+          float front = uSwells[i].y + age * 7.0 + 2.5 * sin(p.x * 0.031 + uSwells[i].z) + 1.5 * sin(p.x * 0.083);
+          float x = (p.y - front) / (x0(p.y - front));
+          float lat = exp(-pow((p.x - uSwells[i].x) / 70.0, 2.0));
+          float a = uSwells[i].w * lat * smoothstep(0.0, 2.0, age) * (1.0 - smoothstep(30.0, 40.0, age));
+          float w = exp(-x * x) * a;
+          h += w;
+          crest = max(crest, w / max(uSwells[i].w, 0.01) * smoothstep(-0.2, 0.6, x));
         }
         return h;
       }

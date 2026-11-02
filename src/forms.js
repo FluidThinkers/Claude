@@ -125,7 +125,17 @@ export function moveForm(form, P, ctx) {
     const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
     let vy = sp * P.gs - 0.6 + (ctx.up ? 3.5 : 0);
     P.pos.x += -ys * cp * P.gs * dt; P.pos.z += -yc * cp * P.gs * dt; P.pos.y += vy * dt;
-    const surf = ctx.groundAt ? Math.max(ctx.groundAt(P.pos.x, P.pos.z, P.pos.y), lvl) : ground;
+    const surf = ctx.groundAt ? Math.max(ctx.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.5), lvl) : ground;
+    // tuffo: in picchiata sull'acqua aperta entri sotto, per un attimo, e risali
+    const overSea = heightAt(P.pos.x, P.pos.z) < lvl - 1.2 && surf <= lvl + 0.01;
+    if (!P.diving && overSea && P.pos.y < lvl + 1.3 && P.pitch < -0.35 && P.gs > 8) { P.diving = 1.4; out.plunge = true; }
+    if (P.diving) {
+      P.diving -= dt; const k = Math.max(0, P.diving / 1.4);
+      P.pos.y = lvl + 0.3 - 1.9 * Math.sin(Math.PI * (1 - k));
+      if (P.diving <= 0) { P.diving = 0; P.pos.y = lvl + 1.2; P.gs = 9; P.pitch = 0.3; out.emerge = true; }
+      out.speed = P.gs; out.flap = 0;
+      return { eye, roll, ...out };
+    }
     if (P.pos.y < surf + 0.8) { P.pos.y = surf + 0.8; }
     // indietro vicino a una superficie: frena e si posa
     if (fz < 0 && P.pos.y - surf < 3 && P.gs < 8.5) { P.landed = true; out.landed = true; }

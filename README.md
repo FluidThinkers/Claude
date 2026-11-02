@@ -134,8 +134,11 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 - **Montagne lontane**: cinque piani di crinali, come le coste del Mediterraneo viste dal mare, ognuno più azzurro e più chiaro, con la nebbia stesa nelle valli.
 - **Barca a vela, navigazione vera**: A e D timone, W cazza la randa, S la lasca. Conta il vento apparente: controvento la vela sbatte e ti fermi, al traverso corri, in poppa vai più piano; troppo cazzata stalla, troppo lascata sbatte. Due nastrini rossi (in testa d'albero e a prua) mostrano il vento. La barca sale e scende sulle onde, beccheggia e sbanda senza ribaltarsi; la randa gira col boma, il fiocco con la scotta.
 - **L'onda enorme**: quando arriva a riva risale lontano sulla spiaggia, sommerge, poi si ritira.
-- **Tempesta**: colori cupi verde-piombo e contrasto forte, onde alte anche al largo, la pioggia disegna cerchi sul mare e schizza sulla coperta.
-- **Gabbiano**: nessuna ala in prima persona, solo la sua ombra ad ali aperte che scorre sul mare e sulla terra; indietro vicino a una superficie si posa, cammina, e riparte con Spazio.
+- **Tempesta**: colori cupi verde-piombo e contrasto forte, onde molto alte anche al largo con lo spruzzo strappato dal vento sulle creste, risacca più forte, la pioggia disegna cerchi sul mare e schizza sulla coperta; chi nuota, il SUP e le barche salgono e scendono con le onde.
+- **Gabbiano**: nessuna ala in prima persona, solo la sua ombra ad ali aperte che scorre sul mare e sulla terra; indietro (S) vicino a una superficie si posa, cammina, e riparte con Spazio; in picchiata sull'acqua aperta si tuffa e riemerge (e dove ci sono i pesci, pesca). La gru è solida: ci si posa sopra, non ci si passa attraverso.
+- **Gabbiani nel cielo**: corpo affusolato, mantello grigio perla, punte nere con lo specchio bianco, becco giallo con la macchia rossa, zampe gialle.
+- **Pesce e banco**: trovi il banco, nuoti con loro, e il banco si gira e ti guida fino al relitto.
+- **Onde vere**: le onde che arrivano da largo sono creste dritte e lunghe, non cerchi.
 - **Pesci**: salpe affusolate e argentate, con la coda che batte e il fianco che lampeggia.
 - **Uscire dall'acqua**: uno spruzzo vero attorno a te, che ricade.
 - **Tutto è solido**: pali, scogli, relitto, rovina, piattaforma e scafi fermano ogni forma, e anche la barca.

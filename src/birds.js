@@ -3,29 +3,59 @@ import { heightAt, shoreZ } from './terrain.js';
 
 // Gabbiani: alcuni planano alti sopra la riva, altri riposano e si alzano quando ti avvicini.
 
+// gabbiano reale mediterraneo: corpo affusolato, mantello grigio perla, punte nere con macchie bianche,
+// becco giallo con la macchia rossa, zampe gialle
+const GM = {
+  white: new THREE.MeshStandardMaterial({ color: 0xf4f3ef, roughness: 0.7 }),
+  wing: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, side: THREE.DoubleSide }),
+  beak: new THREE.MeshStandardMaterial({ color: 0xe8c23a, roughness: 0.5 }),
+  red: new THREE.MeshStandardMaterial({ color: 0xc8322a, roughness: 0.5 }),
+  eye: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 }),
+};
+function wingGeo(side, outer) {
+  // contorno dell'ala vista dall'alto: bordo d'attacco dritto, bordo d'uscita morbido, punta stretta
+  const sh = new THREE.Shape();
+  if (!outer) { sh.moveTo(0, 0.05); sh.lineTo(0.44, 0.07); sh.lineTo(0.44, -0.12); sh.quadraticCurveTo(0.2, -0.17, 0, -0.16); sh.lineTo(0, 0.05); }
+  else { sh.moveTo(0, 0.07); sh.quadraticCurveTo(0.22, 0.06, 0.42, -0.04); sh.lineTo(0.46, -0.07); sh.quadraticCurveTo(0.24, -0.1, 0, -0.12); sh.lineTo(0, 0.07); }
+  const g = new THREE.ShapeGeometry(sh, 10); g.rotateX(-Math.PI / 2); if (side < 0) g.scale(-1, 1, 1);
+  const p = g.attributes.position, col = [];
+  for (let i = 0; i < p.count; i++) {
+    const x = Math.abs(p.getX(i)), z = p.getZ(i);
+    let c = [0.66, 0.69, 0.72];                                   // grigio perla
+    if (z > 0.1 && !outer) c = [0.95, 0.95, 0.94];                // bordo d'uscita bianco
+    if (outer && x > 0.22) c = [0.08, 0.08, 0.09];                // punte nere
+    if (outer && x > 0.36 && x < 0.42 && z > 0.02) c = [0.95, 0.95, 0.94]; // specchio bianco
+    col.push(...c);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return g;
+}
 function gullModel() {
   const g = new THREE.Group();
-  const white = new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.8 });
-  const grey = new THREE.MeshStandardMaterial({ color: 0x9ea3a8, roughness: 0.8, side: THREE.DoubleSide });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, side: THREE.DoubleSide });
-  const beak = new THREE.MeshStandardMaterial({ color: 0xe0b23c, roughness: 0.6 });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), white); body.scale.set(0.11, 0.1, 0.3); g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), white); head.position.set(0, 0.07, -0.27); g.add(head);
-  const bk = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.08, 6), beak); bk.rotation.x = -Math.PI / 2; bk.position.set(0, 0.06, -0.37); g.add(bk);
-  const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.14), grey); tail.rotation.x = -Math.PI / 2; tail.position.set(0, 0.01, 0.34); g.add(tail);
+  const prof = []; for (let i = 0; i <= 14; i++) { const t = i / 14; prof.push(new THREE.Vector2(Math.max(0.004, 0.105 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.7)), 0.8) * (1 - 0.6 * t * t)), -0.3 + t * 0.62)); }
+  const bg = new THREE.LatheGeometry(prof, 16); bg.rotateX(Math.PI / 2); bg.scale(1, 0.9, 1);
+  const body = new THREE.Mesh(bg, GM.white); g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.068, 16, 12), GM.white); head.scale.set(0.9, 0.95, 1.1); head.position.set(0, 0.06, -0.31); g.add(head);
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), GM.eye); e.position.set(sx * 0.05, 0.08, -0.34); g.add(e); }
+  const bk = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.085, 10), GM.beak); bk.rotation.x = -Math.PI / 2 - 0.12; bk.position.set(0, 0.05, -0.41); g.add(bk);
+  const spot = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 5), GM.red); spot.position.set(0, 0.04, -0.42); g.add(spot);
+  const ts = new THREE.Shape(); ts.moveTo(-0.07, 0); ts.lineTo(0.07, 0); ts.lineTo(0.06, 0.13); ts.quadraticCurveTo(0, 0.15, -0.06, 0.13); ts.lineTo(-0.07, 0);
+  const tg = new THREE.ShapeGeometry(ts); tg.rotateX(Math.PI / 2);
+  const tail = new THREE.Mesh(tg, GM.white); tail.material = GM.white; tail.position.set(0, 0.0, 0.27); g.add(tail);
   const wing = (side) => {
     const w = new THREE.Group();
-    const inner = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.2), grey); inner.rotation.x = -Math.PI / 2; inner.position.set(side * 0.21, 0, 0); w.add(inner);
-    const outer = new THREE.Group(); outer.position.x = side * 0.42; w.add(outer);
-    const o = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.15), grey); o.rotation.x = -Math.PI / 2; o.position.set(side * 0.18, 0, 0.02); outer.add(o);
-    const tip = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.12), dark); tip.rotation.x = -Math.PI / 2; tip.position.set(side * 0.38, 0, 0.03); outer.add(tip);
+    const inner = new THREE.Mesh(wingGeo(side, false), GM.wing); w.add(inner);
+    const outer = new THREE.Group(); outer.position.x = side * 0.44; w.add(outer);
+    outer.add(new THREE.Mesh(wingGeo(side, true), GM.wing));
     w.userData.outer = outer;
-    w.position.set(side * 0.06, 0.04, -0.03);
+    w.position.set(side * 0.07, 0.05, -0.04);
     g.add(w);
     return w;
   };
   g.userData.wl = wing(-1); g.userData.wr = wing(1);
-  const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 4), beak); legs.position.set(0, -0.15, 0.02); g.add(legs);
+  const legs = new THREE.Group();
+  for (const sx of [-1, 1]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.16, 6), GM.beak); l.position.set(sx * 0.03, -0.15, 0.03); legs.add(l); }
+  g.add(legs);
   g.userData.legs = legs;
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return g;

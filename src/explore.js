@@ -123,6 +123,8 @@ export function buildExplore(scene, platform, glowTex) {
       E.rects.push({ x: M.x, z: M.z0 + dEnd, hx: 3.2, hz: 2.8, y: M.deck + 13.7, rot: 0, top: true });
       E.ladders.push({ x: M.x + 3.3, z: M.z0 + dEnd, top: M.deck + 13.7, name: 'sali sulla gru', fromDeck: true });
       E.craneTop = { x: M.x, z: M.z0 + dEnd, y: M.deck + 13.7 };
+      // la gru è solida: le gambe del portale e la cabina
+      E.blocks.push({ x: M.x, z: M.z0 + dEnd, hx: 3.2, hz: 2.8, top: M.deck + 13.5 }, { x: M.x, z: M.z0 + dEnd, hx: 3.2, hz: 2.8, top: M.deck + 5.6 });
     }
     g.position.set(M.x, 0, M.z0);
     shadowAll(g); scene.add(g);

@@ -82,7 +82,6 @@ export function buildCraft(scene) {
       c.fillStyle = '#f4f1e8'; c.fillRect(0, 0, 256, 512);
       for (let y = 0; y < 512; y += 64) { c.fillStyle = 'rgba(120,115,100,0.25)'; c.fillRect(0, y, 256, 2); c.fillStyle = 'rgba(255,255,255,0.5)'; c.fillRect(0, y + 3, 256, 1); }
       for (let i = 0; i < 2500; i++) { c.fillStyle = `rgba(${200 + Math.random() * 40 | 0},${195 + Math.random() * 40 | 0},${180 + Math.random() * 40 | 0},0.12)`; c.fillRect(Math.random() * 256, Math.random() * 512, 2, 2); }
-      c.fillStyle = 'rgba(40,60,90,0.6)'; c.font = 'bold 40px sans-serif'; c.fillText('ITA', 60, 300);
       const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
     const sailM = new THREE.MeshStandardMaterial({ color: 0xffffff, map: sailTex, roughness: 0.85, side: THREE.DoubleSide, transparent: true, opacity: 0.97 });
     const sailSurf = (ax, ay, bx, by, cx, cy, belly) => {
@@ -111,8 +110,19 @@ export function buildCraft(scene) {
     const ribM = new THREE.MeshBasicMaterial({ color: 0xd8342a, side: THREE.DoubleSide });
     const ribbon = (x, y, len) => { const geo = new THREE.PlaneGeometry(len, 0.07, 10, 1); geo.translate(len / 2, 0, 0); const m = new THREE.Mesh(geo, ribM); m.position.set(x, y, 0); m.userData.base = geo.attributes.position.array.slice(); g.add(m); return m; };
     const ribbons = [ribbon(-1.8, 16.15, 0.9), ribbon(-6.1, 2.15, 0.6)];
-    const stay = tube([new THREE.Vector3(-6.0, 1.6, 0), new THREE.Vector3(-1.8, 15.9, 0)], 0.008, steel, 8); g.add(stay);
-    for (const sd of [1, -1]) g.add(tube([new THREE.Vector3(-1.4, 1.5, sd * 1.75), new THREE.Vector3(-1.8, 15.6, 0)], 0.006, steel, 8));
+    // sartiame che finisce davvero sullo scafo: strallo sulla prua, sartie sulle lande ai lati della coperta
+    const olp = hg.userData.outline;
+    const bow = olp.reduce((m, p) => (p.x < m.x ? p : m), olp[0]);
+    const near = (x) => olp.reduce((m, p) => (Math.abs(p.x - x) < Math.abs(m.x - x) ? p : m), olp[0]);
+    const ch = near(-1.5);
+    const tack = new THREE.Vector3(bow.x + 0.15, bow.y + 0.25 + 0.04, 0);
+    const stay = tube([tack, new THREE.Vector3(-1.8, 15.9, 0)], 0.008, steel, 8); g.add(stay);
+    for (const sd of [1, -1]) {
+      const cp = new THREE.Vector3(ch.x, ch.y + 0.25 + 0.03, sd * (ch.z - 0.06));
+      g.add(tube([cp, new THREE.Vector3(-1.8, 15.6, 0)], 0.006, steel, 8));
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.03), steel); plate.position.copy(cp); g.add(plate);
+    }
+    jibG.position.set(tack.x, 0, 0);
     var rig = { boomG, jibG, main, jib, ribbons };
     shadowAll(g); scene.add(g);
     C.ships.push({ name: 'Barca a vela', g, kind: 'sail', speed: 1.4, s: 0, anchored: false, rig,

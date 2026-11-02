@@ -215,7 +215,7 @@ export function updateSea(S, dt, time, ctx) {
     let n = 0;
     for (const sc of F.schools) {
       sc.t += dt;
-      if (!sc.placed || sc.c.distanceTo(ctx.player) > 60) {
+      if (!sc.placed || (sc.c.distanceTo(ctx.player) > 60 && !ctx.lead)) {
         const a = Math.random() * 6.28, r = 12 + Math.random() * 20;
         const x = ctx.player.x + Math.cos(a) * r, z = ctx.player.z + Math.sin(a) * r;
         const h = heightAt(x, z);
@@ -231,6 +231,12 @@ export function updateSea(S, dt, time, ctx) {
       if (ctx.friend && dpl > 3) sc.dir = Math.atan2(ctx.player.x - sc.c.x, ctx.player.z - sc.c.z);
       else if (!ctx.friend && away > 1) sc.dir = Math.atan2(sc.c.x - ctx.player.x, sc.c.z - ctx.player.z);
       if (ctx.friend) sc.c.y += (ctx.player.y - sc.c.y) * Math.min(1, dt * 0.8);
+      // ti guida: nuota verso il relitto, ma ti aspetta se resti indietro
+      if (ctx.lead) {
+        const dl = Math.hypot(ctx.lead.x - sc.c.x, ctx.lead.z - sc.c.z), dp = sc.c.distanceTo(ctx.player);
+        if (dl > 4) { sc.dir = Math.atan2(ctx.lead.x - sc.c.x, ctx.lead.z - sc.c.z); const v = dp < 9 ? 2.4 : 0.4; sc.c.x += Math.sin(sc.dir) * v * dt; sc.c.z += Math.cos(sc.dir) * v * dt; }
+        sc.c.y += (Math.max(heightAt(sc.c.x, sc.c.z) + 1.5, Math.min(ctx.player.y, -1)) - sc.c.y) * Math.min(1, dt);
+      }
       sc.c.x += Math.sin(sc.dir) * away * dt; sc.c.z += Math.cos(sc.dir) * away * dt;
       const floor = heightAt(sc.c.x, sc.c.z);
       sc.c.y = Math.min(Math.max(sc.c.y, floor + 0.4), -0.6);
