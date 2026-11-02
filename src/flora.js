@@ -41,14 +41,23 @@ const leafTex = () => canvasTex(256, 256, (c, w, h) => {
   }
 });
 // fili d'erba secca
-const grassTex = () => canvasTex(128, 128, (c, w, h) => {
+// ciuffo di erba delle dune (sparto): foglie lunghe e sottili che si arcuano, scure alla base, paglierine in punta
+const grassTex = () => canvasTex(256, 256, (c, w, h) => {
   c.clearRect(0, 0, w, h);
-  for (let i = 0; i < 46; i++) {
-    const x = 10 + Math.random() * 108, hgt = 50 + Math.random() * 75, bend = (Math.random() - 0.5) * 30;
-    const g = Math.random();
-    c.strokeStyle = g < 0.5 ? `rgba(${150 + Math.random() * 50 | 0},${150 + Math.random() * 40 | 0},${90 + Math.random() * 30 | 0},1)` : `rgba(${110 + Math.random() * 30 | 0},${135 + Math.random() * 30 | 0},${70 | 0},1)`;
-    c.lineWidth = 1 + Math.random() * 1.4;
-    c.beginPath(); c.moveTo(x, h); c.quadraticCurveTo(x + bend * 0.3, h - hgt * 0.6, x + bend, h - hgt); c.stroke();
+  for (let i = 0; i < 70; i++) {
+    const x0 = w * 0.5 + (Math.random() - 0.5) * w * 0.35, hgt = h * (0.45 + Math.random() * 0.52);
+    const lean = (Math.random() - 0.5) * w * 0.5 * (hgt / h), bw = 1.2 + Math.random() * 2.2;
+    const g = c.createLinearGradient(0, h, 0, h - hgt);
+    const dry = Math.random();
+    g.addColorStop(0, 'rgba(62,70,40,1)');
+    g.addColorStop(0.5, dry < 0.55 ? 'rgba(120,128,72,1)' : 'rgba(96,116,62,1)');
+    g.addColorStop(1, dry < 0.55 ? 'rgba(205,196,150,1)' : 'rgba(170,176,112,1)');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(x0 - bw, h);
+    c.quadraticCurveTo(x0 - bw * 0.6 + lean * 0.3, h - hgt * 0.55, x0 + lean, h - hgt);
+    c.quadraticCurveTo(x0 + bw * 0.6 + lean * 0.3, h - hgt * 0.55, x0 + bw, h);
+    c.closePath(); c.fill();
   }
 });
 const barkTex = () => { const t = canvasTex(64, 256, (c, w, h) => {
@@ -142,13 +151,13 @@ export class Flora {
     this.branches = new THREE.InstancedMesh(branch, new THREE.MeshStandardMaterial({ map: barkTex(), roughness: 0.95 }), 1600);
     this.crowns = new THREE.InstancedMesh(cardCluster(70, 1, 0.42), windMat({ map: needleTex() }, wind, 0.035), 2000);
     this.shrubs = new THREE.InstancedMesh(cardCluster(34, 0.8, 0.36), windMat({ map: leafTex() }, wind, 0.07), 2500);
-    this.grass = new THREE.InstancedMesh(crossedCards(0.8, 0.6), windMat({ map: grassTex(), roughness: 0.9 }, wind, 0.16, 0.4), 5000);
+    this.grass = new THREE.InstancedMesh(crossedCards(0.75, 0.75), windMat({ map: grassTex(), roughness: 0.92, alphaTest: 0.5 }, wind, 0.16, 0.35), 2600);
     for (const m of [this.trunks, this.branches, this.crowns, this.shrubs]) { m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); }
     this.grass.receiveShadow = true; this.grass.frustumCulled = false; scene.add(this.grass);
     const c = new THREE.Color();
     for (let i = 0; i < 2500; i++) this.shrubs.setColorAt(i, c.setHSL(0.2 + hash(i, 1, 1) * 0.08, 0.25 + hash(i, 2, 2) * 0.15, 0.55 + hash(i, 3, 3) * 0.25));
     for (let i = 0; i < 2000; i++) this.crowns.setColorAt(i, c.setHSL(0.24 + hash(i, 4, 1) * 0.05, 0.25, 0.6 + hash(i, 5, 2) * 0.25));
-    for (let i = 0; i < 5000; i++) this.grass.setColorAt(i, c.setHSL(0.12 + hash(i, 6, 1) * 0.06, 0.25, 0.6 + hash(i, 7, 2) * 0.3));
+    for (let i = 0; i < 2600; i++) this.grass.setColorAt(i, c.setHSL(0.13 + hash(i, 6, 1) * 0.05, 0.18, 0.75 + hash(i, 7, 2) * 0.2));
     this.cx = null; this.cz = null;
     this.colliders = [];
   }
@@ -227,7 +236,7 @@ export class Flora {
       const C = 1.6, R = 55, r = Math.ceil(R / C);
       const i0 = Math.round(cx / C), j0 = Math.round(cz / C);
       for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
-        if (i * i + j * j > r * r || ng >= 5000) continue;
+        if (i * i + j * j > r * r || ng >= 2600) continue;
         const ci = i0 + i, cj = j0 + j;
         const x = ci * C + (hash(ci, cj, 51) - 0.5) * C, z = cj * C + (hash(ci, cj, 52) - 0.5) * C;
         const d = z - shoreZ(x);

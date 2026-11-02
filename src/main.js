@@ -651,7 +651,7 @@ const FORM_NAME = { walk: 'umano', swim: 'umano, in acqua', dive: 'umano, sott\'
 const WEATHER_FOR = { land: 'cielo sereno (G) e brezza (X): il gabbiano plana meglio con poca aria', friends: 'qualsiasi', bigwave: 'tempesta (G) e vento forte (X): solo il mare grosso fa onde grandi', sails: 'vento medio o forte (X): serve vento per raggiungere la barca', moor: 'vento medio (X): abbastanza per correre, non troppo per governare', rain: 'nuvoloso (G): le nuvole cariche fanno piovere', nap: 'sereno (G), di giorno (T), poco vento (X)', carry: 'senza pioggia e con poco vento: una formica vola via' };
 function curForm() { return player.cat && player.mode === 'walk' ? 'cat' : player.mode; }
 function formLabel() { const f = curForm(); return f === 'gull' && player.landed ? 'gabbiano, posato' : FORM_NAME[f] || ''; }
-let pendingForm = null;
+let pendingForm = null, leadSchool = null;
 let hasKey = false, preDone = false, friendT = 0, napT = 0, fishLead = false, fishWay = null, fishLeadT = 0;
 function stepNeed() { const F = FRAGMENTS[active]; if (!F) return null; if (F.pre && !preDone) return ACT_FORM[F.pre]; return ACT_FORM[F.act] || null; }
 function collectTrace(t) {
@@ -665,7 +665,7 @@ function stepTarget() {
   const t = places.traces[active], F = FRAGMENTS[active];
   if (!t) return null;
   if (F.act === 'carry' && !player.carry) return ants.crumb.position;
-  if (F.act === 'friends' && sea.fish) { const sc = sea.fish.schools.filter((q) => q.placed).sort((a, b) => a.c.distanceTo(player.pos) - b.c.distanceTo(player.pos))[0]; if (sc && player.mode === 'fish') return sc.c; }
+  if (F.act === 'friends' && sea.fish && player.mode === 'fish') { if (!leadSchool || !leadSchool.placed) leadSchool = sea.fish.schools.filter((q) => q.placed).sort((a, b) => a.c.distanceTo(player.pos) - b.c.distanceTo(player.pos))[0]; if (leadSchool) return leadSchool.c; }
   if (F.act === 'carry') return ants.colony;
   return t.pos;
 }
@@ -1827,6 +1827,7 @@ function frame() {
   {
     cLit.copy(pal.sun).multiplyScalar(0.55 * (1 - night * 0.85)).add(tmpC.copy(pal.hor).multiplyScalar(0.6)).multiplyScalar(1 - wx.dark * 0.55);
     cShade.copy(pal.hor).lerp(pal.zen, 0.4).multiplyScalar(0.62 * (1 - wx.dark * 0.5));
+    cloudLayer.mesh.visible = !under; for (const F of flocks.flocks) if (under) F.im.visible = false;
     layerRain = cloudLayer.update({ dt, time: elapsed, wind: wind.dir, strength: wind.strength.value, cam: camera.position, player: player.pos, mode: player.mode, gather: player.mode === 'wind' ? (upK || jump ? 1 : downK ? -1 : 0) : 0, lit: cLit, shade: cShade, cover: skyUniforms.uCloud.value, storm: waterUniforms.uStorm.value });
   }
   crest.visible = false;

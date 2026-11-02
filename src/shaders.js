@@ -371,7 +371,8 @@ export function makeWater() {
           c += uSunCol * uSunVis * pow(max(dot(-Vu, uSunDir), 0.0), 40.0) * 3.0 * win;
           c += vec3(rip) * 0.05 * win;
           float fu = 1.0 - exp(-dist * uUnderFog);
-          gl_FragColor = vec4(mix(c, uUnderCol, fu * 0.85), 1.0);
+          // da sotto la superficie è un velo: dentro la finestra si intravede il mondo di sopra, sfocato
+          gl_FragColor = vec4(mix(c, uUnderCol, fu * 0.85), mix(0.92, 0.55, win) * (1.0 - fu * 0.3) + fu * 0.3);
           return;
         }
         vec2 g = wv(p, normalize(vec2(0.2,1.0)), 0.35, 0.07, 1.1)
@@ -507,6 +508,13 @@ export function makeWater() {
         float tl = 1.0 - smoothstep(0.0, 0.12, abs(vn(vW.xz * 2.2 + uTime * 0.3) - 0.5));
         foam = max(foam, vTrail * (0.45 + 0.55 * max(brkUp, tl)));
         foam = max(foam, pileFoam * smoothstep(0.35, 0.75, vn(p * 3.3 - uTime * 0.25) * 0.5 + pileFoam * 0.7));
+        // vento: le creste si imbiancano a chiazze anche al largo, di più col vento forte e la tempesta
+        {
+          float wk = smoothstep(0.35, 1.0, uWindK) * (1.0 + 0.6 * uStorm);
+          float wc = vn(p * 0.35 + uWindDir * uTime * 1.2) * 0.55 + vn(p * 1.3 - uWindDir * uTime * 0.6) * 0.45;
+          float caps = smoothstep(0.78 - 0.22 * wk, 0.92, wc) * wk * (1.0 - smoothstep(150.0, 600.0, dist)) * smoothstep(-2.0, -8.0, d);
+          foam = max(foam, caps * (0.6 + 0.4 * brkUp));
+        }
         foam = clamp(foam, 0.0, 1.0);
         // l'onda che si alza diventa verde-azzurra e traslucida contro la luce
         float rise = brk * smoothstep(0.7, 0.97, sP);

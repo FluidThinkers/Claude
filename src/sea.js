@@ -260,7 +260,8 @@ export function updateSea(S, dt, time, ctx) {
       // ti guida: nuota verso il relitto, ma ti aspetta se resti indietro
       if (ctx.lead) {
         const dl = Math.hypot(ctx.lead.x - sc.c.x, ctx.lead.z - sc.c.z), dp = sc.c.distanceTo(ctx.player);
-        if (dl > 4) { sc.dir = Math.atan2(ctx.lead.x - sc.c.x, ctx.lead.z - sc.c.z); const v = dp < 9 ? 2.4 : 0.4; sc.c.x += Math.sin(sc.dir) * v * dt; sc.c.z += Math.cos(sc.dir) * v * dt; }
+        // va alla tua velocità: se resti indietro ti aspetta, se sei vicino nuota avanti
+        if (dl > 4) { sc.dir = Math.atan2(ctx.lead.x - sc.c.x, ctx.lead.z - sc.c.z); const v = dp < 5 ? 3.6 : dp < 12 ? 2.2 : 0; sc.c.x += Math.sin(sc.dir) * v * dt; sc.c.z += Math.cos(sc.dir) * v * dt; }
         sc.c.y += (Math.max(heightAt(sc.c.x, sc.c.z) + 1.5, Math.min(ctx.player.y, -1)) - sc.c.y) * Math.min(1, dt);
       }
       sc.c.x += Math.sin(sc.dir) * away * dt; sc.c.z += Math.cos(sc.dir) * away * dt;

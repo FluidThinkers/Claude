@@ -124,7 +124,7 @@ export function buildExplore(scene, platform, glowTex) {
       E.ladders.push({ x: M.x + 3.3, z: M.z0 + dEnd, top: M.deck + 13.7, name: 'sali sulla gru', fromDeck: true });
       // il braccio della gru: una trave inclinata su cui si può camminare (il gabbiano ci si posa in cima)
       const z0b = M.z0 + dEnd + 1.5, z1b = M.z0 + dEnd - 27.3, y0b = M.deck + 11.85, y1b = M.deck + 20.1;
-      (E.ramps ||= []).push({ x: M.x, hx: 0.55, z0: Math.min(z0b, z1b), z1: Math.max(z0b, z1b), yA: z0b < z1b ? y0b : y1b, yB: z0b < z1b ? y1b : y0b });
+      (E.ramps ||= []).push({ x: M.x, hx: 0.9, z0: Math.min(z0b, z1b), z1: Math.max(z0b, z1b), yA: z0b < z1b ? y0b : y1b, yB: z0b < z1b ? y1b : y0b });
       const tz = M.z0 + dEnd - 24.5, ty = y0b + (y1b - y0b) * ((M.z0 + dEnd + 1.5 - tz) / 28.8);
       E.craneTop = { x: M.x, z: tz, y: ty };
       // la gru è solida: le gambe del portale e la cabina

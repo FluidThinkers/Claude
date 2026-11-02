@@ -300,7 +300,7 @@ export function updateCraft(C, dt, time, ctx) {
   if (C.radar) C.radar.rotation.y = time * 1.6;
   // navi: avanzano sulla loro rotta, gettano l'ancora quando ti avvicini
   for (const S of C.ships) {
-    if (S.manual) { S.g.traverse((o) => { if (o.isMesh && o.material.emissive) { o.material.fog = true; o.material.emissive.setRGB(0, 0, 0); if (o.userData.c0) o.material.color.copy(o.userData.c0); } }); continue; }
+    if (S.manual) continue;
     const near = S.g.position.distanceTo(ctx.player) < (S.kind === 'ferry' ? 320 : 180);
     S.anchored = near;
     if (S.blown > 0) S.blown -= dt;
@@ -314,8 +314,8 @@ export function updateCraft(C, dt, time, ctx) {
     if (S.kind === 'sail') { S.g.rotation.x = Math.sin(time * 0.6) * 0.03; S.g.rotation.z = (S.heel = (S.heel || 0) + (bk * 0.14 - (S.heel || 0)) * Math.min(1, dt * 0.5)); }
     // foschia manuale: da lontano le navi si sciolgono nell'orizzonte
     const d = S.g.position.distanceTo(ctx.camera);
-    const f = Math.min(0.85, 1 - Math.exp(-Math.pow(d * ctx.fog * 0.55, 2)));
-    S.g.traverse((o) => { if (o.isMesh && o.material.emissive) { o.material.fog = false; o.material.emissive.copy(ctx.hor).multiplyScalar(f); if (!o.userData.c0) o.userData.c0 = o.material.color.clone(); o.material.color.copy(o.userData.c0).multiplyScalar(1 - f); } });
+    // lontano la nave si vela nella foschia come tutto il resto (nebbia vera, niente tinte strane)
+    if (!S.fogFixed) { S.fogFixed = true; S.g.traverse((o) => { if (o.isMesh && o.material) { o.material.fog = true; if (o.material.emissive) o.material.emissive.setRGB(0, 0, 0); } }); }
   }
   // barchino fermo: dondola
   const B = C.boat;

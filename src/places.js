@@ -7,7 +7,8 @@ import { smoothNormals } from './terrain.js';
 const std = (color, rough = 0.8, metal = 0, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra });
 const sh = (o) => { o.traverse?.((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } }); if (o.isMesh) { o.castShadow = o.receiveShadow = true; } return o; };
 const mesh = (geo, mat) => sh(new THREE.Mesh(geo, mat));
-const boxM = (w, h, d, mat) => mesh(new THREE.BoxGeometry(w, h, d), mat);
+// spigoli smussati: niente legno tagliato col righello
+const boxM = (w, h, d, mat) => mesh(roundedBox(w, h, d, Math.min(0.025, Math.min(w, h, d) * 0.22), 2), mat);
 // scatola con spigoli smussati: niente bordi taglienti da poligono
 function roundedBox(w, h, d, r, seg = 3) {
   const g = new THREE.BoxGeometry(w, h, d, seg * 2, seg * 2, seg * 2);
@@ -294,9 +295,11 @@ function glintTexture() {
 export function buildPlaces(scene, glowTex, platform) {
   const P = { traces: [], lamps: [], palms: [], found: 0 };
   const wood = woodTex();
-  const woodM = std(0xffffff, 0.85, 0, { map: wood });
-  const darkWood = std(0x4a3426, 0.85);
-  const whiteWood = std(0xe8e3d8, 0.8);
+  // legni veri: venature, nodi, crepe e rilievo, scuri o sbiancati dal sole
+  const wwA = weatheredWood(), wwB = weatheredWood();
+  const woodM = std(0xd8c4a8, 0.88, 0, { map: wwA.map, bumpMap: wwA.bump, bumpScale: 1.2 });
+  const darkWood = std(0x6b5440, 0.9, 0, { map: wwB.map, bumpMap: wwB.bump, bumpScale: 1.4 });
+  const whiteWood = std(0xf2ede4, 0.82, 0, { map: wwA.map, bumpMap: wwA.bump, bumpScale: 0.8 });
 
   // ---- Pontile di legno (cammini sopra il mare)
   {

@@ -109,9 +109,9 @@ export function moveForm(form, P, ctx) {
     P.yaw -= fx * 1.8 * dt;
     const nx = P.pos.x - ys * sp * dt, nz = P.pos.z - yc * sp * dt;
     const gN = Math.max(ctx.groundAt(nx, nz, P.pos.y + 0.4), lvl);
-    if (gN < P.pos.y + 0.6) { P.pos.x = nx; P.pos.z = nz; }
+    if (gN < P.pos.y + 0.6 && gN > P.pos.y - 1.4) { P.pos.x = nx; P.pos.z = nz; } // non cade dal bordo
     const gr = Math.max(ctx.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.4), lvl);
-    P.pos.y += (gr + 0.28 + Math.abs(Math.sin(ctx.time * 9)) * 0.02 * Math.abs(sp) - P.pos.y) * Math.min(1, dt * 8);
+    P.pos.y += (gr + 0.28 + Math.abs(Math.sin(ctx.time * 9)) * 0.02 * Math.abs(sp) - P.pos.y) * Math.min(1, dt * 12);
     roll = Math.sin(ctx.time * 9) * 0.03 * Math.abs(sp);
     out.speed = Math.abs(sp); out.flap = 0;
     if (ctx.up) { P.landed = false; P.gs = 9; P.pos.y += 0.8; P.pitch = 0.25; out.takeoff = true; }
