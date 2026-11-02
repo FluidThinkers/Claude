@@ -660,8 +660,8 @@ function checkAct(jump, downK, night, dt) {
   const eye = FORMS.includes(player.mode) || player.mode === 'flow' ? camera.position : player.pos;
   const tg = stepTarget();
   const dh = Math.hypot(tg.x - eye.x, tg.z - eye.z), M = curForm();
-  let near = false, ok = false, prompt = F.prompt;
-  if (act === 'land') { near = M === 'gull' && dh < 40; prompt = player.landed ? '' : F.prompt + ' (tieni S per posarti)'; ok = near && player.landed && dh < 7 && Math.abs(player.pos.y - t.pos.y) < 2.5; }
+  let near = false, ok = false, prompt = (FRAGMENTS[active - 1] || {}).prompt;
+  if (act === 'land') { near = M === 'gull' && dh < 40; prompt = player.landed ? '' : 'Scendi piano sulla cima della gru e posati (tieni S)'; ok = near && player.landed && dh < 7 && Math.abs(player.pos.y - t.pos.y) < 2.5; }
   else if (act === 'friends') {
     // trova il banco; poi il banco si gira e ti guida fino al relitto
     near = M === 'fish';
