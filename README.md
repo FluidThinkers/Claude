@@ -14,7 +14,7 @@ Poi apri http://localhost:8000. Gira nel browser con Three.js incluso in `vendor
 - E: azione (moto, SUP, barchino, deltaplano, sali a bordo, scalette, maschera e pinne, panchine)
 - F: fluire (quando la storia te lo concede) · Q: piovi, quando sei nuvola · B: torna corpo, lì dove sei
 - N: mappa (piccola / grande)
-- T: un'ora avanti · J: diario · M: audio on/off
+- T: un'ora avanti · G: meteo (sereno → velato → nuvoloso → tempesta → automatico) · J: diario · M: audio on/off
 - Touch: metà sinistra per muoverti, metà destra per guardare, tasti SU / GIÙ / AZIONE / ORA / DIARIO
 
 ## Cosa c'è
@@ -128,6 +128,11 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 - **Regole della storia**: si cambia forma solo quando si prende un ricordo, sempre con una ragione detta dalla voce. Ogni forma resta nel suo elemento: il pesce non esce dall'acqua (l'acqua bassa lo ferma), l'onda troppo piccola non arriva a riva finché non cresce, la pioggia cade solo sopra il bersaglio e, se si posa altrove, resta una pozza che evapora (Q) e torna nuvola. L'isola si apre solo a storia finita.
 - **La rovina al largo**: un vecchio pontile di carico in mezzo al mare, due silos arrugginiti, un nastro spezzato, una cabina; si risale dalla scaletta.
 - **Formica**: rasoterra, il mondo diventa enorme; il formicaio ha le sue formiche che vanno e vengono.
+- **Meteo (G)**: sereno con il mare piatto, velato, nuvoloso con il mare che si gonfia, tempesta con cielo grigio, pioggia, vento forte, onde lunghe che si rompono bianche, lampi e tuoni. Senza comando il tempo cambia da solo, e il mare lo segue: cielo coperto e vento forte lo alzano, il sereno lo calma.
+- **Il mare di notte** specchia il cielo: la scia d'argento della luna e qualche stella che trema sull'acqua.
+- **La sabbia**: brilla solo controsole, come davvero; dove l'onda si è appena ritirata, mille piccoli soli tremano sul velo d'acqua. È irregolare, con piccole gobbe, e si liscia quando il vento soffia forte.
+- **Montagne lontane**: cinque piani di crinali, come le coste del Mediterraneo viste dal mare, ognuno più azzurro e più chiaro, con la nebbia stesa nelle valli.
+- **Ricomincia**: il pulsante in basso al centro (e nel diario) riparte da capo.
 - **Cielo di notte**: migliaia di stelle di luminosità e colore diversi (bianco-azzurre, gialle, arancio), che scintillano vicino all'orizzonte, e la Via Lattea con le sue corsie scure.
 - **Erba**: le raffiche corrono sul prato nella direzione del vento; ogni filo si piega curvo e trema per conto suo.
 - **Strutture**: piloni, pali, silos e tubi più tondi; da lontano tutto si scioglie in silhouette sfocate.

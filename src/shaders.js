@@ -83,6 +83,9 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
   brk = smoothstep(2.0, 1.25, depth) * smoothstep(0.25, 0.8, depth) * setMod;
   bore = smoothstep(1.4, 0.5, depth) * smoothstep(-0.2, 0.3, depth) * setMod;
   float seaY = lvl + A * (prof - 0.32);
+  // mare aperto: con il mare mosso salgono onde lunghe anche al largo; con la calma restano appena accennate
+  float sw = windK * windK;
+  seaY += sw * (0.55 * sin(x * 0.045 + d * 0.16 - t * 0.9) + 0.32 * sin(x * -0.09 + d * 0.23 - t * 1.35 + 1.7) + 0.15 * sin(x * 0.21 - d * 0.11 - t * 2.1)) * smoothstep(1.0, 6.0, depth);
   // risalita: la lama d'acqua sulla sabbia (vedi swash). La mesh copre tutta la fascia
   // che la risacca può raggiungere; il bordo vero lo disegna il frammento, pixel per pixel.
   float u, R, adv;
@@ -389,6 +392,13 @@ export function makeWater() {
         F = mix(F, 0.85, mir);
         vec3 R = reflect(-V, N); R.y = abs(R.y) + 0.002; R = normalize(R);
         vec3 refl = skyClouds(R, skyGrad(R), dist < 400.0 ? 4 : 3).rgb;
+        // di notte il mare specchia il cielo: la scia della luna e qualche stella che trema
+        if (uNight > 0.02) {
+          float mr = dot(R, uMoonDir);
+          refl += vec3(0.85, 0.88, 1.0) * (smoothstep(0.9975, 0.9996, mr) * 3.5 + pow(max(mr, 0.0), 220.0) * 1.2) * uNight * step(0.0, uMoonDir.y);
+          vec3 sp = R * 220.0; vec3 sid = floor(sp); float sh = hash13(sid);
+          if (sh > 0.985) refl += vec3(0.9, 0.93, 1.0) * exp(-dot(fract(sp) - 0.5, fract(sp) - 0.5) * 40.0) * uNight * 0.8 * smoothstep(0.02, 0.3, R.y);
+        }
         float d = vW.z - shoreZ(vW.x);
         float depth = vW.y - baseH(d);
         float sh = exp(-max(depth, 0.0) * 0.38);
@@ -467,18 +477,18 @@ export function makeWater() {
 
 // Sabbia: increspature del vento / del fondale, caustiche, ombre delle nuvole
 export const causticUniforms = { uCaustic: { value: 1 } };
-export const islandUniforms = { uBloom: { value: 0 } };
+export const islandUniforms = { uBloom: { value: 0 }, uWindS: { value: 0.4 } };
 export function enhanceSand(material) {
   material.onBeforeCompile = (shader) => {
     for (const k of ['uTime', 'uCamPos', 'uCloud', 'uCirrus', 'uMist', 'uSunDir', 'uSunVis', 'uSunCol']) shader.uniforms[k] = skyUniforms[k];
     shader.uniforms.uCaustic = causticUniforms.uCaustic;
     shader.uniforms.uWindK = waterUniforms.uWindK;
-    shader.uniforms.uBloom = islandUniforms.uBloom;
+    shader.uniforms.uBloom = islandUniforms.uBloom; shader.uniforms.uWindS = islandUniforms.uWindS;
     shader.vertexShader = 'varying vec3 vWPos;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>',
       '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;'
     );
-    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis, uWindK, uBloom;\nuniform vec3 uSunDir, uSunCol;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + SURF_GLSL + shader.fragmentShader
+    shader.fragmentShader = 'varying vec3 vWPos;\nuniform float uTime, uCaustic, uSunVis, uWindK, uBloom, uWindS;\nuniform vec3 uSunDir, uSunCol;\n' + NOISE_GLSL + CLOUD_GLSL + SHORE_GLSL + SURF_GLSL + shader.fragmentShader
       .replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
       // l'isola: dopo la pioggia la terra secca diventa verde
       if (uBloom > 0.0 && vWPos.z < -500.0) {
@@ -521,10 +531,17 @@ export function enhanceSand(material) {
           float w = vn(p * 0.07) * 9.0 + vn(p * 0.23) * 2.6;
           vec2 dir = normalize(mix(vec2(0.45, 1.0), vec2(0.08, 1.0), under));
           float fr = mix(9.0, 1.7, under);
-          float amp = mix(0.006, 0.26, under) * (0.55 + 0.45 * vn(p * 0.45 + 3.0));
+          // a riva asciutta la sabbia è irregolare (impronte vecchie, piccole gobbe); il vento forte la liscia
+          float calm = 1.0 - smoothstep(0.45, 0.95, uWindS);
+          float dryK = 1.0 - under;
+          float amp = mix(0.006 * (0.6 + 0.8 * uWindS), 0.26, under) * (0.55 + 0.45 * vn(p * 0.45 + 3.0));
           float ph = dot(p, dir) * fr + w;
           float sp = sin(ph);
           vec2 gr = dir * fr * amp * cos(ph) * (1.0 + 0.6 * sp);
+          float e = 0.12;
+          float b0 = vn(p * 1.3) * 0.6 + vn(p * 3.7 + 9.0) * 0.4;
+          vec2 bump = vec2(vn((p + vec2(e, 0.0)) * 1.3) * 0.6 + vn((p + vec2(e, 0.0)) * 3.7 + 9.0) * 0.4 - b0, vn((p + vec2(0.0, e)) * 1.3) * 0.6 + vn((p + vec2(0.0, e)) * 3.7 + 9.0) * 0.4 - b0) / e;
+          gr += bump * 0.09 * calm * dryK * smoothstep(1.5, 6.0, vWPos.z - shoreZ(vWPos.x));
           gr *= fadeR;
           normal = normalize(normal + (viewMatrix * vec4(-gr.x, 0.0, -gr.y, 0.0)).xyz);
         }
@@ -558,16 +575,22 @@ export function enhanceSand(material) {
       }`)
       .replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
       {
-        // granelli che scintillano controsole sulla sabbia asciutta
+        // scintille: solo controsole, come davvero. Sulla sabbia asciutta qualche granello di quarzo;
+        // dove l'onda si è appena ritirata, mille piccoli soli che tremano sul velo d'acqua
         float dc = length(cameraPosition - vWPos);
         float dS = vWPos.z - shoreZ(vWPos.x);
-        if (dc < 22.0 && dS > 1.0 && dS < 74.0 && uSunVis > 0.0) {
-          vec2 cell = floor(vWPos.xz * 55.0);
-          float h1 = h21(cell), h2 = h21(cell + 17.3), h3 = h21(cell + 41.7);
-          vec3 gn = normalize(vec3(h1 - 0.5, 0.9, h2 - 0.5));
+        if (dc < 40.0 && dS > -0.6 && dS < 74.0 && uSunVis > 0.0) {
           vec3 Vv = normalize(cameraPosition - vWPos);
-          float sp = pow(max(dot(reflect(-uSunDir, gn), Vv), 0.0), 60.0) * step(0.955, h3);
-          totalEmissiveRadiance += uSunCol * sp * 2.5 * uSunVis * (1.0 - smoothstep(6.0, 22.0, dc));
+          vec2 sd = normalize(uSunDir.xz + vec2(1e-4)), vd = normalize(-Vv.xz + vec2(1e-4));
+          float back = smoothstep(0.25, 0.9, dot(vd, sd)) * smoothstep(0.02, 0.15, uSunDir.y) * (1.0 - smoothstep(0.75, 1.0, uSunDir.y));
+          if (back > 0.0) {
+            float wetK = swWet * (1.0 - smoothstep(3.0, 6.0, dS));
+            vec2 cell = floor(vWPos.xz * mix(55.0, 90.0, wetK));
+            float h1 = h21(cell), h2 = h21(cell + 17.3), h3 = h21(cell + 41.7);
+            vec3 gn = normalize(vec3(h1 - 0.5 + 0.15 * sin(uTime * 3.0 + h2 * 40.0) * wetK, 0.9, h2 - 0.5));
+            float sp = pow(max(dot(reflect(-uSunDir, gn), Vv), 0.0), mix(60.0, 140.0, wetK)) * step(mix(0.975, 0.86, wetK), h3);
+            totalEmissiveRadiance += uSunCol * sp * mix(2.5, 7.0, wetK) * uSunVis * back * (1.0 - smoothstep(mix(8.0, 18.0, wetK), mix(22.0, 40.0, wetK), dc));
+          }
         }
       }
       if (vWPos.y < 0.0) {

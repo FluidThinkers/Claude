@@ -14,7 +14,14 @@
   #start h1 { font-weight: 300; font-size: clamp(48px, 11vw, 120px); letter-spacing: .5em; margin: 0 0 0 .5em; text-shadow: 0 0 40px rgba(255,200,170,.5); }
   #start .sub { font-style: italic; opacity: .85; font-size: clamp(16px, 2.4vw, 22px); margin-top: .4em; letter-spacing: .1em; }
   #start .cta { margin-top: 3em; font-size: 15px; letter-spacing: .35em; text-transform: uppercase; opacity: .9; animation: breathe 3s ease-in-out infinite; }
-  #start .keys { position: absolute; bottom: 5vh; font-size: 13px; letter-spacing: .12em; opacity: .7; text-align: center; line-height: 1.9; font-family: system-ui, sans-serif; font-weight: 300; padding: 0 20px; }
+  #start .keys { margin-top: 2.6em; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 46px; max-width: 900px; padding: 0 20px; font-family: system-ui, sans-serif; font-weight: 300; font-size: 13px; opacity: .78; }
+  #start .kcol { display: flex; flex-direction: column; gap: 7px; min-width: 210px; }
+  #start .kcol h3 { margin: 0 0 4px; font: italic 400 14px Georgia, serif; letter-spacing: .12em; opacity: .85; }
+  #start .kcol div { display: flex; align-items: baseline; gap: 12px; }
+  #start kbd { display: inline-block; min-width: 64px; text-align: center; font: 500 11px system-ui, sans-serif; letter-spacing: .08em; padding: 3px 7px; border: 1px solid rgba(255,255,255,.45); border-radius: 6px; background: rgba(255,255,255,.08); }
+  #start .kfoot { flex-basis: 100%; text-align: center; margin: 14px 0 0; font: italic 14px Georgia, serif; letter-spacing: .05em; }
+  #start .tkeys { display: none; margin-top: 2.4em; font: 300 13px system-ui, sans-serif; line-height: 1.8; text-align: center; opacity: .78; padding: 0 20px; }
+  @media (pointer: coarse) { #start .keys { display: none; } #start .tkeys { display: block; } }
   @keyframes breathe { 50% { opacity: .35; } }
   .hud { position: fixed; pointer-events: none; opacity: 0; transition: opacity 2s; text-shadow: 0 0 12px rgba(0,0,0,.35); }
   .hud.on { opacity: 1; }
@@ -33,6 +40,8 @@
   #resetBtn { display: block; margin: 34px auto 6px; padding: 10px 20px; font: italic 14px Georgia, serif; letter-spacing: .05em; color: #3b2f22; background: rgba(255,250,240,.6); border: 1px solid rgba(80,60,40,.35); border-radius: 22px; cursor: pointer; }
   #formLbl { position: fixed; top: 76px; left: 34px; font: italic 13px Georgia, serif; letter-spacing: .12em; color: #fff7ea; opacity: 0; transition: opacity 1.5s; pointer-events: none; text-shadow: 0 0 10px rgba(0,0,0,.4); }
   #formLbl.on { opacity: .8; }
+  #resetHud { position: fixed; bottom: max(10px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); font: italic 12px Georgia, serif; letter-spacing: .1em; color: #fff7ea; opacity: .45; padding: 6px 14px; border: 1px solid rgba(255,247,234,.35); border-radius: 16px; background: rgba(0,0,0,.12); cursor: pointer; z-index: 6; user-select: none; -webkit-user-select: none; }
+  #resetHud:hover { opacity: .85; }
   #hint { position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; opacity: 0; transition: opacity 1.2s; font-family: system-ui, sans-serif; color: #fff7ea; text-shadow: 0 0 10px rgba(0,0,0,.45); z-index: 5; }
   #hint.on { opacity: .85; }
   #hint .ar { width: 22px; height: 22px; transition: transform .25s linear; filter: drop-shadow(0 0 4px rgba(0,0,0,.4)); }
@@ -54,7 +63,7 @@
   #stick.on { opacity: 1; }
   .tbtn { position: fixed; right: 24px; width: 64px; height: 64px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.08);
     color: #fff; font-size: 13px; letter-spacing: .1em; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; }
-  #flowBtn { bottom: 184px; right: 100px; } #formBtn { bottom: 260px; right: 100px; } #bodyBtn { bottom: 260px; } .tbtn.hidden { display: none; } #journalList li.sep { margin-top: 28px; } #jumpBtn { bottom: 32px; } #diveBtn { bottom: 32px; right: 100px; } #actBtn { bottom: 108px; right: 100px; } #timeBtn { bottom: 108px; } #bookBtn { bottom: 184px; }
+  #flowBtn { bottom: 184px; right: 100px; } #formBtn { bottom: 260px; right: 100px; } #bodyBtn { bottom: 260px; } .tbtn.hidden { display: none; } #journalList li.sep { margin-top: 28px; } #jumpBtn { bottom: 32px; } #diveBtn { bottom: 32px; right: 100px; } #actBtn { bottom: 108px; right: 100px; } #timeBtn { bottom: 108px; } #meteoBtn { bottom: 260px; left: 24px; } #bookBtn { bottom: 184px; }
   #journal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,10,16,.55);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .8s; }
   #journal.open { opacity: 1; pointer-events: auto; }
@@ -75,7 +84,32 @@
   <h1>RIVA</h1>
   <div class="sub">una spiaggia, fuori stagione</div>
   <div class="cta">Clicca per entrare</div>
-  <div class="keys">WASD — cammina, nuota, pagaia · Mouse — guarda · Shift — corri · Spazio — salta / risali · C — immergiti<br>E — azione (SUP, attrezzatura, panchine) · T — un'ora avanti · J — diario · N — mappa · F — fluire · Q — cambia forma · B — torna corpo · M — audio · V — voce<br>Ritrova i ricordi: ognuno ti porterà al prossimo.</div>
+  <div class="keys">
+    <div class="kcol"><h3>Muoversi</h3>
+      <div><kbd>W A S D</kbd><span>cammina, nuota, pagaia</span></div>
+      <div><kbd>Mouse</kbd><span>guarda</span></div>
+      <div><kbd>Shift</kbd><span>corri</span></div>
+      <div><kbd>Spazio</kbd><span>salta, risali</span></div>
+      <div><kbd>C</kbd><span>immergiti</span></div>
+      <div><kbd>E</kbd><span>azione: mezzi, scalette, panchine</span></div>
+    </div>
+    <div class="kcol"><h3>Il mondo</h3>
+      <div><kbd>T</kbd><span>un'ora avanti</span></div>
+      <div><kbd>G</kbd><span>meteo: sereno → tempesta</span></div>
+      <div><kbd>N</kbd><span>mappa</span></div>
+      <div><kbd>J</kbd><span>diario</span></div>
+      <div><kbd>M</kbd><span>audio</span></div>
+      <div><kbd>V</kbd><span>voce narrante</span></div>
+    </div>
+    <div class="kcol"><h3>Le forme</h3>
+      <div><kbd>Q</kbd><span>pioggia, o torna alla forma della tappa</span></div>
+      <div><kbd>B</kbd><span>torna umano, lì dove sei</span></div>
+      <div><kbd>F</kbd><span>fluire, quando sei acqua</span></div>
+    </div>
+    <p class="kfoot">Ritrova i ricordi: ognuno ti cambia, e ti porta al prossimo.</p>
+  </div>
+  <div class="tkeys">Metà sinistra dello schermo per muoverti, metà destra per guardare.<br>Ritrova i ricordi: ognuno ti cambia, e ti porta al prossimo.</div>
+
 </div>
 <div id="phase" class="hud"></div>
 <div id="count" class="hud"></div>
@@ -87,6 +121,7 @@
 <div id="mapZoom"><div id="zin">+</div><div id="zout">−</div></div>
 <div id="inv" class="hud"></div>
 <div id="goal" class="hud"></div>
+<div id="resetHud" title="Ricomincia dall'inizio">↺ ricomincia</div>
 <div id="hint"><svg class="ar" viewBox="0 0 24 24"><path d="M12 3 L19 17 L12 13.5 L5 17 Z" fill="rgba(150,240,160,.95)" stroke="rgba(0,0,0,.35)" stroke-width="1"/></svg><div class="ds"></div><div class="dots"></div></div>
 <div id="echo" class="hud"></div>
 <div id="journal"><div class="page"><h2>Diario della riva</h2><ul id="journalList"></ul><button id="resetBtn">Ricomincia dall'inizio</button></div></div>
@@ -94,6 +129,7 @@
   <div id="bookBtn" class="tbtn">DIARIO</div>
   <div id="stick"></div>
   <div id="timeBtn" class="tbtn">ORA</div>
+  <div id="meteoBtn" class="tbtn">METEO</div>
   <div id="jumpBtn" class="tbtn">SU</div>
   <div id="diveBtn" class="tbtn">GIÙ</div>
   <div id="actBtn" class="tbtn">AZIONE</div>

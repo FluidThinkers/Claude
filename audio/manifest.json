@@ -19,5 +19,8 @@
   "rain": "rain.mp3",
   "night": "night.mp3",
   "gulls": "gulls.mp3"
- }
+ },
+ "thunder": [
+  "thunder.mp3"
+ ]
 }

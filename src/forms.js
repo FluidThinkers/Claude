@@ -208,30 +208,26 @@ export function moveForm(form, P, ctx) {
     out.speed = P.vs;
     // Spazio: raduni le nuvole; C: le spazzi via
     out.cloudDelta = (ctx.jump || ctx.up ? 1 : 0) - (ctx.down ? 1 : 0);
-  } else if (form === 'wave' && P.waveRest) {
-    // onda già rotta: schiuma ferma sulla riva
-    P.pos.y += (lvl + 0.35 - P.pos.y) * Math.min(1, dt * 2);
-    out.speed = 0;
   } else if (form === 'wave') {
-    // la cresta corre verso riva; tu sei la cresta
-    P.ws = fz < 0 ? Math.max(1.5, (P.ws || 3) - dt * 3) : fz > 0 ? Math.min(9, (P.ws || 3) + dt * 1.5) : Math.max(2.5, Math.min(5, P.ws || 3));
-    const d = P.pos.z - shoreZ(P.pos.x);
-    const dz = P.ws * dt * (d < 0 ? 1 : 0);
-    // un'onda troppo piccola si spegne prima della riva: resta sul mare finché non cresce
-    if (ctx.waveMin && (P.wsize || 1) < ctx.waveMin && lvl - heightAt(P.pos.x, P.pos.z + dz) < 1.4) { out.tooSmall = true; P.ws = Math.max(2, P.ws - dt * 4); }
-    else P.pos.z += dz;
-    P.pos.x += fx * 8 * dt;
-    if (ctx.target) P.pos.x += Math.sign(ctx.target.x - P.pos.x) * Math.min(Math.abs(ctx.target.x - P.pos.x), 7 * dt);
+    // l'onda va dove la porti: avanti corre, indietro rallenta e torna al largo, A e D piegano.
+    // Non sale mai sulla sabbia asciutta; da piccola non riesce ad arrivare a riva.
+    P.wsize = P.wsize || 1;
+    const tsp = fz > 0 ? 7.5 : fz < 0 ? -3 : 2.2;
+    P.ws = (P.ws ?? 2) + (tsp - (P.ws ?? 2)) * Math.min(1, dt * 1.5);
+    P.yaw -= fx * 1.3 * dt;
+    const nx = P.pos.x - ys * P.ws * dt, nz = P.pos.z - yc * P.ws * dt;
+    const d0 = lvl - heightAt(P.pos.x, P.pos.z), d1 = lvl - heightAt(nx, nz);
+    const shoreward = d1 < d0;
+    if (d1 < 0.3) { P.ws *= 0.5; }
+    else if (ctx.waveMin && P.wsize < ctx.waveMin && shoreward && d1 < 1.4) { out.tooSmall = true; P.ws *= 0.6; }
+    else { P.pos.x = nx; P.pos.z = nz; }
     const depth = lvl - heightAt(P.pos.x, P.pos.z);
-    // avanti cresci, indietro ti fai piccola: un'onda grande è lenta e alta, una piccola corre bassa
-    P.wsize = P.wsize || 1; // cresce solo unendosi alle onde più grandi
-    P.ws = Math.min(9 / Math.sqrt(P.wsize), P.ws);
     const lift = (0.45 + 0.8 * Math.max(0, 1 - Math.min(depth, 6) / 6)) * P.wsize + 0.2;
-    P.pos.y = lvl + lift + Math.sin(ctx.time * 1.7) * 0.05 * P.wsize;
+    P.pos.y += (lvl + lift + Math.sin(ctx.time * 1.7) * 0.05 * P.wsize - P.pos.y) * Math.min(1, dt * 4);
+    roll = Math.sin(ctx.time * 1.3) * 0.02 * P.wsize - fx * 0.05;
     out.size = P.wsize;
-    P.yaw += (Math.PI - P.yaw + Math.PI * 2 * Math.round((P.yaw - Math.PI) / (Math.PI * 2))) * Math.min(1, dt * 0.5) * 0; // libera
-    out.speed = P.ws;
-    out.broke = depth < 0.5;
+    out.speed = Math.abs(P.ws);
+    out.broke = !P.waveRest && depth < 0.7 && shoreward && P.ws > 1;
   } else if (form === 'cloud') {
     // alta e lenta: il vento ti porta, tu puoi spingerti
     const w = 3 + ctx.wind * 6;

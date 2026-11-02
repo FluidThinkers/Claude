@@ -277,6 +277,8 @@ function ridgeLayer(R, a0, a1, cols, heightFn, depth) {
         vec3 surf = alb * (amb + uSunCol * lit * 1.4 * uSunVis);
         // prospettiva aerea: lontano tutto diventa cielo; in basso la foschia è più densa
         float haze = clamp(uDepth + near * (1.0 - smoothstep(0.0, 0.7, t)) * 0.45, 0.0, 1.0);
+        // nebbia di valle: una fascia chiara che si stende alla base di ogni piano
+        haze = clamp(haze + (1.0 - smoothstep(0.0, 0.28, t)) * 0.35 * (0.6 + 0.4 * vn(vec2(vAz * 300.0, 1.0))), 0.0, 1.0);
         vec3 c = mix(surf, uHaze, haze);
         // il crinale controluce si accende appena
         c += uSunCol * smoothstep(0.92, 1.0, t) * 0.06 * uSunVis * near;
@@ -290,18 +292,23 @@ function ridgeLayer(R, a0, a1, cols, heightFn, depth) {
 
 const D = Math.PI / 180;
 const sm = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
-const ridged = (x, seed) => { let s = 0, a = 1, f = 1; for (let i = 0; i < 5; i++) { s += a * (1 - Math.abs(vnoise(x * f + seed, seed * 0.37))); f *= 2.1; a *= 0.48; } return s / 1.9; };
+const ridged = (x, seed) => { let s = 0, a = 1, f = 1; for (let i = 0; i < 6; i++) { s += a * Math.pow(1 - Math.abs(vnoise(x * f + seed, seed * 0.37)), 1.6); f *= 2.03; a *= 0.5; } return s / 1.6; };
+// profilo di catena vera: grandi masse, crinali erosi, qualche picco roccioso
+const range = (a, k, seed) => { const w = a * k + 0.35 * Math.sin(a * k * 0.37 + seed); const big = vnoise(w * 0.18 + seed, 1.7) * 0.9 + 0.1; const r = ridged(w, seed); const jag = Math.pow(Math.max(0, vnoise(w * 3.1 + seed, 4.2) - 0.55), 2) * 2.2; return big * (0.55 + 0.45 * r) + jag * big; };
 
 export function buildSkyline(scene) {
   const g = new THREE.Group();
-  // catena lontana alle spalle del golfo
-  g.add(ridgeLayer(3400, -30 * D, 115 * D, 900, (a) => sm(-30 * D, -5 * D, a) * sm(115 * D, 80 * D, a) * (170 + 260 * ridged(a * 9, 3.1)), 0.55));
+  // cinque piani di montagne, come le coste del Mediterraneo viste dal mare: ogni piano più lontano è più azzurro e più chiaro
+  // catena lontanissima, appena un'ombra azzurra
+  g.add(ridgeLayer(5200, -40 * D, 125 * D, 1100, (a) => sm(-40 * D, -10 * D, a) * sm(125 * D, 95 * D, a) * (180 + 420 * range(a, 7, 11.3)), 0.78));
+  // catena alle spalle del golfo
+  g.add(ridgeLayer(3400, -30 * D, 115 * D, 1000, (a) => sm(-30 * D, -5 * D, a) * sm(115 * D, 80 * D, a) * (150 + 330 * range(a, 10, 3.1)), 0.58));
   // promontorio che scende a picco nel mare
-  g.add(ridgeLayer(2300, -24 * D, 55 * D, 900, (a) => sm(-24 * D, -15 * D, a) * sm(55 * D, 30 * D, a) * (110 + 150 * ridged(a * 14, 7.7) + 60 * sm(-15 * D, 5 * D, a)), 0.34));
+  g.add(ridgeLayer(2300, -24 * D, 55 * D, 1000, (a) => sm(-24 * D, -15 * D, a) * sm(55 * D, 30 * D, a) * (90 + 200 * range(a, 15, 7.7) + 70 * sm(-15 * D, 5 * D, a)), 0.4));
   // colline basse dietro il paese
-  g.add(ridgeLayer(1500, 15 * D, 100 * D, 700, (a) => sm(15 * D, 30 * D, a) * sm(100 * D, 85 * D, a) * (35 + 55 * ridged(a * 22, 1.3)), 0.2));
+  g.add(ridgeLayer(1500, 15 * D, 100 * D, 800, (a) => sm(15 * D, 30 * D, a) * sm(100 * D, 85 * D, a) * (30 + 75 * range(a, 24, 1.3)), 0.24));
   // isola appena visibile sull'orizzonte del mare
-  g.add(ridgeLayer(4200, -160 * D, -128 * D, 300, (a) => sm(-160 * D, -150 * D, a) * sm(-128 * D, -136 * D, a) * (40 + 50 * ridged(a * 30, 5.5)), 0.82));
+  g.add(ridgeLayer(4200, -160 * D, -128 * D, 400, (a) => sm(-160 * D, -150 * D, a) * sm(-128 * D, -136 * D, a) * (40 + 70 * range(a, 30, 5.5)), 0.84));
 
   const mNear = new THREE.MeshBasicMaterial({ fog: false });
   scene.add(g);
