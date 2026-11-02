@@ -222,7 +222,30 @@ export class Sound {
     }
     this.narrG.gain.cancelScheduledValues(t); this.narrG.gain.setValueAtTime(this.narrG.gain.value, t);
     this.narrG.gain.linearRampToValueAtTime(on ? 0.05 : 0, t + (on ? 2.5 : 4));
+    this.duck(on);
   }
+
+  // musica: brani veri (audio/musica/<nome>.mp3), usati a pezzi nei momenti giusti, con dissolvenze lunghe
+  async music(cue) {
+    if (!this.ctx || this.cue === cue) return;
+    this.cue = cue;
+    if (!this.musicMan) { try { this.musicMan = await (await fetch('audio/musica/manifest.json')).json(); } catch (e) { this.musicMan = {}; } }
+    const f = this.musicMan[cue]; const t = this.ctx.currentTime;
+    if (this.musicNow) { const old = this.musicNow; old.g.gain.cancelScheduledValues(t); old.g.gain.setValueAtTime(old.g.gain.value, t); old.g.gain.linearRampToValueAtTime(0, t + 4); setTimeout(() => { try { old.s.stop(); } catch (e) {} }, 4500); this.musicNow = null; }
+    if (!f) return;
+    try {
+      this.musicBufs ||= {};
+      if (!this.musicBufs[f]) { const b = await (await fetch('audio/musica/' + f)).arrayBuffer(); this.musicBufs[f] = await new Promise((ok, ko) => this.ctx.decodeAudioData(b, ok, ko)); }
+      if (this.cue !== cue) return;
+      const src = this.ctx.createBufferSource(); src.buffer = this.musicBufs[f]; src.loop = true;
+      const g = this.ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(this.comp);
+      const t2 = this.ctx.currentTime; g.gain.linearRampToValueAtTime(this.musicVol ?? 0.32, t2 + 5);
+      src.start(0, Math.random() * Math.max(0, src.buffer.duration - 30) * 0.3);
+      this.musicNow = { s: src, g };
+    } catch (e) { /* manca il brano */ }
+  }
+  // la musica si abbassa mentre parla la voce
+  duck(on) { if (this.musicNow) { const t = this.ctx.currentTime; this.musicNow.g.gain.setTargetAtTime(on ? 0.12 : (this.musicVol ?? 0.32), t, 0.8); } }
 
   // un colpo d'ala: aria spinta, piume
   flap(vol = 1) {

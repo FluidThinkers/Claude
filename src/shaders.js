@@ -174,8 +174,13 @@ export function makeSky() {
         float above = step(0.0, d.y);
         float sd = dot(d, uSunDir);
         float md = dot(d, uMoonDir);
-        vec3 lights = uSunCol * smoothstep(0.99955, 0.9997, sd) * 40.0 * uSunVis * above;
-        lights += vec3(0.85, 0.88, 1.0) * smoothstep(0.99975, 0.9999, md) * 2.5 * uNight;
+        // il disco: col sole basso diventa grande, rosso-arancio, e si accende di un alone
+        float low = 1.0 - smoothstep(0.02, 0.25, uSunDir.y);
+        vec3 discCol = mix(uSunCol, vec3(1.0, 0.55, 0.25) * length(uSunCol), low * 0.6);
+        vec3 lights = discCol * smoothstep(0.99935 - 0.0002 * low, 0.99962 - 0.0002 * low, sd) * 40.0 * uSunVis * above;
+        c += uSunCol * (pow(max(sd, 0.0), 900.0) * 1.2 + pow(max(sd, 0.0), 60.0) * 0.25 * (0.4 + low)) * uSunVis;
+        lights += vec3(0.95, 0.94, 0.88) * smoothstep(0.99972, 0.99988, md) * 4.0 * uNight;
+        c += vec3(0.5, 0.5, 0.46) * pow(max(md, 0.0), 300.0) * 0.6 * uNight;
         c += vec3(0.25, 0.3, 0.45) * pow(max(md, 0.0), 120.0) * 0.4 * uNight;
         if (d.y > -0.02 && uNight > 0.01) {
           // stelle: tre strati di celle, ogni stella in un punto a caso della sua cella,
@@ -470,11 +475,15 @@ export function makeWater() {
         // La striscia nasce da tante faccette d'onda orientate giuste, non da una macchia liscia
         {
           vec3 Lg = uSunVis > 0.05 ? uLightDir : uMoonDir;
-          float lk = uSunVis > 0.05 ? uSunVis : uNight * step(0.0, uMoonDir.y) * 0.6;
-          vec3 lc = uSunVis > 0.05 ? uLightCol : vec3(0.75, 0.82, 1.0) * 0.6;
+          float lk = uSunVis > 0.05 ? uSunVis : uNight * step(0.0, uMoonDir.y) * 1.3;
+          vec3 lc = uSunVis > 0.05 ? uLightCol : vec3(0.85, 0.86, 0.82) * 0.9;
           vec3 Rg = reflect(-V, N);
           float rough = 0.25 + 0.5 * uWindK;
           float path = pow(max(dot(Rg, Lg), 0.0), mix(160.0, 18.0, rough));          // quanto è larga la strada
+          // col mare calmo la strada è fatta di righe orizzontali che tremano: le piccole onde viste di taglio
+          vec2 toCam = normalize(uCam.xz - p + vec2(1e-4));
+          float bands = 0.45 + 0.55 * smoothstep(0.35, 0.75, vn(vec2(dot(p, toCam) * 1.6 - uTime * 0.6, dot(p, vec2(-toCam.y, toCam.x)) * 0.08)));
+          path *= mix(1.0, bands * 1.5, 1.0 - smoothstep(0.3, 0.8, uWindK));
           vec3 nf = texture2D(uNormalMap, p * 0.42 + uTime * vec2(0.03, -0.02)).xyz * 2.0 - 1.0;
           vec3 nf2 = texture2D(uNormalMap, p * 0.17 * mat2(0.6, -0.8, 0.8, 0.6) - uTime * vec2(0.02, 0.025)).xyz * 2.0 - 1.0;
           vec3 Nf = normalize(N + vec3(nf.x + nf2.x, 0.0, nf.y + nf2.y) * (0.35 + 0.5 * rough));

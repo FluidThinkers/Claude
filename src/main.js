@@ -449,6 +449,7 @@ addEventListener('mousemove', (e) => {
 const overlay = document.getElementById('start');
 if (MOBILE) { overlay.querySelector('.cta').textContent = 'Tocca per entrare'; overlay.querySelector('.keys').innerHTML = 'Sinistra: muoviti · Destra: guarda<br>SU / GIÙ: salta, risali, immergiti · AZIONE · ORA · DIARIO<br>Ritrova i ricordi: ognuno ti porterà al prossimo.'; }
 function begin() {
+  setTimeout(() => sound.music('apertura'), 800);
   // sblocca la voce (iPhone la permette solo dopo un tocco)
   if (window.speechSynthesis) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
   sound.start();
@@ -792,6 +793,7 @@ function onFind(t) {
   preDone = false; friendT = 0; napT = 0; fishLead = false;
   sound.chime(t.i); setTimeout(() => sound.chord(), 400);
   memoryEvent(t);
+  sound.music('ricordo');
   const f = FRAGMENTS[t.i], i = t.i;
   journal.add(t.i);
   illum = 1;
@@ -951,7 +953,7 @@ function returnToBody() {
 function onMeet() {
   zone = null;
   goalEl.classList.remove('on');
-  sequence(ENDING, 4.2, 0.5); ENDING.forEach((l, k) => say(l, 'fine_' + (k + 1)));
+  sound.music('finale'); sequence(ENDING, 4.2, 0.5); ENDING.forEach((l, k) => say(l, 'fine_' + (k + 1)));
   setTimeout(() => { sound.chord(); const cur = ((tod % 1) + 1) % 1; todAnim = { from: tod, to: tod - cur + (cur < 0.75 ? 0.755 : 1.755), t: 0, dur: 30 }; }, ENDING.length * 4200);
   // finale: ti sciogli in luce sopra l'acqua della sera
   setTimeout(() => {
@@ -1019,11 +1021,13 @@ async function storyForm(form, text, why, i = active - 1) {
   if (form === 'fish' && player.mode === 'gull') { player.landed = false; player.forceDive = true; player.gs = 12; player.pitch = -1.0; }
   const ann = 'Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '.';
   showMsg(ann.replace('.', '…'), 60);
+  sound.music('trasformazione');
   fadeTarget = 0.8; post.uniforms.uFadeCol.value.setRGB(1, 0.96, 0.9);
   sound.chord(); illum = Math.max(illum, 0.6);
   // la trasformazione avviene mentre la voce annuncia, e si completa quando ha finito
   await Promise.all([say(ann, 'cambio_' + form), new Promise((r) => setTimeout(r, 3600))]);
   applyForm(form); fadeTarget = 0;
+  setTimeout(() => sound.music(['gull', 'cloud', 'wind', 'sail', 'glide'].includes(form) ? 'viaggio_aria' : ['fish', 'wave'].includes(form) ? 'viaggio_mare' : 'viaggio_terra'), 6000);
   if (text) { showMsg(text, 60); await Promise.all([say(text, 'r' + i + '_diventi'), new Promise((r) => setTimeout(r, 4000))]); }
   if (why) { msgEl.classList.add('thought'); showMsg(why, 60); await Promise.all([say(why, 'r' + i + '_perche'), new Promise((r) => setTimeout(r, 7000))]); msgEl.classList.remove('thought'); }
   msgTimer = 3;
@@ -1365,6 +1369,7 @@ function frame() {
       R.jib.scale.z = -(sd >= 0 ? 1 : -1) * (0.15 + 0.95 * (sailState.fill || 0) + fl * 2);
       const loc = Math.atan2(awz, awx) + S.g.rotation.y; // direzione del vento apparente nel riferimento della barca
       if (R.wheelG) R.wheelG.rotation.x = -(sailState.rud || 0) * 1.6;
+      if (R.sailU) R.sailU.uLuff.value = Math.max(sailState.luff, ws < 2 ? 0.6 : 0);
       if (R.flagG) { R.flagG.rotation.y = -loc; const fa = R.flag.geometry.attributes.position; if (!R.flag.userData.b) R.flag.userData.b = fa.array.slice(); const b0 = R.flag.userData.b; for (let k = 0; k < fa.count; k++) { const x = b0[k * 3]; fa.setZ(k, Math.sin(x * 14 - elapsed * (9 + 12 * wind.strength.value)) * 0.05 * x * 2); fa.setY(k, b0[k * 3 + 1] - x * 0.25 * (1 - wind.strength.value)); } fa.needsUpdate = true; }
       for (const rb of R.ribbons) {
         rb.rotation.set(0, -loc, 0);
@@ -1564,6 +1569,7 @@ function frame() {
     islandUniforms.uWindS.value = windK;
     islandUniforms.uWindS.value = windK;
     // tempesta: lampi e tuoni ogni tanto
+    if (performance.now() > storyBusy && sound.cue !== 'finale' && sound.cue !== 'trasformazione') { const want = wx.rain > 0.6 ? 'tempesta' : night > 0.6 ? 'notte' : null; if (want && sound.cue !== want) sound.music(want); else if (!want && (sound.cue === 'tempesta' || sound.cue === 'notte')) sound.music('viaggio_terra'); }
     if (wx.rain > 0.7 && elapsed - lastThunder > 9 + Math.random() * 14) { lastThunder = elapsed; illum = Math.max(illum, 0.9); setTimeout(() => sound._sample && sound._sample('thunder', (Math.random() - 0.5) * 1.2, 60 + Math.random() * 80, 1.4), 600 + Math.random() * 1800); }
   }
   drift.update(dt, player.pos, windK);
@@ -1633,7 +1639,7 @@ function frame() {
     onMeteor: () => { if (!seenMeteor) { seenMeteor = true; onDiscover('stella'); } },
     onDiscover,
   });
-  updateCraft(craft, dt, elapsed, { player: player.pos, camera: camera.position, water: lvl, fog: pal.fog * 2.2, hor: pal.hor });
+  updateCraft(craft, dt, elapsed, { wind: wind.strength.value, player: player.pos, camera: camera.position, water: lvl, fog: pal.fog * 2.2, hor: pal.hor });
   for (const S of craft.ships) {
     if (S.manual) { if (player.mode !== 'sail') rideWaves(S.g, sailState.yaw, 0, elapsed); }
     else { const h = swellAt(S.g.position.x, S.g.position.z, elapsed); S.g.position.y += h * 0.9; const rk = (S.kind === 'ferry' ? 0.012 : 0.05) * waterUniforms.uWindK.value * (1 + waterUniforms.uStorm.value); S.g.rotation.z = (S.kind === 'sail' ? S.g.rotation.z : 0) + Math.sin(elapsed * 0.7) * rk; S.g.rotation.x = Math.sin(elapsed * 0.53 + 1) * rk * 0.6; }
@@ -1683,7 +1689,7 @@ function frame() {
   U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
   const alto = Q.has('alto') ? num('alto', 1) : THREE.MathUtils.clamp(Math.sin(elapsed * 0.0045 + 2.2) * 1.4 - 0.5, 0, 1);
   U.uAlto.value = alto;
-  const mist = THREE.MathUtils.clamp(0.75 * Math.exp(-(((todN - 0.26) / 0.06) ** 2)) + 0.25 * night + 0.12 * (0.5 + 0.5 * Math.sin(elapsed * 0.02)), 0, 1);
+  const mist = THREE.MathUtils.clamp(0.35 * Math.exp(-(((todN - 0.26) / 0.06) ** 2)) + 0.25 * night + 0.12 * (0.5 + 0.5 * Math.sin(elapsed * 0.02)), 0, 1);
   U.uMist.value = mist;
 
   // da molto in alto l'aria è più limpida: si vede il mondo sotto

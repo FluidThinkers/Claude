@@ -91,6 +91,18 @@ export function buildCraft(scene) {
       for (let i = 0; i < 2500; i++) { c.fillStyle = `rgba(${200 + Math.random() * 40 | 0},${195 + Math.random() * 40 | 0},${180 + Math.random() * 40 | 0},0.12)`; c.fillRect(Math.random() * 256, Math.random() * 512, 2, 2); }
       const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
     const sailM = new THREE.MeshStandardMaterial({ color: 0xffffff, map: sailTex, roughness: 0.85, side: THREE.DoubleSide, transparent: true, opacity: 0.97 });
+    // tela vera: la vela respira, ondeggia verso la balumina, e sbatte quando perde il vento
+    const sailU = { uT: { value: 0 }, uLuff: { value: 0 }, uWind: { value: 0.4 } };
+    sailM.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, sailU);
+      sh.vertexShader = 'uniform float uT, uLuff, uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float edge = smoothstep(0.0, 0.6, uv.x);            // 0 all inferitura, 1 alla balumina
+        float hgt = uv.y;
+        float flap = uLuff * sin(uT * 14.0 - position.y * 1.3 + position.x * 2.1) * 0.22 * edge;
+        float ripple = sin(uT * (3.0 + 4.0 * uWind) - position.y * 0.6 - position.x * 1.4) * (0.03 + 0.05 * uWind) * edge * (0.4 + 0.6 * hgt);
+        float breathe = sin(uT * 0.9 + hgt * 2.0) * 0.06 * (1.0 - uLuff) * edge;
+        transformed.z += flap + ripple + breathe;`);
+    };
     const sailSurf = (ax, ay, bx, by, cx, cy, belly) => {
       const pts = [], idx = [], N = 10;
       for (let i = 0; i <= N; i++) for (let j = 0; j <= N - i; j++) {
@@ -130,7 +142,7 @@ export function buildCraft(scene) {
       const plate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.03), steel); plate.position.copy(cp); g.add(plate);
     }
     jibG.position.set(tack.x, 0, 0);
-    var rig = { boomG, jibG, main, jib, ribbons, wheelG, flagG, flag };
+    var rig = { boomG, jibG, main, jib, ribbons, wheelG, flagG, flag, sailU };
     shadowAll(g); scene.add(g);
     C.ships.push({ name: 'Barca a vela', g, kind: 'sail', speed: 1.4, s: 0, anchored: false, rig,
       deck: { hx: 5.2, hz: 1.45, y: 1.18 }, blocks: [{ x: -0.6, z: 0, hx: 1.9, hz: 1.15, top: 1.75 }],
@@ -304,6 +316,7 @@ export function boardable(C, x, z) {
 }
 
 export function updateCraft(C, dt, time, ctx) {
+  for (const S of C.ships) if (S.rig && S.rig.sailU) { S.rig.sailU.uT.value = time; S.rig.sailU.uWind.value = ctx.wind ?? 0.4; if (!S.manual) S.rig.sailU.uLuff.value = 0.15; }
   if (C.radar) C.radar.rotation.y = time * 1.6;
   // navi: avanzano sulla loro rotta, gettano l'ancora quando ti avvicini
   for (const S of C.ships) {
