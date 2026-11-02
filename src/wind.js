@@ -21,11 +21,11 @@ export function updateWind(t) {
 // granelli di sabbia che scivolano a filo del suolo
 export class SandDrift {
   constructor(scene) {
-    this.n = 900;
+    this.n = 2600;
     const pos = new Float32Array(this.n * 3);
     this.geo = new THREE.BufferGeometry();
     this.geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    this.mat = new THREE.PointsMaterial({ color: 0xe8d6b8, size: 0.03, transparent: true, opacity: 0, depthWrite: false });
+    this.mat = new THREE.PointsMaterial({ color: 0xeedcbc, size: 0.026, transparent: true, opacity: 0, depthWrite: false });
     this.pts = new THREE.Points(this.geo, this.mat);
     this.pts.frustumCulled = false;
     scene.add(this.pts);
@@ -48,11 +48,16 @@ export class SandDrift {
       const h = heightAt(x, z);
       const d = z - shoreZ(x);
       // solo sulla sabbia asciutta
-      const y = (h > 0.15 && d > 2 && d < 72) ? h + 0.03 + s * 0.25 * strength + Math.abs(Math.sin(wind.time.value * 2 + s * 30)) * 0.05 : -999;
+      // refoli: la sabbia corre a nastri, che nascono, si allungano e svaniscono sottovento
+      const t = wind.time.value, along = x * wind.dir.x + z * wind.dir.y, across = -x * wind.dir.y + z * wind.dir.x;
+      const ribbon = Math.sin(across * 0.9 + Math.sin(along * 0.15 - t * 0.6) * 1.6) * 0.5 + 0.5;
+      const pulse = 0.5 + 0.5 * Math.sin(along * 0.35 - t * sp * 0.4 + across * 0.2);
+      const on = ribbon * pulse > 1.05 - strength * 0.9;
+      const y = (on && h > 0.15 && d > 2 && d < 72) ? h + 0.02 + s * 0.18 * strength + Math.abs(Math.sin(t * 2 + s * 30)) * 0.04 : -999;
       p[i * 3] = x; p[i * 3 + 1] = y; p[i * 3 + 2] = z;
     }
     this.inited = true;
     this.geo.attributes.position.needsUpdate = true;
-    this.mat.opacity = Math.max(0, strength - 0.35) * 0.9;
+    this.mat.opacity = Math.min(0.85, Math.max(0, strength - 0.25) * 1.3);
   }
 }

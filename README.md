@@ -147,6 +147,12 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 - **Torretta del bagnino**: legno bianco scrostato, piattaforma alta con ringhiera, tettuccio a strisce bianche e rosse, scala, cartello SALVATAGGIO, salvagente, bandiera rossa che sventola.
 - **Pali del pontile**: legno scuro, fascia verde di alghe e denti di cozze sulla linea dell'acqua, controventi a croce.
 - **Montagne**: di giorno più scure e profonde, di sera e di notte sagome quasi nere.
+- **Strato di nuvole**: sopra la spiaggia c'è uno strato di cumuli veri. Da gabbiano o da nuvola ci voli sopra e dentro; il vento li porta. Da vento, passandoci in mezzo li separi; raccogliendoli (Spazio) si scuriscono e piovono.
+- **Il sole e le nuvole**: ogni tanto il sole passa dietro una nuvola, la luce cala e torna.
+- **Refoli di sabbia**: col vento la sabbia corre a nastri che nascono e svaniscono sottovento.
+- **Gabbiano e gru**: ti posi sul braccio della gru e ci cammini sopra fino al cappello, in cima. Quando diventi pesce, prima ti tuffi in mare dal braccio e solo sott'acqua cambi forma.
+- **Pesce**: segui il banco a lungo, in una deviazione, prima che ti porti al relitto.
+- **Voce narrante**: ricordo, pensiero, trasformazione e motivo si susseguono quando la voce ha finito la frase precedente. Le registrazioni vere vanno in `audio/voce/` (testi e nomi dei file in `TESTI-VOCE.md`).
 - **Ricomincia**: il pulsante in basso al centro (e nel diario) riparte da capo.
 - **Cielo di notte**: migliaia di stelle di luminosità e colore diversi (bianco-azzurre, gialle, arancio), che scintillano vicino all'orizzonte, e la Via Lattea con le sue corsie scure.
 - **Erba**: le raffiche corrono sul prato nella direzione del vento; ogni filo si piega curvo e trema per conto suo.

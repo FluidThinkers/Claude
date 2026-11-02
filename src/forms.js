@@ -122,16 +122,17 @@ export function moveForm(form, P, ctx) {
     P.gs += (target - P.gs) * Math.min(1, dt * (fz < 0 ? 2.2 : 0.8));
     P.bank = (P.bank || 0) + ((fx * 0.6) - (P.bank || 0)) * Math.min(1, dt * 2.5);
     P.yaw -= Math.tan(P.bank) * 9.8 / Math.max(P.gs, 6) * dt;
+    if (P.forceDive) { P.pitch = -1.0; P.gs = Math.max(P.gs, 12); }
     const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
     let vy = sp * P.gs - 0.6 + (ctx.up ? 3.5 : 0);
     P.pos.x += -ys * cp * P.gs * dt; P.pos.z += -yc * cp * P.gs * dt; P.pos.y += vy * dt;
     const surf = ctx.groundAt ? Math.max(ctx.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.5), lvl) : ground;
     // tuffo: in picchiata sull'acqua aperta entri sotto, per un attimo, e risali
     const overSea = heightAt(P.pos.x, P.pos.z) < lvl - 1.2 && surf <= lvl + 0.01;
-    if (!P.diving && overSea && P.pos.y < lvl + 1.3 && P.pitch < -0.35 && P.gs > 8) { P.diving = 1.4; out.plunge = true; }
+    if (!P.diving && overSea && P.pos.y < lvl + 1.3 && P.pitch < -0.35 && P.gs > 8) { P.diving = P.forceDive ? 9 : 1.4; out.plunge = true; }
     if (P.diving) {
       P.diving -= dt; const k = Math.max(0, P.diving / 1.4);
-      P.pos.y = lvl + 0.3 - 1.9 * Math.sin(Math.PI * (1 - k));
+      P.pos.y = P.forceDive ? Math.max(lvl - 1.6, P.pos.y - dt * 4) : lvl + 0.3 - 1.9 * Math.sin(Math.PI * (1 - k));
       if (P.diving <= 0) { P.diving = 0; P.pos.y = lvl + 1.2; P.gs = 9; P.pitch = 0.3; out.emerge = true; }
       out.speed = P.gs; out.flap = 0;
       return { eye, roll, ...out };

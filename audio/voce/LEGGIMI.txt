@@ -1,0 +1,2 @@
+Qui vanno le registrazioni della voce narrante, una per frase, chiamate come l'ID in TESTI-VOCE.md
+(per esempio r0_ricordo.wav). manifest.json le elenca: { "r0_ricordo": "r0_ricordo.mp3", ... }.

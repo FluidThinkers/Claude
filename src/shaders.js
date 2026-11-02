@@ -78,7 +78,7 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
   float setMod = 0.55 + 0.45 * sin(t * 0.11 + x * 0.0025) * sin(t * 0.047 + 1.0);
   setMod *= (0.25 + 1.5 * windK) * (1.0 + 0.9 * uStorm);
   float jit = surfJit(x);
-  float ph = SURF_OM * t - d * 0.5 + jit;
+  float ph = SURF_OM * t - d * (0.5 + 0.08 * sin(x * 0.013)) + jit + 0.6 * sin(x * 0.031 + d * 0.05);
   s = fract(ph / 6.2831853);
   float prof = max(pow(1.0 - s, 2.6), pow(smoothstep(0.78, 1.0, s), 1.6));
   float A = setMod * (0.08 + 0.62 * smoothstep(5.5, 1.5, depth)) * smoothstep(0.1, 1.1, depth);
@@ -462,8 +462,10 @@ export function makeWater() {
         vec2 fl = vW.xz * 1.7 + vec2(0.0, uTime * 0.5);
         float lace = 1.0 - smoothstep(0.0, 0.06, abs(vn(fl) * 0.7 + vn(fl * 2.4 + 5.0) * 0.45 - 0.62));
         float brkUp = smoothstep(0.35, 0.75, vn(vW.xz * vec2(0.8, 2.5) + vec2(uTime * 0.2, -uTime * 0.8)));
-        float lip = brk * smoothstep(0.86, 0.985, sP) * (0.55 + 0.45 * brkUp);
-        float white = bore * (smoothstep(0.5, 0.0, sP) + smoothstep(0.88, 1.0, sP)) * (0.5 + 0.5 * brkUp);
+        // le creste non si rompono tutte insieme: tratti che si rompono, tratti ancora lisci, che cambiano a ogni onda
+        float brkMask = smoothstep(0.25, 0.65, vn(vec2(vW.x * 0.045 + floor(uTime / 7.5) * 3.7, sP * 2.0)) * 0.7 + vn(vW.xz * 0.15) * 0.3);
+        float lip = brk * smoothstep(0.86, 0.985, sP) * (0.55 + 0.45 * brkUp) * (0.3 + 0.7 * brkMask);
+        float white = bore * (smoothstep(0.5, 0.0, sP) + smoothstep(0.88, 1.0, sP)) * (0.5 + 0.5 * brkUp) * (0.35 + 0.65 * brkMask);
         float residual = max(brk, bore) * lace * 0.55;
         // risacca pixel per pixel: bordo morbido e a lobi, schiuma di bolle sul fronte che avanza,
         // che si apre in chiazze mentre l'acqua si ritira
@@ -757,6 +759,7 @@ export function makePost(renderer) {
         if (dz < 0.99999) {
           float vz = uNear * uFar / (uFar - dz * (uFar - uNear));
           float k = smoothstep(55.0, 380.0, vz) * 0.9 * uFarBlur;
+          if (dz > 0.9999) k = 1.0;
           // le luci forti (ricordi, sole, lampioni) restano nitide: niente quadrati sfocati
           k *= 1.0 - smoothstep(0.9, 2.2, max(col.r, max(col.g, col.b)));
           col = mix(col, texture2D(tFar, uv).rgb, k);
