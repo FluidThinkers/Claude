@@ -679,7 +679,7 @@ function checkAct(jump, downK, night, dt) {
     } else {
       prompt = 'Segui il banco';
       if (fishWay && Math.hypot(fishWay.x - player.pos.x, fishWay.z - player.pos.z) < 14) fishWay = null;
-      ok = near && !fishWay && elapsed - fishLeadT > 25 && Math.hypot(t.pos.x - player.pos.x, t.pos.z - player.pos.z) < 10;
+      ok = near && !fishWay && elapsed - fishLeadT > (Q.has('testfast') ? 2 : 25) && Math.hypot(t.pos.x - player.pos.x, t.pos.z - player.pos.z) < 10;
     }
   }
   else if (act === 'bigwave') {
