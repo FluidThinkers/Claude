@@ -23,6 +23,7 @@ import { FORM_TEXT, gullWings, moveForm, flapWings } from './forms.js';
 import { SCOGLIERA, PERGOLA, BARCA, TORRETTA, BELVEDERE } from './places.js';
 import { FOCE } from './terrain.js';
 import { buildAnts } from './ants.js';
+import { buildSignal } from './signal.js';
 import { COLONY } from './places.js';
 import { Motes, LightBurst } from './particles.js';
 import { FormPath } from './paths.js';
@@ -103,7 +104,9 @@ const beam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 1), new THREE.Shade
       gl_FragColor = vec4(c * a * uOp, 1.0);
     }`,
 }));
-beam.frustumCulled = false; scene.add(beam);
+beam.frustumCulled = false; beam.visible = false;
+const signal = buildSignal(scene);
+let signalOp = 0;
 let isleQ = 0, lastFO = null;
 const W = buildWorld(scene, glowTex);
 const places = buildPlaces(scene, glowTex, PLATFORM);
@@ -885,8 +888,8 @@ function onMeet() {
 // la trasformazione: annunciata, lenta, e spiegata
 const BECOME = { wind: 'vento', ant: 'una formica', gull: 'un gabbiano', sand: 'sabbia', fish: 'un pesce', wave: 'un\'onda', cloud: 'una nuvola', cat: 'un gatto', body: 'di nuovo umano', glide: 'leggero, come chi vola' };
 // voce narrante: legge la trasformazione (V la spegne o la riaccende)
-let voiceOn = true, voiceIt = null;
-function pickVoice() { if (!window.speechSynthesis) return; const v = speechSynthesis.getVoices(); voiceIt = v.find((x) => /it[-_]IT/i.test(x.lang) && /(Enhanced|Premium|Siri)/i.test(x.name)) || v.find((x) => /it[-_]IT/i.test(x.lang) && /Alice|Federica|Paola|Emma|Luca|Google/i.test(x.name)) || v.find((x) => /^it/i.test(x.lang)) || null; }
+let voiceOn = true, voiceIt = null, voiceLive = 0;
+function pickVoice() { if (!window.speechSynthesis) return; const v = speechSynthesis.getVoices(); voiceIt = v.find((x) => /it[-_]IT/i.test(x.lang) && /Premium/i.test(x.name)) || v.find((x) => /it[-_]IT/i.test(x.lang) && /(Enhanced|Siri|Neural|Natural)/i.test(x.name)) || v.find((x) => /it[-_]IT/i.test(x.lang) && /Alice|Federica|Paola|Emma|Luca|Google/i.test(x.name)) || v.find((x) => /^it/i.test(x.lang)) || null; }
 if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 const said = new Map();
 function say(text, delay = 0) {
@@ -897,7 +900,10 @@ function say(text, delay = 0) {
     const clean = text.replace(/\([^)]*\)/g, '').replace(/[«»]/g, '');
     for (const part of clean.match(/[^.!?…]+[.!?…]*/g) || [clean]) {
       const u = new SpeechSynthesisUtterance(part.trim());
-      u.lang = 'it-IT'; if (voiceIt) u.voice = voiceIt; u.rate = 0.84; u.pitch = 0.96; u.volume = 0.95;
+      // voce calda: più lenta e più bassa, con un accordo morbido sotto mentre parla
+      u.lang = 'it-IT'; if (voiceIt) u.voice = voiceIt; u.rate = 0.8; u.pitch = 0.88; u.volume = 1;
+      u.onstart = () => { voiceLive++; sound.narr && sound.narr(true); };
+      u.onend = u.onerror = () => { voiceLive = Math.max(0, voiceLive - 1); setTimeout(() => { if (!voiceLive && !speechSynthesis.speaking) sound.narr && sound.narr(false); }, 1200); };
       speechSynthesis.speak(u);
       const pause = new SpeechSynthesisUtterance(' '); pause.volume = 0; pause.rate = 0.5; speechSynthesis.speak(pause);
     }
@@ -1590,10 +1596,11 @@ function frame() {
   { const fo = !!formOptions(); if (fo !== lastFO) { lastFO = fo; document.getElementById('formBtn').classList.toggle('hidden', !fo); } }
   {
     const t = places.traces[active];
+    const tg = t && started && !t.found ? stepTarget() : null;
     let op = 0;
-    if (t && started) { const d = Math.hypot(t.pos.x - camera.position.x, t.pos.z - camera.position.z); op = THREE.MathUtils.smoothstep(d, 10, 40) * (0.55 + 0.45 * night) * 0.8; beam.position.set(t.pos.x, t.pos.y - 0.2, t.pos.z); beam.material.uniforms.uW.value = 2.2 + d / 120; }
-    beam.material.uniforms.uOp.value += (op - beam.material.uniforms.uOp.value) * Math.min(1, dt * 2);
-    beam.material.uniforms.uTime.value = elapsed; beam.visible = beam.material.uniforms.uOp.value > 0.01;
+    if (tg) { const d = Math.hypot(tg.x - camera.position.x, tg.z - camera.position.z); op = THREE.MathUtils.smoothstep(d, 4, 22) * (0.7 + 0.3 * night); }
+    signalOp += (op - signalOp) * Math.min(1, dt * 1.5);
+    if (tg) signal.update(tg, signalOp, elapsed, renderer.domElement.height, (tg.y ?? 0) - 0.03); else signal.update({ x: 0, y: 0, z: 0 }, 0, elapsed, 1, 0);
   }
   burst.update(dt, wind.dir);
   crest.visible = false;
@@ -1707,4 +1714,5 @@ if (Q.get('mode') === 'bike') { bike.g.position.set(player.pos.x, groundAt(playe
 if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4) - 1.65; }
 frame();
 roundLights(scene);
+places.traces.forEach((t) => { t.sp.visible = false; });
 window.__riva = { wx, crest, ants, camera, get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };

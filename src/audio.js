@@ -208,6 +208,22 @@ export class Sound {
     }
   }
 
+  // sotto la voce narrante: un accordo caldo e lontano, che sale piano e se ne va piano
+  narr(on) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime, { lp, gain } = this.mk;
+    if (!this.narrG) {
+      this.narrG = gain(0); const f = lp(760, 0.4); f.connect(this.narrG); this.narrG.connect(this.master); this.narrG.connect(this.fx);
+      for (const [fr, a] of [[110, 0.5], [164.8, 0.35], [220, 0.3], [277.2, 0.18], [329.6, 0.12]]) {
+        const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = fr; o.detune.value = (Math.random() - 0.5) * 10;
+        const g = gain(a); const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07 + Math.random() * 0.08; const lg = gain(a * 0.35); lfo.connect(lg); lg.connect(g.gain);
+        o.connect(g); g.connect(f); o.start(); lfo.start();
+      }
+    }
+    this.narrG.gain.cancelScheduledValues(t); this.narrG.gain.setValueAtTime(this.narrG.gain.value, t);
+    this.narrG.gain.linearRampToValueAtTime(on ? 0.05 : 0, t + (on ? 2.5 : 4));
+  }
+
   // un colpo d'ala: aria spinta, piume
   flap(vol = 1) {
     if (!this.ctx) return;
