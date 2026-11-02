@@ -186,12 +186,30 @@ const minimap = new Minimap(document.getElementById('map'));
   const hat = places.traces.find((t) => t.kind === 'hat'), watch = places.traces.find((t) => t.kind === 'watch');
   if (explore.craneTop) mv(hat, explore.craneTop.x + 0.6, explore.craneTop.y + 0.05, explore.craneTop.z + 0.4);
   if (explore.wreck) { const x = explore.wreck.x + 4, z = explore.wreck.z + 3; mv(watch, x, heightAt(x, z) + 0.05, z); }
+  const bino = places.traces.find((t) => t.kind === 'binoculars');
+  if (explore.ruin) mv(bino, explore.ruin.box.x, explore.ruin.box.y, explore.ruin.box.z);
   const letter = places.traces.find((t) => t.kind === 'letter');
-  if (explore.ruin) mv(letter, explore.ruin.box.x, explore.ruin.box.y, explore.ruin.box.z);
+  const anchor = new THREE.Object3D(); anchor.position.set(2.6, 1.22, 0.7); craft.ships[0].g.add(anchor);
+  letter.follow = anchor; letter.g.rotation.set(0, 0.4, 0);
   // i ricordi che nascono da un gesto restano invisibili finché non nascono
   places.traces.forEach((t) => { const a = FRAGMENTS[t.i].act; t.hidden = a && a !== 'pick'; });
 }
 const ants = buildAnts(scene, COLONY, { x: BARCA.x + 3.5, z: BARCA.z - 1.5 });
+// la cresta dell'onda che sei: un muro d'acqua verde-azzurro con la schiuma in cima, sotto e ai lati dello sguardo
+const crest = (() => {
+  const geo = new THREE.PlaneGeometry(26, 1, 40, 10), p = geo.attributes.position, col = [];
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), v = p.getY(i) + 0.5;
+    const side = 1 - Math.pow(Math.abs(x) / 13, 2.2);
+    const y = -1 + v, z = -1.6 * v * v * side + Math.abs(x) * 0.12 + 1.5;
+    p.setXYZ(i, x, y * Math.max(0.05, side), z);
+    const foam = Math.pow(v, 6) * (0.7 + 0.3 * Math.sin(x * 2.3));
+    col.push(0.12 + 0.85 * foam, 0.45 + 0.5 * foam, 0.5 + 0.45 * foam);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: 0.88, roughness: 0.12, side: THREE.DoubleSide }));
+  m.visible = false; scene.add(m); return m;
+})();
 camera.add(ants.held);
 bike.g.position.y = Math.max(heightAt(bike.g.position.x, bike.g.position.z), placeHeight(bike.g.position.x, bike.g.position.z, 99));
 camera.add(bike.fp);
@@ -546,14 +564,15 @@ function memoryEvent(t) {
 }
 let zoomPulse = 0, pileTick = 0, lastSea = -1, lastBreak = null;
 // il gesto che fa nascere ogni ricordo, con la forma giusta
-const ACT_FORM = { land: 'gull', friends: 'fish', bigwave: 'wave', clear: 'wind', rain: 'cloud', nap: 'cat', carry: 'ant' };
-const FORM_NAME = { walk: 'umano', swim: 'umano, in acqua', dive: 'umano, sott\'acqua', sup: 'umano, sul SUP', bike: 'umano, in moto', boat: 'umano, in barca', glide: 'in volo, sul deltaplano', flow: 'acqua', gull: 'gabbiano', fish: 'pesce', wave: 'onda', cloud: 'nuvola', rain: 'pioggia', sand: 'sabbia', tree: 'albero', light: 'luce', petal: 'petalo', wind: 'vento', cat: 'gatto', ant: 'formica' };
+const ACT_FORM = { land: 'gull', friends: 'fish', bigwave: 'wave', sails: 'wind', moor: 'sail', rain: 'cloud', nap: 'cat', carry: 'ant' };
+const FORM_NAME = { walk: 'umano', swim: 'umano, in acqua', dive: 'umano, sott\'acqua', sup: 'umano, sul SUP', bike: 'umano, in moto', boat: 'umano, in barca', glide: 'in volo, sul deltaplano', flow: 'acqua', gull: 'gabbiano', fish: 'pesce', wave: 'onda', cloud: 'nuvola', rain: 'pioggia', sand: 'sabbia', tree: 'albero', light: 'luce', petal: 'petalo', wind: 'vento', cat: 'gatto', ant: 'formica', sail: 'barca a vela, spinta dal vento' };
 function curForm() { return player.cat && player.mode === 'walk' ? 'cat' : player.mode; }
 let hasKey = false, preDone = false, friendT = 0, napT = 0;
 function stepNeed() { const F = FRAGMENTS[active]; if (!F) return null; if (F.pre && !preDone) return ACT_FORM[F.pre]; return ACT_FORM[F.act] || null; }
 function collectTrace(t) {
   if (t.found) return;
   if (t.hidden) { t.hidden = false; burst.burst(t.pos.clone(), 160); sound.chord(); }
+  if (t.kind === 'book' && places.cypress) places.cypress.mat.color.set(0x2f4a2a);
   t.appear = 1; t.found = true; t.sp.material.opacity = 0; places.found++; onFind(t);
 }
 // dove andare adesso (mappa, freccia, colonna di luce)
@@ -600,6 +619,19 @@ function checkAct(jump, downK, night, dt) {
       ok = true;
     }
   }
+  else if (act === 'sails') {
+    const S = craft.ships[0].g.position;
+    const ds = Math.hypot(S.x - eye.x, S.z - eye.z);
+    near = M === 'wind' && ds < 120;
+    ok = near && ds < 16 && eye.y < S.y + 18;
+    if (ok) { craft.ships[0].blown = 6; sound.wind(1); illum = 1; }
+  }
+  else if (act === 'moor') {
+    const R = explore.ruin, S = craft.ships[0].g.position;
+    near = M === 'sail' && Math.hypot(R.deck.x - S.x, R.deck.z - S.z) < 120;
+    ok = near && Math.hypot(R.deck.x - S.x, R.deck.z - S.z) < 24;
+    if (ok) { sailState.v = 0; showMsg('La barca accosta alla rovina. Il ferro è caldo di sole.', 4); }
+  }
   else if (act === 'clear') {
     const R = explore.ruin; const dr = Math.hypot(R.deck.x - eye.x, R.deck.z - eye.z);
     near = M === 'wind' && dr < 110;
@@ -634,6 +666,7 @@ function checkAct(jump, downK, night, dt) {
   if (ok) { actPrompt = false; promptEl.classList.remove('on'); collectTrace(t); }
 }
 let actPrompt = false, baseFov = 72, formLblTxt = null;
+const sailState = { yaw: 0, v: 0 };
 const formLblEl = document.getElementById('formLbl');
 // gesti delle forme: ognuno si racconta la prima volta
 const acts = new Set();
@@ -644,6 +677,8 @@ function onFind(t) {
   preDone = false; friendT = 0; napT = 0;
   sound.chime(t.i); setTimeout(() => sound.chord(), 400);
   memoryEvent(t);
+  say(FRAGMENTS[t.i].text, 900);
+  setTimeout(() => say(FRAGMENTS[t.i].thought), 9600);
   const f = FRAGMENTS[t.i];
   journal.add(t.i);
   illum = 1;
@@ -757,6 +792,7 @@ function formOptions() {
   if (!need || curForm() === need || (need === 'cloud' && player.mode === 'rain')) return null;
   const lvl = waterUniforms.uLevel.value, deep = lvl - heightAt(player.pos.x, player.pos.z);
   if ((need === 'fish' || need === 'wave') && deep < 1.2) return null;
+  if (need === 'sail' && craft.ships[0].g.position.distanceTo(player.pos) > 40) return null;
   if ((need === 'sand' || need === 'ant' || need === 'cat') && deep > 0.2) return null;
   if (!['walk', 'swim', 'dive'].includes(player.mode)) return null;
   return need;
@@ -816,24 +852,28 @@ function onMeet() {
 const BECOME = { wind: 'vento', ant: 'una formica', gull: 'un gabbiano', sand: 'sabbia', fish: 'un pesce', wave: 'un\'onda', cloud: 'una nuvola', cat: 'un gatto', body: 'di nuovo umano', glide: 'leggero, come chi vola' };
 // voce narrante: legge la trasformazione (V la spegne o la riaccende)
 let voiceOn = true, voiceIt = null;
-function pickVoice() { if (!window.speechSynthesis) return; const v = speechSynthesis.getVoices(); voiceIt = v.find((x) => /it[-_]IT/i.test(x.lang) && /Alice|Federica|Paola|Luca|Google/i.test(x.name)) || v.find((x) => /^it/i.test(x.lang)) || null; }
+function pickVoice() { if (!window.speechSynthesis) return; const v = speechSynthesis.getVoices(); voiceIt = v.find((x) => /it[-_]IT/i.test(x.lang) && /(Enhanced|Premium|Siri)/i.test(x.name)) || v.find((x) => /it[-_]IT/i.test(x.lang) && /Alice|Federica|Paola|Emma|Luca|Google/i.test(x.name)) || v.find((x) => /^it/i.test(x.lang)) || null; }
 if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 const said = new Map();
 function say(text, delay = 0) {
   if (!voiceOn || !window.speechSynthesis || !text) return;
   const now = performance.now(); if (now - (said.get(text) || -1e9) < 60000) return; said.set(text, now);
   setTimeout(() => {
-    const u = new SpeechSynthesisUtterance(text.replace(/\([^)]*\)/g, ''));
-    u.lang = 'it-IT'; if (voiceIt) u.voice = voiceIt; u.rate = 0.9; u.pitch = 0.95; u.volume = 0.9;
-    speechSynthesis.speak(u);
+    // frase per frase: le pause tra una e l'altra fanno respirare il racconto
+    const clean = text.replace(/\([^)]*\)/g, '').replace(/[«»]/g, '');
+    for (const part of clean.match(/[^.!?…]+[.!?…]*/g) || [clean]) {
+      const u = new SpeechSynthesisUtterance(part.trim());
+      u.lang = 'it-IT'; if (voiceIt) u.voice = voiceIt; u.rate = 0.84; u.pitch = 0.96; u.volume = 0.95;
+      speechSynthesis.speak(u);
+      const pause = new SpeechSynthesisUtterance(' '); pause.volume = 0; pause.rate = 0.5; speechSynthesis.speak(pause);
+    }
   }, delay);
 }
 function storyForm(form, text, why) {
   msgEl.classList.remove('thought');
   showMsg('Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '…', 3.6);
-  if (window.speechSynthesis) speechSynthesis.cancel();
   say('Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '.');
-  say(why, 4200);
+  say(text); say(why);
   fadeTarget = 0.8; post.uniforms.uFadeCol.value.setRGB(1, 0.96, 0.9);
   sound.chord(); illum = Math.max(illum, 0.6);
   setTimeout(() => { applyForm(form); fadeTarget = 0; if (text) showMsg(text, 5.5); }, 3600);
@@ -853,11 +893,16 @@ function applyForm(form) {
     for (let i = 0; i < 80 && lvl - heightAt(x, z) < 1.4; i++) z -= 1;
     player.mode = 'fish'; player.pos.set(x, lvl - 1.0, z); player.pitch = -0.35; player.yaw = 0; drops = 0; sound.splash('dive', 0.8);
   }
-  else if (form === 'wave') { player.mode = 'wave'; player.questWave = true; player.waveRest = false; player.wsize = 0.6; player.ws = 4; player.pos.y = lvl + 0.6; player.yaw = Math.PI; player.pitch = -0.1; }
+  else if (form === 'wave') { player.mode = 'wave'; player.questWave = true; player.waveRest = false; player.wsize = 0.6; player.ws = 3; if (player.pos.z - shoreZ(player.pos.x) > -220) player.pos.z = shoreZ(player.pos.x) - 220; player.pos.y = lvl + 0.6; player.yaw = Math.PI; player.pitch = -0.1; }
   else if (form === 'gull') { player.mode = 'gull'; player.gs = 11; player.bank = 0; player.pos.y = Math.max(player.pos.y, heightAt(player.pos.x, player.pos.z)) + 8; player.pitch = -0.1; wings.visible = true; }
   else if (form === 'body') { player.mode = 'walk'; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 2); }
   else if (form === 'cloud') { player.mode = 'cloud'; player.cloudY = 150; player.pitch = -0.5; }
   else if (form === 'wind') { player.mode = 'wind'; player.vs = 14; player.pos.y = Math.max(player.pos.y, heightAt(player.pos.x, player.pos.z), lvl) + 6; player.pitch = -0.08; }
+  else if (form === 'sail') {
+    const S = craft.ships[0]; S.manual = true;
+    const r = S.g.rotation.y; sailState.yaw = Math.atan2(Math.cos(r), -Math.sin(r)) ; sailState.v = 2;
+    player.mode = 'sail'; player.yaw = sailState.yaw; player.pitch = -0.08;
+  }
   else if (form === 'ant') { player.mode = 'ant'; player.carry = false; player.pos.y = heightAt(player.pos.x, player.pos.z) + 0.05; player.pitch = -0.05; }
   else if (form === 'glide') {
     player.mode = 'walk';
@@ -867,7 +912,7 @@ function applyForm(form) {
   }
   // il percorso di questa forma fino al prossimo ricordo
   const nt = places.traces[active];
-  if (nt && form !== 'ant' && fpath.build(form === 'body' ? 'body' : form, player.pos.clone(), nt.pos, waterUniforms.uLevel.value, { cloudY: player.cloudY })) {
+  if (false && nt && fpath.build(form === 'body' ? 'body' : form, player.pos.clone(), nt.pos, waterUniforms.uLevel.value, { cloudY: player.cloudY })) {
     const PATH_TXT = { gull: 'Segui le correnti d\'aria: passaci attraverso, ti portano.', sand: 'Segui i mulinelli: il vento ti porta da uno all\'altro.', fish: 'Segui le colonne di bolle, giù verso il fondo.', wave: 'Passa nei cerchi di luce sul mare.', cloud: 'Unisciti alle altre nuvole, una dopo l\'altra.', cat: 'Segui i piccoli mulinelli tra i sassi.', glide: 'Passa negli anelli d\'aria calda: ti tengono su.' };
     setTimeout(() => { echoEl.textContent = PATH_TXT[form] || 'Segui il percorso.'; echoEl.classList.add('on'); clearTimeout(echo.t); echo.t = setTimeout(() => echoEl.classList.remove('on'), 9000); }, 21000);
   }
@@ -1056,17 +1101,17 @@ function frame() {
       if (cloudBias > 0.35) actOnce('gather', 'Spingi le nuvole una contro l\'altra: il cielo si chiude, e comincia a piovere.');
       if (cloudBias < -0.35) actOnce('clear', 'Spazzi via le nuvole: torna il sereno, e la luce cade sul mare.');
     }
-    if (M === 'wave') {
-      // dietro di te arriva un'onda più grande: lasciati raggiungere per unirti
-      if (!swell || elapsed - swell.t0 > 14) {
-        swell = { x: player.pos.x + (Math.random() - 0.5) * 10, z: player.pos.z - 30, t0: elapsed, merged: false };
-        const R = waterUniforms.uRings.value[ringI++ % 4]; R.set(swell.x, swell.z, elapsed, 1.7);
-        if (!acts.has('swellHint')) { acts.add('swellHint'); setTimeout(() => showMsg('Alle tue spalle arriva un\'onda più grande. Rallenta (indietro), lasciati raggiungere.', 5), 2000); }
+    if (M === 'wave' && !player.waveRest) {
+      // da dietro arrivano onde più grandi: si vedono, e se ti raggiungono ti unisci a loro
+      if (!swell || elapsed - swell.t0 > 7) {
+        swell = { x: player.pos.x + (Math.random() - 0.5) * 12, z: player.pos.z - 38, t0: elapsed, merged: false };
+        const R = waterUniforms.uRings.value[ringI++ % 4]; R.set(swell.x, swell.z, elapsed, 1.1 + 0.25 * (player.wsize || 1));
       }
       const front = (elapsed - swell.t0) * 7, dd = Math.abs(Math.hypot(player.pos.x - swell.x, player.pos.z - swell.z) - front);
-      if (!swell.merged && dd < 3.5 && elapsed - swell.t0 > 2) {
-        swell.merged = true; player.wsize = Math.min(3, (player.wsize || 1) + 0.8); player.ws = Math.min(9, (player.ws || 4) + 2.5);
-        sound.splash('dive', 1.3); camDip = 0.2; actOnce('merge', 'Ti unisci a un\'onda più grande: ora sei più alta, e più forte.');
+      if (!swell.merged && dd < 4 && elapsed - swell.t0 > 1.5) {
+        swell.merged = true; player.wsize = Math.min(3, (player.wsize || 1) + 0.48); player.ws = Math.min(9, (player.ws || 3) + 1.5);
+        sound.splash('dive', 1.3); camDip = 0.25; waterSpray.burst(new THREE.Vector3(player.pos.x, lvl + 0.8 * player.wsize, player.pos.z), 90, 2.6);
+        showMsg(player.wsize >= 1.9 ? 'Sei un\'onda enorme, ora. Corri a riva.' : 'Ti unisci a un\'onda più grande: cresci.', 3);
       }
     }
     if (M === 'fish' && r.blocked && !acts.has('shallow')) actOnce('shallow', 'Più in là l\'acqua è troppo bassa: un pesce resta nel mare.', 4);
@@ -1098,6 +1143,25 @@ function frame() {
         showMsg('L\'onda si rompe e ti lascia sulla riva.', 3);
       }
     }
+  } else if (M === 'sail') {
+    // la barca a vela: va dove la porta il vento. Di bolina rallenta, al traverso corre
+    const S = craft.ships[0];
+    sailState.yaw -= fx * 0.5 * dt;
+    const hx = -Math.sin(sailState.yaw), hz = -Math.cos(sailState.yaw);
+    const cw = hx * wind.dir.x + hz * wind.dir.y;
+    const eff = cw < -0.55 ? 0.12 : 0.55 + 0.45 * (1 - Math.abs(cw)) + 0.25 * Math.max(cw, 0);
+    const target = (2.5 + 7 * wind.strength.value) * eff * (fz < 0 ? 0.3 : fz > 0 ? 1.15 : 0.85);
+    sailState.v += (target - sailState.v) * Math.min(1, dt * 0.35);
+    const nx = S.g.position.x + hx * sailState.v * dt, nz = S.g.position.z + hz * sailState.v * dt;
+    if (heightAt(nx, nz) < lvl - 2.2) { S.g.position.x = nx; S.g.position.z = nz; } else sailState.v *= -0.2;
+    S.g.rotation.set(0, Math.atan2(hz, -hx), -(1 - Math.abs(cw)) * 0.12 * wind.strength.value * Math.sign(fx || 1) - 0.05);
+    tmp.set(3.4, 2.3, 0).applyEuler(S.g.rotation).add(S.g.position);
+    player.pos.set(tmp.x, tmp.y - 1.6, tmp.z);
+    let dy = sailState.yaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); player.yaw += dy * Math.min(1, dt * 1.5);
+    player.vel.set(hx * sailState.v, 0, hz * sailState.v);
+    eyeH = 1.6;
+    if (sailState.v > 1.5 && Math.random() < dt * 3) spawnRipple(W, S.g.position.x, S.g.position.z, night > 0.5);
+    { const T = waterUniforms.uTrail.value; if (sailState.v > 1 && Math.random() < dt * 4) T[trailI++ % T.length].set(S.g.position.x - hx * 5, S.g.position.z - hz * 5, elapsed, 0.6); }
   } else if (M === 'boat') {
     const B = craft.boat;
     driveBoat(B, dt, { fx, fz, run }, { water: lvl, time: elapsed });
@@ -1484,6 +1548,13 @@ function frame() {
     beam.material.uniforms.uTime.value = elapsed; beam.visible = beam.material.uniforms.uOp.value > 0.01;
   }
   burst.update(dt, wind.dir);
+  crest.visible = player.mode === 'wave';
+  if (crest.visible) {
+    const ws = player.wsize || 1;
+    crest.position.set(player.pos.x, waterUniforms.uLevel.value, player.pos.z);
+    crest.rotation.set(0, player.yaw, 0);
+    crest.scale.set(0.5 + 0.5 * ws, Math.max(0.3, (player.pos.y - waterUniforms.uLevel.value) * 0.95), 0.6 + 0.4 * ws);
+  }
   if (running) checkAct(jump, downK, night, dt);
   ants.update(dt, elapsed);
   if (player.mode !== 'ant') ants.held.visible = false; else if (player.carry) ants.held.visible = true;

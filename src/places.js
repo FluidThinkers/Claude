@@ -257,6 +257,12 @@ function traceModel(kind) {
     g.add(b);
     const paper = mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 20), std(0xf2ede2, 0.9)); paper.position.y = 0.1; g.add(paper);
     g.rotation.z = Math.PI / 2 - 0.15;
+  } else if (kind === 'shell') {
+    // una conchiglia: spirale che si allarga, rosata dentro
+    const pts = [];
+    for (let i = 0; i <= 14; i++) { const t = i / 14; pts.push(new THREE.Vector2(0.005 + 0.07 * Math.pow(t, 0.8) * (1 + 0.15 * Math.sin(t * 20)), t * 0.12)); }
+    const sh = mesh(new THREE.LatheGeometry(pts, 24), std(0xe9d6c4, 0.5)); sh.rotation.z = Math.PI / 2; sh.position.y = 0.05; g.add(sh);
+    const lip = mesh(new THREE.TorusGeometry(0.07, 0.012, 8, 24), std(0xf0b7a4, 0.4)); lip.position.set(0.12, 0.05, 0); lip.rotation.y = Math.PI / 2; g.add(lip);
   }
   return g;
 }
@@ -502,7 +508,17 @@ export function buildPlaces(scene, glowTex, platform) {
       st2.position.copy(st.position).add(new THREE.Vector3(0.15, 0.3 - row * 0.6 + 0.3, 0)); g.add(st2);
     }
     const b = bench(g, 0, 0, 0.6, 0, woodM);
-    const cyp = mesh(new THREE.IcosahedronGeometry(1, 3), std(0x2f4229, 0.9)); cyp.scale.set(0.9, 5.5, 0.9); cyp.position.set(3.2, 5.2, 2.5); g.add(cyp);
+    // il cipresso: colonna stretta e alta, a ciuffi; assetato (bruno) finché non piove
+    const cypM = std(0x6b6a3e, 0.92);
+    const cyp = new THREE.Group(); cyp.position.set(3.2, 0, 2.5); g.add(cyp);
+    const tuft = new THREE.IcosahedronGeometry(1, 2);
+    { const q = tuft.attributes.position; for (let i = 0; i < q.count; i++) { v.fromBufferAttribute(q, i); v.multiplyScalar(1 + 0.22 * vnoise(v.x * 3, v.y * 3 + v.z * 2)); q.setXYZ(i, v.x, v.y, v.z); } smoothNormals(tuft); }
+    for (let k = 0; k < 26; k++) {
+      const h = 0.8 + k * 0.42, rr = 0.95 * Math.sin(Math.min(1, (k + 2) / 30) * Math.PI) * (k < 3 ? 0.8 : 1) + 0.15;
+      const t = mesh(tuft, cypM); t.scale.set(rr * (0.8 + rnd() * 0.3), 0.55 + rnd() * 0.2, rr * (0.8 + rnd() * 0.3));
+      t.position.set((rnd() - 0.5) * 0.25, h, (rnd() - 0.5) * 0.25); cyp.add(t);
+    }
+    P.cypress = { mat: cypM, x: B.x + 3.2, z: B.z + 2.5 };
     const ctr = mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.2, 18), std(0x4a3a2c, 0.95)); ctr.position.set(3.2, 0.3, 2.5); g.add(ctr);
     g.position.set(B.x, y0, B.z);
     scene.add(g);
@@ -529,9 +545,10 @@ export function buildPlaces(scene, glowTex, platform) {
       ['hat', new THREE.Vector3(tor.x, heightAt(tor.x, tor.z) + 0.01, tor.z)],
       ['watch', (() => { const x = PONTILE.x + 7, z = PONTILE.z0 - 122; return new THREE.Vector3(x, heightAt(x, z) + 0.03, z); })()],
       ['bottle', new THREE.Vector3(shoreB.x, heightAt(shoreB.x, shoreB.z) + 0.04, shoreB.z)],
-      ['letter', P.letterAt],
-      ['binoculars', P.belvedereSpot],
-      ['book', P.letterAt.clone()],
+      ['letter', new THREE.Vector3(0, 0, 0)],
+      ['binoculars', new THREE.Vector3(0, 0, 0)],
+      ['book', P.belvedereSpot.clone()],
+      ['shell', P.letterAt.clone()],
       ['sandals', new THREE.Vector3(COLONY.x + 0.8, heightAt(COLONY.x + 0.8, COLONY.z + 0.6) + 0.01, COLONY.z + 0.6)],
       ['lantern', new THREE.Vector3(rockEnd.x, rockTop(0.4, SCOGLIERA.to + 7) + 0.0, rockEnd.z)],
     ];

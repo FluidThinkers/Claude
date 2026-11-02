@@ -115,21 +115,23 @@ Trovi un ricordo e diventi, lentamente (annuncio, luce, voce che racconta), la f
 |---|---|---|---|---|---|
 | 1 | Candela | sul cumulo di sabbia | umano | la raccogli | gabbiano |
 | 2 | Cappello | in cima alla gru del vecchio molo | gabbiano | ti posi sulla cima | pesce |
-| 3 | Orologio | nel relitto | pesce | trovi il banco e nuoti con loro (non scappano: sei uno di loro) | onda |
-| 4 | Bottiglia | sulla riva della torretta | onda | parti piccola, cresci (avanti) e ti unisci alle onde: solo da grande arrivi a riva, e la bottiglia arriva con te | vento |
-| 5 | Lettera e chiave | nella cabina della rovina al largo | vento | spazzi via le nuvole (C): la luce scende e il tuo soffio spalanca la cabina e la cassetta | nuvola |
-| 6 | Binocolo | al belvedere | nuvola | piovi sul cipresso assetato (Q) | gatto |
-| 7 | Libro | sulla barca in secco | gatto | trovi il sole e ti appisoli | formica |
-| 8 | Sandali | al formicaio, all'inizio del pontile | formica | porti a casa la briciola | umano |
-| 9 | Lanterna | in punta agli scogli | umano | la apri con la chiave della rovina | l'incontro alla bandiera, poi luce |
+| 3 | Orologio | nel relitto | pesce | trovi il banco e nuoti con loro | onda |
+| 4 | Bottiglia | sulla riva | onda | parti al largo, piccola; le onde più grandi ti raggiungono e ti unisci a loro; arrivi a riva enorme | vento |
+| 5 | Lettera e chiave | sulla barca a vela ferma al largo | vento | passi dentro le vele, che si gonfiano | barca a vela |
+| 6 | Binocolo | nella cabina della rovina al largo | barca a vela | timoni col vento (di bolina rallenti, al traverso corri) fino alla rovina e accosti | nuvola |
+| 7 | Libro | sotto il cipresso del belvedere | nuvola | piovi sul cipresso assetato (Q): torna verde | gatto |
+| 8 | Conchiglia | sulla barca in secco | gatto | trovi il sole e ti appisoli | formica |
+| 9 | Sandali | al formicaio, all'inizio del pontile | formica | porti a casa la briciola | umano |
+| 10 | Lanterna | in punta agli scogli | umano | la apri con la chiave della barca | l'incontro alla bandiera, poi luce |
 
+- **La voce racconta**: legge il ricordo, il pensiero, la trasformazione e il perché, frase per frase, lenta, con le pause.
 - **Regole della storia**: si cambia forma solo quando si prende un ricordo, sempre con una ragione detta dalla voce. Ogni forma resta nel suo elemento: il pesce non esce dall'acqua (l'acqua bassa lo ferma), l'onda troppo piccola non arriva a riva finché non cresce, la pioggia cade solo sopra il bersaglio e, se si posa altrove, resta una pozza che evapora (Q) e torna nuvola. L'isola si apre solo a storia finita.
 - **La rovina al largo**: un vecchio pontile di carico in mezzo al mare, due silos arrugginiti, un nastro spezzato, una cabina; si risale dalla scaletta.
 - **Formica**: rasoterra, il mondo diventa enorme; il formicaio ha le sue formiche che vanno e vengono.
 - **Cielo di notte**: migliaia di stelle di luminosità e colore diversi (bianco-azzurre, gialle, arancio), che scintillano vicino all'orizzonte, e la Via Lattea con le sue corsie scure.
 - **Erba**: le raffiche corrono sul prato nella direzione del vento; ogni filo si piega curvo e trema per conto suo.
 - **Strutture**: piloni, pali, silos e tubi più tondi; da lontano tutto si scioglie in silhouette sfocate.
-- **Lontano, silhouette**: le cose lontane si sciolgono in forme morbide e diventano nitide solo avvicinandosi.
+- **Lontano, silhouette**: le cose lontane si sciolgono in forme morbide e diventano nitide solo avvicinandosi; le luci forti restano nitide.
 - Se torni umano a metà strada (B), Q ti ridà la forma che quella tappa chiede, nel punto in cui sei.
 - Ogni forma vede il mondo a modo suo: il gabbiano ha lo sguardo largo e limpido, il gatto basso e grandangolare, il pesce verde-azzurro, la sabbia calda e dorata, la nuvola velata.
 - Sulla mappa c'è solo il prossimo ricordo, verde e pulsante, con una freccia che lo indica; quelli già trovati spariscono. Nel mondo una colonna di luce verde lo segnala da lontano.

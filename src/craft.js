@@ -255,6 +255,7 @@ export function boardable(C, x, z) {
 export function updateCraft(C, dt, time, ctx) {
   // navi: avanzano sulla loro rotta, gettano l'ancora quando ti avvicini
   for (const S of C.ships) {
+    if (S.manual) { S.g.position.y = ctx.water + Math.sin(time * 0.8) * 0.06; continue; }
     const near = S.g.position.distanceTo(ctx.player) < (S.kind === 'ferry' ? 320 : 180);
     S.anchored = near;
     if (S.blown > 0) S.blown -= dt;

@@ -593,7 +593,7 @@ export function makePost(renderer) {
   const q = () => new THREE.WebGLRenderTarget(Math.max(1, size.x >> 2), Math.max(1, size.y >> 2), { type: THREE.HalfFloatType });
   // profondità della scena: serve per sfumare in silhouette morbide le cose lontane
   rt.depthTexture = new THREE.DepthTexture(size.x, size.y); rt.depthTexture.type = THREE.UnsignedIntType;
-  const rtBright = q(), rtTmp = q(), rtBloom = q(), rtRays = q(), rtFar = q();
+  const rtBright = q(), rtTmp = q(), rtBloom = q(), rtRays = q(), rtFar = new THREE.WebGLRenderTarget(Math.max(1, size.x >> 1), Math.max(1, size.y >> 1), { type: THREE.HalfFloatType }), rtFarTmp = new THREE.WebGLRenderTarget(Math.max(1, size.x >> 1), Math.max(1, size.y >> 1), { type: THREE.HalfFloatType });
 
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
   quad.frustumCulled = false;
@@ -698,6 +698,8 @@ export function makePost(renderer) {
         if (dz < 0.99999) {
           float vz = uNear * uFar / (uFar - dz * (uFar - uNear));
           float k = smoothstep(55.0, 380.0, vz) * 0.9 * uFarBlur;
+          // le luci forti (ricordi, sole, lampioni) restano nitide: niente quadrati sfocati
+          k *= 1.0 - smoothstep(0.9, 2.2, max(col.r, max(col.g, col.b)));
           col = mix(col, texture2D(tFar, uv).rgb, k);
         }
       }
@@ -785,7 +787,8 @@ export function makePost(renderer) {
     rt, uniforms: compMat.uniforms,
     resize(w, h) {
       rt.setSize(w, h);
-      for (const r of [rtBright, rtTmp, rtBloom, rtRays, rtFar]) r.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2));
+      for (const r of [rtBright, rtTmp, rtBloom, rtRays]) r.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2));
+      for (const r of [rtFar, rtFarTmp]) r.setSize(Math.max(1, w >> 1), Math.max(1, h >> 1));
       compMat.uniforms.uRes.value.set(w, h);
     },
     render() {
@@ -796,8 +799,8 @@ export function makePost(renderer) {
       blurMat.uniforms.tIn.value = rtBloom.texture; blurMat.uniforms.uDir.value.set(texel.x * 3.5, 0); pass(blurMat, rtTmp);
       blurMat.uniforms.tIn.value = rtTmp.texture; blurMat.uniforms.uDir.value.set(0, texel.y * 3.5); pass(blurMat, rtBloom);
       // la scena sfocata a un quarto di risoluzione, per le distanze
-      blurMat.uniforms.tIn.value = rt.texture; blurMat.uniforms.uDir.value.set(texel.x * 1.2, 0); pass(blurMat, rtTmp);
-      blurMat.uniforms.tIn.value = rtTmp.texture; blurMat.uniforms.uDir.value.set(0, texel.y * 1.2); pass(blurMat, rtFar);
+      blurMat.uniforms.tIn.value = rt.texture; blurMat.uniforms.uDir.value.set(1.6 / rtFar.width, 0); pass(blurMat, rtFarTmp);
+      blurMat.uniforms.tIn.value = rtFarTmp.texture; blurMat.uniforms.uDir.value.set(0, 1.6 / rtFar.height); pass(blurMat, rtFar);
       if (shared.uSunVis.value > 0.001) pass(raysMat, rtRays);
       else { renderer.setRenderTarget(rtRays); renderer.clear(); }
       pass(compMat, null);
