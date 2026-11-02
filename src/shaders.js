@@ -600,8 +600,11 @@ export function enhanceSand(material) {
         float hk = exp(-max(vWPos.y - 3.0, 0.0) / 80.0);
         float fde = fogDensity * mix(0.5, 1.0, hk);
         float ff = 1.0 - exp(-fde * fde * vFogDepth * vFogDepth);
-        vec3 fc = mix(fogColor, fogColor * vec3(0.7, 0.8, 0.97), 0.6 * (1.0 - hk));
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, fc, ff * mix(0.82, 1.0, hk));
+        // colline e monti lontani: la foschia li vela ma restano più scuri dell'orizzonte, mai bianchi
+        vec3 fc = mix(fogColor, fogColor * vec3(0.42, 0.5, 0.62), 0.9 * (1.0 - hk));
+        float farK = smoothstep(120.0, 900.0, vFogDepth) * (1.0 - hk);
+        gl_FragColor.rgb *= 1.0 - 0.35 * farK;
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fc, ff * mix(0.5, 1.0, hk));
       }
       #endif`)
       .replace('#include <lights_fragment_end>', /* glsl */`#include <lights_fragment_end>

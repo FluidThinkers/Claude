@@ -286,6 +286,8 @@ function ridgeLayer(R, a0, a1, cols, heightFn, depth) {
         c *= 1.0 - 0.55 * smoothstep(0.0, 1.0, 1.0 - uSunVis) * (1.0 - uDepth * 0.4);
         // più scure e morbide: lontano si legge la massa, non il dettaglio
         c = mix(c, vec3(dot(c, vec3(0.3, 0.5, 0.2))) * vec3(0.92, 0.96, 1.05), 0.35) * 0.82;
+        // sempre più scure dell'orizzonte dietro: anche col sole basso e la foschia del mattino restano sagome
+        c = min(c, uHaze * mix(0.62, 0.86, uDepth));
         gl_FragColor = vec4(c, 1.0);
       }`,
   });

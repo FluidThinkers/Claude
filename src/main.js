@@ -1286,7 +1286,7 @@ function frame() {
     // navigazione vera: il vento apparente decide tutto. A e D timone, W cazza la randa, S la lasca.
     const S = craft.ships[0];
     const hx = -Math.sin(sailState.yaw), hz = -Math.cos(sailState.yaw);
-    const ws = 0.4 + 12 * Math.max(0, wind.strength.value - 0.12); // vento reale, m/s: con la calma la vela pende
+    const ws = 0.6 + 18 * Math.max(0, wind.strength.value - 0.12); // vento reale, m/s: con la calma la vela pende
     const storm = waterUniforms.uStorm.value;
     const awx = wind.dir.x * ws - hx * sailState.v, awz = wind.dir.y * ws - hz * sailState.v; // vento apparente (verso dove soffia)
     const aws = Math.hypot(awx, awz) || 1;
@@ -1304,8 +1304,8 @@ function frame() {
     sailState.luff += ((awa < 0.62 || err > 0.14 ? 1 : 0) - sailState.luff) * Math.min(1, dt * 3);
     sailState.fill = drive * Math.min(1, ws / 6);
     const polar = awa < 0.62 ? 0 : awa < 1.1 ? 0.55 + (awa - 0.62) / 0.48 * 0.4 : awa < 2.3 ? 1 : 1 - (awa - 2.3) * 0.25;
-    const target = ws * (0.6 + 0.25 * storm) * polar * drive;
-    sailState.v += (target - sailState.v) * Math.min(1, dt * 0.18);
+    const target = ws * (0.95 + 0.3 * storm) * polar * drive;
+    sailState.v += (target - sailState.v) * Math.min(1, dt * 0.3);
     // il timone morde di più quando la barca ha abbrivio
     sailState.rud = (sailState.rud || 0) + (fx - (sailState.rud || 0)) * Math.min(1, dt * 4);
     sailState.yaw -= sailState.rud * (0.3 + 0.06 * Math.min(sailState.v, 8)) * dt;
@@ -1342,7 +1342,7 @@ function frame() {
         pa.needsUpdate = true;
       }
     }
-    if (!actPrompt) { promptEl.textContent = state + ' · velocità ' + sailState.v.toFixed(1) + ' nodi'; promptEl.classList.add('on'); }
+    if (!actPrompt) { promptEl.textContent = state + ' · velocità ' + (sailState.v * 1.94).toFixed(1) + ' nodi'; promptEl.classList.add('on'); }
     tmp.set(3.4, 2.3, 0).applyEuler(S.g.rotation).add(S.g.position);
     player.pos.set(tmp.x, tmp.y - 1.6, tmp.z);
     let dy = sailState.yaw - player.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); player.yaw += dy * Math.min(1, dt * 1.5);
