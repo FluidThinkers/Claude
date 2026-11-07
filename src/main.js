@@ -202,7 +202,7 @@ const minimap = new Minimap(document.getElementById('map'));
   const anchor = new THREE.Object3D(); anchor.position.set(2.6, 1.22, 0.7); craft.ships[0].g.add(anchor);
   letter.follow = anchor; letter.g.rotation.set(0, 0.4, 0);
   // i ricordi che nascono da un gesto restano invisibili finché non nascono
-  places.traces.forEach((t) => { const a = FRAGMENTS[t.i].act; t.hidden = a && a !== 'pick'; });
+  places.traces.forEach((t) => { const a = FRAGMENTS[t.i].act; t.hidden = a && a !== 'pick' && a !== 'land'; });
 }
 // tutte le luci (sprite e particelle) sempre rotonde: la sfumatura la calcola lo shader, non dipende dall'immagine
 function roundLights(root) {
@@ -626,6 +626,7 @@ const WEATHER = [
   { name: 'Tempesta', txt: 'Tempesta. Pioggia, vento forte, onde lunghe che si rompono bianche.', cloud: 0.95, sea: 1, wind: 1, rain: 1, dark: 0.62 },
 ];
 let weatherI = -1, lastThunder = 0;
+const bolt = { t: -1, next: 3, az: 0, seed: 0, flash: 0, vis: 0 };
 // vento a comando (X): separato dal cielo. Muove sabbia, mare, nuvole, alberi, vele
 const WIND = [
   { name: 'Nessun vento', txt: 'Il vento cade. La sabbia si ferma, il mare si fa liscio.', w: 0.02 },
@@ -687,7 +688,7 @@ function checkAct(jump, downK, night, dt) {
   const tg = stepTarget();
   const dh = Math.hypot(tg.x - eye.x, tg.z - eye.z), M = curForm();
   let near = false, ok = false, prompt = (FRAGMENTS[active - 1] || {}).prompt;
-  if (act === 'land') { near = M === 'gull' && dh < 40; prompt = player.landed ? 'Cammina sul braccio fino al cappello' : 'Posati sul braccio della gru (tieni S), poi camminaci sopra'; ok = near && player.landed && dh < 2.5 && Math.abs(player.pos.y - t.pos.y) < 1.5; }
+  if (act === 'land') { near = M === 'gull' && dh < 40; prompt = player.landed ? 'Cammina sul braccio fino al cappello' : 'Vola sopra il cappello, in cima alla gru, e tieni S per posarti'; ok = near && player.landed && dh < 3.5 && Math.abs(player.pos.y - t.pos.y) < 2.2; }
   else if (act === 'friends') {
     // trova il banco; poi il banco si gira e ti guida fino al relitto
     near = M === 'fish';
@@ -1026,7 +1027,11 @@ function say(text, id = null) {
   voiceChain = p; return p;
 }
 async function storyForm(form, text, why, i = active - 1) {
-  if (form === 'fish' && player.mode === 'gull') { player.landed = false; player.forceDive = true; player.gs = 12; player.pitch = -1.0; }
+  // gabbiano → pesce: se sotto c'è mare profondo ti tuffi; se sei sopra la terra (l'isola, la riva) resti in volo e nasci nell'acqua più vicina
+  if (form === 'fish' && player.mode === 'gull') {
+    player.landed = false;
+    if (waterUniforms.uLevel.value - heightAt(player.pos.x, player.pos.z) >= 1.4) { player.forceDive = true; player.gs = 12; player.pitch = -1.0; }
+  }
   voiceStop();
   const ann = 'Qualcosa cambia. Ti senti diventare ' + (BECOME[form] || form) + '.';
   showMsg(ann.replace('.', '…'), 60);
@@ -1041,6 +1046,13 @@ async function storyForm(form, text, why, i = active - 1) {
   if (why) { msgEl.classList.add('thought'); showMsg(why, 60); await Promise.all([say(why, 'r' + i + '_perche'), new Promise((r) => setTimeout(r, 7000))]); msgEl.classList.remove('thought'); }
   msgTimer = 3;
 }
+// l'acqua profonda più vicina a (x,z): un pesce non nasce mai sulla terra
+function nearestDeep(x, z, need = 1.4) {
+  const lv = waterUniforms.uLevel.value;
+  if (lv - heightAt(x, z) >= need) return { x, z };
+  for (let r = 4; r <= 900; r += 4) for (let k = 0; k < 24; k++) { const a = (k / 24) * 6.2832 + r * 0.3, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r; if (lv - heightAt(px, pz) >= need) return { x: px, z: pz }; }
+  return { x, z: z - 200 };
+}
 function applyForm(form) {
   const lvl = waterUniforms.uLevel.value;
   if (FORMS.includes(player.mode) || player.mode === 'flow') { body = null; }
@@ -1051,8 +1063,7 @@ function applyForm(form) {
   else if (form === 'cat') { player.mode = 'walk'; player.cat = true; player.pos.y = groundAt(player.pos.x, player.pos.z, player.pos.y + 1); }
   else if (form === 'fish') {
     // resti dove sei: se sotto c'è acqua ci scivoli dentro, altrimenti scendi fin dove l'acqua è profonda
-    let x = player.pos.x, z = player.pos.z;
-    for (let i = 0; i < 80 && lvl - heightAt(x, z) < 1.4; i++) z -= 1;
+    const { x, z } = nearestDeep(player.pos.x, player.pos.z);
     player.mode = 'fish'; player.pos.set(x, lvl - 1.0, z); player.pitch = -0.35; player.yaw = 0; drops = 0; sound.splash('dive', 0.8);
   }
   else if (form === 'wave') { player.mode = 'wave'; player.questWave = true; player.waveRest = false; player.wsize = 0.6; player.ws = 3; if (player.pos.z - shoreZ(player.pos.x) > -220) player.pos.z = shoreZ(player.pos.x) - 220; player.pos.y = lvl + 0.6; player.yaw = Math.PI; player.pitch = -0.1; }
@@ -1255,7 +1266,7 @@ function frame() {
   } else if (FORMS.includes(M)) {
     const qt = places.traces[active];
     const r = moveForm(M, player, { storm: waterUniforms.uStorm.value, groundAt, waveMin: FRAGMENTS[active] && FRAGMENTS[active].act === 'bigwave' ? 1.9 : 0, dt, fx, fz, run, up: upK, down: downK, jump, lvl, wind: wind.strength.value, windDir: wind.dir, time: elapsed,
-      target: M === 'petal' ? craft.ships[0].g.position : M === 'cloud' && isleQ === 1 ? ISLAND : (M === 'sand' || M === 'cloud' || (M === 'wave' && player.questWave)) && qt ? qt.pos : null });
+      perches: explore.craneTop ? [explore.craneTop] : [], target: M === 'petal' ? craft.ships[0].g.position : M === 'cloud' && isleQ === 1 ? ISLAND : (M === 'sand' || M === 'cloud' || (M === 'wave' && player.questWave)) && qt ? qt.pos : null });
     if (M === 'wind' && player.pos.y < lvl + 10) { const T = waterUniforms.uTrail.value; if (Math.random() < dt * 8) T[trailI++ % T.length].set(player.pos.x, player.pos.z, elapsed, 0.5); }
     eyeH = 0;
     player.formRoll = r.roll;
@@ -1527,7 +1538,7 @@ function frame() {
   {
     if (player.mode === 'cloud' && isleQ === 0 && active >= places.traces.length) {
       isleQ = 1;
-      setTimeout(() => { msgEl.classList.add('thought'); showMsg('Lontano, al largo, c\'è un\'isola secca che aspetta la pioggia. Portaci la nuvola, poi piovi (Q).', 7); setTimeout(() => msgEl.classList.remove('thought'), 7000); discZone = { x: ISLAND.x, z: ISLAND.z, r: 110 }; }, 5000);
+      setTimeout(() => { msgEl.classList.add('thought'); showMsg('Lontano, al largo, c\'è un\'isola secca che aspetta la pioggia. Portaci la nuvola, poi piovi (Q).', 7); setTimeout(() => msgEl.classList.remove('thought'), 7000); discZone = { x: ISLAND.x, z: ISLAND.z, r: ISLAND.r * 0.9 }; }, 5000);
     }
     const overIsle = Math.hypot(player.pos.x - ISLAND.x, player.pos.z - ISLAND.z) < ISLAND.r * 1.15;
     const bl = updateIsland(island, { dt, raining: (player.mode === 'rain' || (player.mode === 'wind' && cloudBias > 0.35)) && overIsle, wind: wind.dir, time: elapsed });
@@ -1596,7 +1607,17 @@ function frame() {
     islandUniforms.uWindS.value = windK;
     // tempesta: lampi e tuoni ogni tanto
     if (performance.now() > storyBusy && sound.cue !== 'finale' && sound.cue !== 'trasformazione') { const want = wx.rain > 0.6 ? 'tempesta' : night > 0.6 ? 'notte' : null; if (want && sound.cue !== want) sound.music(want); else if (!want && (sound.cue === 'tempesta' || sound.cue === 'notte')) sound.music('viaggio_terra'); }
-    if (wx.rain > 0.7 && elapsed - lastThunder > 9 + Math.random() * 14) { lastThunder = elapsed; illum = Math.max(illum, 0.9); setTimeout(() => sound._sample && sound._sample('thunder', (Math.random() - 0.5) * 1.2, 60 + Math.random() * 80, 1.4), 600 + Math.random() * 1800); }
+    // lampi: il fulmine scende dalle nubi, un attimo di luce su tutto, poi il tuono
+    if (wx.rain > 0.5 && bolt.t < 0 && elapsed > bolt.next) {
+      bolt.t = 0; { camera.getWorldDirection(tmpV3); bolt.az = Math.atan2(tmpV3.x, -tmpV3.z) + (Math.random() - 0.5) * 1.5; } bolt.seed = Math.random() * 50; bolt.next = elapsed + 4 + Math.random() * 9;
+      setTimeout(() => sound._sample && sound._sample('thunder', (Math.random() - 0.5) * 1.2, 60 + Math.random() * 80, 1.4), 500 + Math.random() * 2600);
+    }
+    if (bolt.t >= 0) {
+      bolt.t += dt; const t = bolt.t;
+      bolt.flash = t < 0.09 ? 1 : t < 0.2 ? 0.35 : t < 0.3 ? 0.9 : t < 0.38 ? 0.3 : t < 0.43 ? 0.6 : 0.35 * Math.exp(-(t - 0.43) * 5);
+      bolt.vis = (t < 0.09 || (t > 0.2 && t < 0.3) || (t > 0.38 && t < 0.43)) ? 0.8 + 0.2 * Math.random() : 0;
+      if (t > 1.6) { bolt.t = -1; bolt.flash = 0; bolt.vis = 0; }
+    }
   }
   drift.update(dt, player.pos, windK);
   sound.wind(player.mode === 'wind' ? 1 : player.mode === 'petal' ? Math.max(windK, 0.55) : player.mode === 'cloud' ? Math.max(windK, 0.75) : player.mode === 'gull' ? Math.max(windK, Math.min(1, 0.3 + (player.gs || 0) / 25)) : player.mode === 'tree' ? Math.min(1, windK + 0.3) : windK);
@@ -1714,6 +1735,7 @@ function frame() {
   // cielo di tempesta: tutto più grigio e più buio
   if (wx.dark > 0.01) { const gk = Math.min(1, wx.dark * 1.6); for (const c of [U.uZen.value, U.uMid.value, U.uHor.value, U.uSea.value]) { const l = Math.max((c.r + c.g + c.b) / 3, 0.06 * night); c.lerp(tmpC.setRGB(l * 0.96, l, l * 1.06), gk * 0.85).multiplyScalar(1 - wx.dark * 0.3 * (1 - night * 0.6)); } U.uSunVis.value *= 1 - wx.dark * 0.6; }
   U.uCirrus.value = 0.35 + 0.35 * Math.sin(elapsed * 0.009 + 1);
+  U.uStormK.value = THREE.MathUtils.clamp(wx.dark * 1.6, 0, 1); U.uFlash.value = bolt.flash; U.uBolt.value.set(bolt.az, bolt.seed, bolt.vis);
   const alto = Q.has('alto') ? num('alto', 1) : THREE.MathUtils.clamp(Math.sin(elapsed * 0.0045 + 2.2) * 1.4 - 0.5, 0, 1);
   U.uAlto.value = alto;
   const mist = THREE.MathUtils.clamp(0.35 * Math.exp(-(((todN - 0.26) / 0.06) ** 2)) + 0.25 * night + 0.12 * (0.5 + 0.5 * Math.sin(elapsed * 0.02)), 0, 1);
@@ -1807,6 +1829,7 @@ function frame() {
   waterUniforms.uLightCol.value.copy(pal.sun).multiplyScalar(pal.sunI * 0.5);
   waterUniforms.uAmb.value.copy(pal.hs).multiplyScalar(pal.hI * 0.75).add(tmpC.copy(pal.sun).multiplyScalar(pal.sunI * Math.max(sunDir.y, 0) * 0.18));
   if (night > 0.3 && wx.dark > 0.05) { const k = night * Math.min(1, wx.dark * 1.6), A = waterUniforms.uAmb.value; A.setRGB(Math.max(A.r, 0.1 * k), Math.max(A.g, 0.12 * k), Math.max(A.b, 0.16 * k)); }
+  if (bolt.flash > 0.01 && !under) { hemi.intensity += bolt.flash * 1.0; hemi.color.lerp(tmpC.setRGB(0.75, 0.82, 1), Math.min(1, bolt.flash)); waterUniforms.uAmb.value.addScalar(0.18 * bolt.flash); }
   waterUniforms.uFog.value = pal.fog * altFog;
   water.position.set(Math.round(player.pos.x / 4) * 4, 0, Math.round(player.pos.z / 4) * 4);
   sky.position.copy(camera.position);
@@ -1958,6 +1981,7 @@ function frame() {
   const P = post.uniforms;
   P.uTime.value = elapsed;
   P.uExposure.value = pal.exp * (1 - 0.05 * wx.dark * (1 - night)) * (1 + 0.45 * wx.dark * night);
+  P.uExposure.value *= 1 + 0.18 * bolt.flash;
   P.uGrade.value.copy(pal.grade).lerp(tmpV3.set(0.97, 1.0, 1.04), Math.min(1, wx.dark * 1.6));
   P.uSunCol.value.copy(pal.sun);
   tmp.copy(camera.position).addScaledVector(sunDir, 1000).project(camera);
@@ -2013,4 +2037,4 @@ if (Q.get('mode') === 'dive') { player.mode = 'dive'; player.pos.y = num('y', -4
 frame();
 roundLights(scene);
 places.traces.forEach((t) => { t.sp.visible = false; });
-window.__riva = { get fishWay() { return fishWay; }, applyFormT: (f) => applyForm(f), sailState, wind, swellAt, wx, crest, ants, camera, get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };
+window.__riva = { bolt, get fishWay() { return fishWay; }, applyFormT: (f) => applyForm(f), sailState, wind, swellAt, wx, crest, ants, camera, get active() { return active; }, FRAGMENTS, curForm, get cloudBias() { return cloudBias; }, get acts() { return [...acts]; }, fpath, island, get isleQ() { return isleQ; }, motes, explore, get flowUnlocked() { return flowUnlocked; }, sound, get trailT() { return trailT; }, get el() { return elapsed; }, waterUniforms, wrack, flora, craft, player, scene, water, renderer, W, journal, footprints, places, sea, findAll: () => places.traces.forEach((t) => t.pos.copy(camera.position)), setGear: () => { hasGear = true; }, setTime: (t) => { tod = t; } };

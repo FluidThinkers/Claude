@@ -68,15 +68,16 @@ export function foceK(x, d) {
 }
 
 // L'isola al largo: secca, aspetta la pioggia
-export const ISLAND = { x: -380, z: -720, r: 115 };
+export const ISLAND = { x: -560, z: -760, r: 220 };
 export function islandK(x, z) {
   const dx = x - ISLAND.x, dz = z - ISLAND.z;
   const q = dx * dx + dz * dz;
-  if (q > 260 * 260) return { k: 0, h: 0, rho: 1e9 };
+  const S = ISLAND.r / 115, cut = ISLAND.r * 2.3;
+  if (q > cut * cut) return { k: 0, h: 0, rho: 1e9 };
   const a = Math.atan2(dz, dx);
-  const rho = Math.sqrt(q) * (1 + 0.16 * Math.sin(a * 3 + 0.7) + 0.09 * Math.sin(a * 7 + 2.1) + 0.12 * (vnoise(dx * 0.02, dz * 0.02) - 0.5));
+  const rho = Math.sqrt(q) * (1 + 0.16 * Math.sin(a * 3 + 0.7) + 0.09 * Math.sin(a * 7 + 2.1) + 0.12 * (vnoise(dx * 0.012, dz * 0.012) - 0.5));
   const k = smooth(ISLAND.r * 1.45, ISLAND.r * 0.7, rho);
-  const hill = 30 * Math.exp(-((rho / 62) ** 2)) + 9 * Math.exp(-(((dx + 30) ** 2 + (dz - 25) ** 2) / 1600)) + fbm(x * 0.05, z * 0.05, 3) * 2.2;
+  const hill = 44 * Math.exp(-((rho / (62 * S)) ** 2)) + 14 * Math.exp(-(((dx + 30 * S) ** 2 + (dz - 25 * S) ** 2) / (1600 * S * S))) + 18 * Math.exp(-(((dx - 70 * S) ** 2 + (dz + 50 * S) ** 2) / (2400 * S * S))) + fbm(x * 0.03, z * 0.03, 3) * 3;
   return { k, h: 1.0 + hill * smooth(ISLAND.r * 0.95, ISLAND.r * 0.45, rho), rho };
 }
 // dune che la sabbia (da forma) ammucchia

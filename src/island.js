@@ -40,7 +40,7 @@ export function buildIsland(scene) {
   const parts = [blob(0, 0.35, 0, 0.62), blob(0.45, 0.25, 0.15, 0.45), blob(-0.4, 0.3, -0.1, 0.5), blob(0.05, 0.55, -0.35, 0.42), blob(-0.15, 0.2, 0.45, 0.4)];
   const shrubGeo = mergeGeos(parts);
   { const p = shrubGeo.attributes.position, n = shrubGeo.attributes.normal; for (let i = 0; i < p.count; i++) { const v = ps.fromBufferAttribute(p, i); const k = 1 + 0.08 * Math.sin(v.x * 13.1 + v.z * 9.3) * Math.sin(v.y * 11.2 + 1); p.setXYZ(i, v.x * k, v.y * k, v.z * k); } }
-  const shrubs = spots(900, 1.3, 40);
+  const shrubs = spots(2400, 1.3, 60);
   const shrubM = new THREE.InstancedMesh(shrubGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92 }), shrubs.length);
   const cA = new THREE.Color(0x3d5428), cB = new THREE.Color(0x6f7d3a), tc = new THREE.Color();
   shrubs.forEach((s, i) => { shrubM.setColorAt(i, tc.copy(cA).lerp(cB, s.d)); s.sz = 0.45 + s.d * s.d * 1.3; });
@@ -48,7 +48,7 @@ export function buildIsland(scene) {
 
   // fiori: piccoli petali colorati a croce
   const fl = new THREE.PlaneGeometry(0.2, 0.2); fl.rotateX(-Math.PI / 2);
-  const flowers = spots(2600, 1.1, 40);
+  const flowers = spots(5600, 1.1, 60);
   const flowerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7, side: THREE.DoubleSide, map: petalTex(), alphaTest: 0.4 });
   const flowerM = new THREE.InstancedMesh(fl, flowerMat, flowers.length);
   const pal = [0xf2d2e4, 0xffe28a, 0xffffff, 0xd9b8f0, 0xff9e8a];
@@ -58,7 +58,7 @@ export function buildIsland(scene) {
   // pini d'Aleppo: tronco inclinato e chioma a ombrello
   const trunkG = new THREE.CylinderGeometry(0.22, 0.42, 1, 18); trunkG.translate(0, 0.5, 0);
   const crownG = new THREE.SphereGeometry(1, 20, 14); crownG.scale(1, 0.38, 1);
-  const pines = spots(36, 2.5, 30);
+  const pines = spots(100, 2.5, 50);
   const trunkM = new THREE.InstancedMesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x6a5240, roughness: 0.95 }), pines.length);
   const crownM = new THREE.InstancedMesh(crownG, new THREE.MeshStandardMaterial({ color: 0x41592f, roughness: 0.9 }), pines.length);
   trunkM.castShadow = crownM.castShadow = true; crownM.receiveShadow = true;

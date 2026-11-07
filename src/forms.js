@@ -138,6 +138,15 @@ export function moveForm(form, P, ctx) {
       return { eye, roll, ...out };
     }
     if (P.pos.y < surf + 0.8) { P.pos.y = surf + 0.8; }
+    // appollaiarsi: vicino a un posatoio (la cima della gru) e tenendo S, il gabbiano si lascia guidare e si posa
+    if (fz < 0 && ctx.perches) for (const pc of ctx.perches) {
+      const dxp = pc.x - P.pos.x, dzp = pc.z - P.pos.z, dhp = Math.hypot(dxp, dzp);
+      if (dhp < 12 && P.pos.y > pc.y - 0.5 && P.pos.y < pc.y + 14) {
+        const k = Math.min(1, dt * 2.5);
+        P.pos.x += dxp * k; P.pos.z += dzp * k; P.pos.y += (pc.y + 0.4 - P.pos.y) * k; P.gs = Math.max(3, P.gs - dt * 6);
+        if (dhp < 0.7 && P.pos.y - pc.y < 1.2) { P.landed = true; out.landed = true; }
+      }
+    }
     // indietro vicino a una superficie: frena e si posa
     if (fz < 0 && P.pos.y - surf < 3 && P.gs < 8.5) { P.landed = true; out.landed = true; }
     P.pos.y = Math.min(P.pos.y, 400);

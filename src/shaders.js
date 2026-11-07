@@ -18,6 +18,7 @@ export const skyUniforms = {
   uCirrus: { value: 0.5 },
   uMist: { value: 0 },
   uAlto: { value: 0 },
+  uStormK: { value: 0 }, uFlash: { value: 0 }, uBolt: { value: new THREE.Vector3(0, 0, 0) },
 };
 
 // rumore + nuvole ancorate al mondo (così le ombre a terra coincidono con quelle in cielo)
@@ -103,7 +104,7 @@ float surfY(float x, float d, float t, float lvl, float windK, out float s, out 
 
 const SKY_GLSL = /* glsl */`
 uniform vec3 uZen, uMid, uHor, uSea, uSunDir, uMoonDir, uSunCol;
-uniform float uSunVis, uNight, uTime;
+uniform float uSunVis, uNight, uTime, uStormK, uFlash; uniform vec3 uBolt;
 ` + NOISE_GLSL + CLOUD_GLSL + /* glsl */`
 vec3 skyGrad(vec3 d){
   float y = d.y;
@@ -136,6 +137,25 @@ vec4 skyClouds(vec3 d, vec3 c, int oct){
   cc = mix(cc, vec3(0.06, 0.07, 0.1) + amb * 0.6, uNight * 0.8);
   float edgeGlow = (1.0 - dens) * dens * 4.0 * pow(sd, 10.0) * uSunVis;
   cc += uSunCol * edgeGlow * 1.5;
+  // tempesta: non una lastra grigia ma nubi cariche, masse scure con teste più chiare e squarci sottili
+  float lump = 0.5;
+  if (uStormK > 0.01) {
+    vec2 sp = xz / CLOUD_H;
+    float body = cloudFbm(sp * 2.4 + vec2(uTime * 0.012, 4.0), 4);
+    float fine = cloudFbm(sp * 6.5 + vec2(-uTime * 0.02, 9.0), oct > 3 ? 4 : 3);
+    float ridge = cloudFbm(sp * vec2(1.5, 5.5) + vec2(uTime * 0.008, 2.0), 3);
+    lump = smoothstep(0.30, 0.72, body);
+    float tone = mix(0.46, 1.4, smoothstep(0.22, 0.78, fine * 0.55 + body * 0.45 + (ridge - 0.5) * 0.35));
+    cc *= mix(1.0, tone, uStormK);
+    cc = mix(cc, cc * vec3(0.9, 0.96, 1.08) + amb * 0.12 * lump, uStormK);
+    dens = mix(dens, dens * (0.6 + 0.55 * lump), uStormK);
+  }
+  if (uFlash > 0.01) {
+    float ba = uBolt.x;
+    vec3 bdir = normalize(vec3(sin(ba) * 0.94, 0.34, -cos(ba) * 0.94));
+    float bd = max(dot(d, bdir), 0.0);
+    cc += vec3(0.62, 0.72, 1.0) * uFlash * (0.3 + 0.8 * pow(bd, 6.0)) * (0.35 + 0.9 * lump) * (1.0 + uStormK);
+  }
   float a = dens * fade;
   // cirri sottili e stirati
   vec2 cp = xz / CLOUD_H * vec2(0.5, 3.2) + vec2(uTime * 0.004, 0.0);
@@ -152,6 +172,29 @@ vec4 skyClouds(vec3 d, vec3 c, int oct){
     vec3 ac = mix(amb * 0.78, amb * 1.12 + uSunCol * uSunVis * 0.25 * (1.0 - uNight), smoothstep(0.55, 0.9, cell));
     c = mix(c, mix(uZen, uHor, 0.55) * 0.85, uAlto * 0.45 * fade);
     c = mix(c, ac, alto * 0.9);
+  }
+  if (uBolt.z > 0.01) {
+    // il fulmine: dalla base delle nubi all'orizzonte, a zig-zag, con rami
+    float az = atan(d.x, -d.z);
+    float da = atan(sin(az - uBolt.x), cos(az - uBolt.x));
+    float el = asin(clamp(d.y, 0.0, 1.0));
+    float sd2 = uBolt.y;
+    float top = 0.42 + 0.12 * fract(sd2 * 7.3);
+    float off = (vn(vec2(el * 18.0, sd2)) - 0.5) * 0.06 + (vn(vec2(el * 61.0, sd2 + 5.0)) - 0.5) * 0.016;
+    float m = smoothstep(0.0, 0.02, el) * (1.0 - smoothstep(top - 0.05, top, el));
+    float core = exp(-pow((da - off) / 0.0028, 2.0)) * m;
+    float glow = exp(-pow((da - off) / 0.018, 2.0)) * m;
+    float br = 0.0;
+    for (int k = 0; k < 3; k++) {
+      float fk = float(k);
+      float e0 = top * (0.38 + 0.2 * fk);
+      float sl = (fract(sd2 * (3.1 + fk)) - 0.5) * 1.0;
+      float oe = (vn(vec2(e0 * 18.0, sd2)) - 0.5) * 0.06 + (vn(vec2(e0 * 61.0, sd2 + 5.0)) - 0.5) * 0.016;
+      float ob = oe + (e0 - el) * sl + (vn(vec2(el * 45.0 + fk * 9.0, sd2 + 11.0)) - 0.5) * 0.012;
+      float mb = step(el, e0) * smoothstep(0.0, 0.03, el) * (1.0 - smoothstep(0.0, 0.2, e0 - el));
+      br += exp(-pow((da - ob) / 0.002, 2.0)) * mb;
+    }
+    c += vec3(0.86, 0.9, 1.0) * uBolt.z * (core * 9.0 + br * 4.0 + glow * 0.22);
   }
   return vec4(c, max(max(a, cir * 0.5), alto));
 }

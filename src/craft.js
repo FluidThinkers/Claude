@@ -147,7 +147,7 @@ export function buildCraft(scene) {
     C.ships.push({ name: 'Barca a vela', g, kind: 'sail', speed: 1.4, s: 0, anchored: false, rig,
       deck: { hx: 5.2, hz: 1.45, y: 1.18 }, blocks: [{ x: -0.6, z: 0, hx: 1.9, hz: 1.15, top: 1.75 }],
       // un giro largo e chiuso: la barca vira dolcemente, non si gira su se stessa
-      path: (s) => { const a = s * 0.0016; const x = 220 + 480 * Math.sin(a); return { x, z: shoreZ(x) - 640 + 140 * Math.cos(a), yaw: 0 }; },
+      path: (s) => { const a = s * 0.0016; const x = 320 + 380 * Math.sin(a); return { x, z: shoreZ(x) - 620 + 130 * Math.cos(a), yaw: 0 }; },
     });
   }
 
@@ -184,7 +184,7 @@ export function buildCraft(scene) {
     shadowAll(g); scene.add(g);
     C.ships.push({ name: 'Traghetto', g, kind: 'ferry', speed: 5, s: 300, anchored: false,
       deck: { hx: 29, hz: 11.6, y: 8.25, cx: 41 }, blocks: [{ x: -25, z: 0, hx: 41, hz: 11, top: 20 }],
-      path: (s) => ({ x: ((s * 1 + 4000) % 8000) - 4000, z: shoreZ(0) - 1150, yaw: Math.PI }),
+      path: (s) => ({ x: ((s * 1 + 4000) % 8000) - 4000, z: shoreZ(0) - 1350, yaw: Math.PI }),
     });
   }
 
